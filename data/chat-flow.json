@@ -1,0 +1,166 @@
+{
+    "start": {
+        "text": "Welcome to MSCureChain! I'm your digital assistant. How can I guide you today?",
+        "options": [
+            {
+                "label": "Explore Our Portals",
+                "next": "explore_portals"
+            },
+            {
+                "label": "Contact Support",
+                "next": "contact_support"
+            },
+            {
+                "label": "About MSCureChain",
+                "next": "about_system"
+            }
+        ]
+    },
+    "explore_portals": {
+        "text": "MSCureChain offers several specialized gateways. Which one are you interested in?",
+        "options": [
+            {
+                "label": "Patient Portal",
+                "next": "patient_portal"
+            },
+            {
+                "label": "Doctor Terminal",
+                "next": "doctor_terminal"
+            },
+            {
+                "label": "Hospital Administration",
+                "next": "hospital_admin"
+            },
+            {
+                "label": "Pharmacy & Lab",
+                "next": "pharmacy_lab"
+            },
+            {
+                "label": "Emergency & EMS",
+                "next": "emergency_ems"
+            }
+        ]
+    },
+    "patient_portal": {
+        "text": "The Patient Portal is a complete health dashboard. It features smart appointment booking, digital medical records (Lab/Imaging), and transparent billing. You login using your Mobile Number + OTP.",
+        "options": [
+            {
+                "label": "Booking Appointments",
+                "next": "patient_booking"
+            },
+            {
+                "label": "Medical Records",
+                "next": "patient_records"
+            },
+            {
+                "label": "Go Back",
+                "next": "explore_portals"
+            }
+        ]
+    },
+    "patient_booking": {
+        "text": "Our Smart Appointment Booking includes real-time doctor availability, live queue position tracking, and automatic SMS reminders.",
+        "options": [
+            {
+                "label": "Other Portals",
+                "next": "explore_portals"
+            },
+            {
+                "label": "Main Menu",
+                "next": "start"
+            }
+        ]
+    },
+    "patient_records": {
+        "text": "Access all your diagnostic findings, medications, and imaging reports (X-rays, MRI) in high-resolution digital format, anytime, anywhere.",
+        "options": [
+            {
+                "label": "Other Portals",
+                "next": "explore_portals"
+            },
+            {
+                "label": "Main Menu",
+                "next": "start"
+            }
+        ]
+    },
+    "doctor_terminal": {
+        "text": "The Doctor Terminal is a professional consultation interface. It includes intelligent queue management, AI-assisted digital prescriptions, and cross-department integration.",
+        "options": [
+            {
+                "label": "Smart Prescriptions",
+                "next": "doctor_prescriptions"
+            },
+            {
+                "label": "Queue Management",
+                "next": "doctor_queue"
+            },
+            {
+                "label": "Go Back",
+                "next": "explore_portals"
+            }
+        ]
+    },
+    "doctor_prescriptions": {
+        "text": "Our AI engine suggests medicines, checks for drug interactions/allergies, and verifies pharmacy stock in real-time.",
+        "options": [
+            {
+                "label": "Main Menu",
+                "next": "start"
+            }
+        ]
+    },
+    "hospital_admin": {
+        "text": "The Admin hub manages hospital operations, finances, and staff. It features real-time resource tracking (beds, staff) and financial governance reports.",
+        "options": [
+            {
+                "label": "Resource Tracking",
+                "next": "admin_resources"
+            },
+            {
+                "label": "Main Menu",
+                "next": "start"
+            }
+        ]
+    },
+    "pharmacy_lab": {
+        "text": "Our Pharmacy POS features digital prescription fetching and inventory alerts. The Lab module provides end-to-end sample tracking and automated report delivery.",
+        "options": [
+            {
+                "label": "Main Menu",
+                "next": "start"
+            }
+        ]
+    },
+    "emergency_ems": {
+        "text": "The Emergency module includes ambulance dispatch tracking with GPS, live trauma feeds of vitals, and trauma bed mapping.",
+        "options": [
+            {
+                "label": "Main Menu",
+                "next": "start"
+            }
+        ]
+    },
+    "about_system": {
+        "text": "MSCureChain is a modern hospital management ecosystem designed by MS Tech Hive. We focus on seamless integration, data security, and improving patient outcomes through technology.",
+        "options": [
+            {
+                "label": "Features",
+                "next": "explore_portals"
+            },
+            {
+                "label": "Contact",
+                "next": "contact_support"
+            }
+        ]
+    },
+    "contact_support": {
+        "text": "You can reach our technical support team at support@mscurechain.com or via the Helpdesk portal for internal staff.",
+        "options": [
+            {
+                "label": "Main Menu",
+                "next": "start"
+            }
+        ]
+    }
+}

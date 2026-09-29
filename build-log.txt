@@ -1,0 +1,28 @@
+
+> frontend@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.14
+   - Environments: .env.local, .env.production, .env
+   - Experiments (use with caution):
+     ✓ reactCompiler
+     · serverActions
+     · optimizePackageImports
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 56s
+   Skipping linting
+   Checking validity of types ...
+Failed to compile.
+
+./app/[hospitalId]/(portals)/hospital-admin/labs/transactions/page.tsx:371:60
+Type error: Property 'tests' does not exist on type 'BillResponse'.
+
+[0m [90m 369 |[39m                             ) [33m:[39m (
+ [90m 370 |[39m                                 filteredBills[33m.[39mmap((bill) [33m=>[39m {
+[31m[1m>[22m[39m[90m 371 |[39m                                     [36mconst[39m itemsText [33m=[39m bill[33m.[39mtests [33m&&[39m bill[33m.[39mtests[33m.[39mlength [33m>[39m [35m0[39m 
+ [90m     |[39m                                                            [31m[1m^[22m[39m
+ [90m 372 |[39m                                         [33m?[39m bill[33m.[39mtests[33m.[39mmap((i[33m:[39m any) [33m=>[39m i[33m.[39mtestName [33m||[39m i[33m.[39mname [33m||[39m [32m'Test'[39m)[33m.[39mjoin([32m', '[39m) 
+ [90m 373 |[39m                                         [33m:[39m [32m'Lab Tests'[39m[33m;[39m
+ [90m 374 |[39m                                     [0m
+Next.js build worker exited with code: 1 and signal: null

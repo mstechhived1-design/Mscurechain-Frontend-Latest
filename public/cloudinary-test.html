@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudinary Upload Test Suite - Frontend</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+        }
+
+        .config-section {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .config-section h2 {
+            margin-bottom: 20px;
+            color: #495057;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .test-section {
+            padding: 30px;
+        }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .test-card {
+            background: #fff;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .test-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-card h3 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .test-card p {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .test-button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .test-button:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .test-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .test-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-idle {
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .status-running {
+            background: #fff3cd;
+            color: #856404;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .results-section {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .results-section h2 {
+            margin-bottom: 20px;
+            color: #495057;
+        }
+
+        .result-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #6c757d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-item.success {
+            border-left-color: #28a745;
+        }
+
+        .result-item.error {
+            border-left-color: #dc3545;
+        }
+
+        .result-name {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .result-duration {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .summary-item h3 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .summary-item p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .run-all-button {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 30px;
+            transition: all 0.3s;
+        }
+
+        .run-all-button:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.4);
+        }
+
+        .run-all-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Cloudinary Upload Test Suite</h1>
+            <p>Frontend Diagnostic Tool for PDF Upload Testing</p>
+        </div>
+
+        <div class="config-section">
+            <h2>⚙️ Configuration</h2>
+            <div class="input-group">
+                <label for="apiUrl">Backend API URL</label>
+                <input type="text" id="apiUrl" value="http://localhost:3000/api" placeholder="http://localhost:3000/api">
+            </div>
+            <div class="input-group">
+                <label for="authToken">Authorization Token (Optional for some tests)</label>
+                <input type="text" id="authToken" placeholder="Bearer token from localStorage">
+            </div>
+        </div>
+
+        <div class="test-section">
+            <button id="runAll" class="run-all-button">▶ Run All Tests</button>
+
+            <div class="test-grid">
+                <!-- Test 1 -->
+                <div class="test-card">
+                    <h3>Test 1: Backend Connection</h3>
+                    <p>Verify backend server is reachable</p>
+                    <button class="test-button" data-test="connectionTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-1">Idle</div>
+                </div>
+
+                <!-- Test 2 -->
+                <div class="test-card">
+                    <h3>Test 2: PDF Generation</h3>
+                    <p>Test jsPDF library and PDF creation</p>
+                    <button class="test-button" data-test="pdfGenerationTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-2">Idle</div>
+                </div>
+
+                <!-- Test 3 -->
+                <div class="test-card">
+                    <h3>Test 3: Blob Conversion</h3>
+                    <p>Test PDF to Blob conversion</p>
+                    <button class="test-button" data-test="blobConversionTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-3">Idle</div>
+                </div>
+
+                <!-- Test 4 -->
+                <div class="test-card">
+                    <h3>Test 4: Base64 Conversion</h3>
+                    <p>Test PDF to Base64 encoding</p>
+                    <button class="test-button" data-test="base64ConversionTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-4">Idle</div>
+                </div>
+
+                <!-- Test 5 -->
+                <div class="test-card">
+                    <h3>Test 5: FormData Upload</h3>
+                    <p>Test multipart/form-data upload</p>
+                    <button class="test-button" data-test="formDataUploadTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-5">Idle</div>
+                </div>
+
+                <!-- Test 6 -->
+                <div class="test-card">
+                    <h3>Test 6: Buffer Upload</h3>
+                    <p>Test base64 buffer upload</p>
+                    <button class="test-button" data-test="bufferUploadTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-6">Idle</div>
+                </div>
+
+                <!-- Test 7 -->
+                <div class="test-card">
+                    <h3>Test 7: Error Handling</h3>
+                    <p>Test error response handling</p>
+                    <button class="test-button" data-test="errorHandlingTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-7">Idle</div>
+                </div>
+
+                <!-- Test 8 -->
+                <div class="test-card">
+                    <h3>Test 8: Large PDF Upload</h3>
+                    <p>Test upload with 2MB PDF</p>
+                    <button class="test-button" data-test="largePDFTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-8">Idle</div>
+                </div>
+
+                <!-- Test 9 -->
+                <div class="test-card">
+                    <h3>Test 9: HTML to Canvas</h3>
+                    <p>Test html2canvas rendering</p>
+                    <button class="test-button" data-test="html2canvasTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-9">Idle</div>
+                </div>
+
+                <!-- Test 10 -->
+                <div class="test-card">
+                    <h3>Test 10: Complete Flow</h3>
+                    <p>Test full prescription PDF workflow</p>
+                    <button class="test-button" data-test="completeFlowTest">Run Test</button>
+                    <div class="test-status status-idle" id="status-10">Idle</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="results-section">
+            <h2>📊 Test Results</h2>
+            <div id="resultsContainer"></div>
+
+            <div class="summary-card" id="summary" style="display: none;">
+                <h2>Test Summary</h2>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <h3 id="totalTests">0</h3>
+                        <p>Total Tests</p>
+                    </div>
+                    <div class="summary-item">
+                        <h3 id="passedTests">0</h3>
+                        <p>Passed</p>
+                    </div>
+                    <div class="summary-item">
+                        <h3 id="failedTests">0</h3>
+                        <p>Failed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const results = [];
+        let totalTests = 0;
+        let passedTests = 0;
+        let failedTests = 0;
+
+        const getApiUrl = () => document.getElementById('apiUrl').value;
+        const getAuthToken = () => document.getElementById('authToken').value;
+
+        function updateStatus(testNum, status, message) {
+            const statusEl = document.getElementById(`status-${testNum}`);
+            statusEl.className = `test-status status-${status}`;
+            statusEl.textContent = message;
+        }
+
+        function addResult(testName, passed, duration, details = '') {
+            totalTests++;
+            if (passed) passedTests++;
+            else failedTests++;
+
+            results.push({ testName, passed, duration, details });
+
+            const resultsContainer = document.getElementById('resultsContainer');
+            const resultItem = document.createElement('div');
+            resultItem.className = `result-item ${passed ? 'success' : 'error'}`;
+            resultItem.innerHTML = `
+                <div>
+                    <div class="result-name">${passed ? '✓' : '✗'} ${testName}</div>
+                    <div class="result-duration">${details}</div>
+                </div>
+                <div class="result-duration">${duration}ms</div>
+            `;
+            resultsContainer.appendChild(resultItem);
+
+            updateSummary();
+        }
+
+        function updateSummary() {
+            document.getElementById('summary').style.display = 'block';
+            document.getElementById('totalTests').textContent = totalTests;
+            document.getElementById('passedTests').textContent = passedTests;
+            document.getElementById('failedTests').textContent = failedTests;
+        }
+
+        // Test 1: Backend Connection
+        async function connectionTest() {
+            const startTime = Date.now();
+            updateStatus(1, 'running', 'Testing...');
+
+            try {
+                const response = await fetch(`${getApiUrl()}/health`.replace('/api/health', '/api/health'));
+                const duration = Date.now() - startTime;
+
+                if (response.ok) {
+                    updateStatus(1, 'success', `Connected - ${duration}ms`);
+                    addResult('Backend Connection', true, duration, 'Server is reachable');
+                    return true;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                updateStatus(1, 'error', `Failed: ${error.message}`);
+                addResult('Backend Connection', false, duration, error.message);
+                return false;
+            }
+        }
+
+        // Test 2: PDF Generation
+        async function pdfGenerationTest() {
+            const  startTime = Date.now();
+            updateStatus(2, 'running', 'Generating PDF...');
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text('Test PDF', 10, 10);
+
+                const duration = Date.now() - startTime;
+                updateStatus(2, 'success', `Generated - ${duration}ms`);
+                addResult('PDF Generation', true, duration, 'jsPDF working correctly');
+                return doc;
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                updateStatus(2, 'error', `Failed: ${error.message}`);
+                addResult('PDF Generation', false, duration, error.message);
+                return null;
+            }
+        }
+
+        // Test 3: Blob Conversion
+        async function blobConversionTest() {
+            const startTime = Date.now();
+            updateStatus(3, 'running', 'Converting to Blob...');
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text('Test PDF Blob', 10, 10);
+
+                const blob = doc.output('blob');
+                const duration = Date.now() - startTime;
+
+                if (blob instanceof Blob && blob.size > 0) {
+                    updateStatus(3, 'success', `Converted - ${blob.size} bytes`);
+                    addResult('Blob Conversion', true, duration, `Size: ${blob.size} bytes`);
+                    return blob;
+                } else {
+                    throw new Error('Invalid blob generated');
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                updateStatus(3, 'error', `Failed: ${error.message}`);
+                addResult('Blob Conversion', false, duration, error.message);
+                return null;
+            }
+        }
+
+        // Test 4: Base64 Conversion
+        async function base64ConversionTest() {
+            const startTime = Date.now();
+            updateStatus(4, 'running', 'Converting to Base64...');
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text('Test PDF Base64', 10, 10);
+
+                const base64 = doc.output('datauristring').split(',')[1];
+                const duration = Date.now() - startTime;
+
+                if (base64 && base64.length > 0) {
+                    updateStatus(4, 'success', `Converted - ${base64.length} chars`);
+                    addResult('Base64 Conversion', true, duration, `Length: ${base64.length} chars`);
+                    return base64;
+                } else {
+                    throw new Error('Invalid base64 generated');
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                updateStatus(4, 'error', `Failed: ${error.message}`);
+                addResult('Base64 Conversion', false, duration, error.message);
+                return null;
+            }
+        }
+
+        // Test 5: FormData Upload
+        async function formDataUploadTest() {
+            const startTime = Date.now();
+            updateStatus(5, 'running', 'Uploading via FormData...');
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text('Test FormData Upload', 10, 10);
+                const blob = doc.output('blob');
+
+                const formData = new FormData();
+                formData.append('prescription', blob, 'test.pdf');
+
+                const token = getAuthToken();
+                const headers = {
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                };
+
+                const response = await fetch(`${getApiUrl()}/prescriptions/upload-pdf`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: formData
+                });
+
+                const duration = Date.now() - startTime;
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    updateStatus(5, 'success', `Uploaded - ${duration}ms`);
+                    addResult('FormData Upload', true, duration, 'File uploaded successfully');
+                    return true;
+                } else {
+                    throw new Error(data.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                updateStatus(5, 'error', `Failed: ${error.message}`);
+                addResult('FormData Upload', false, duration, error.message);
+                return false;
+            }
+        }
+
+        // Test 6: Buffer Upload
+        async function bufferUploadTest() {
+            const startTime = Date.now();
+            updateStatus(6, 'running', 'Uploading via Buffer...');
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text('Test Buffer Upload', 10, 10);
+                const base64 = doc.output('datauristring').split(',')[1];
+
+                const token = getAuthToken();
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                };
+
+                const response = await fetch(`${getApiUrl()}/prescriptions/upload-pdf-buffer`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        pdfBuffer: base64,
+                        fileName: 'test.pdf',
+                        patientId: 'test123',
+                        appointmentId: 'appt456'
+                    })
+                });
+
+                const duration = Date.now() - startTime;
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    updateStatus(6, 'success', `Uploaded - ${duration}ms`);
+                    addResult('Buffer Upload', true, duration, `URL: ${data.file.url}`);
+                    return true;
+                } else {
+                    throw new Error(data.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                updateStatus(6, 'error', `Failed: ${error.message}`);
+                addResult('Buffer Upload', false, duration, error.message);
+                return false;
+            }
+        }
+
+        // Test 7: Error Handling
+        async function errorHandlingTest() {
+            const startTime = Date.now();
+            updateStatus(7, 'running', 'Testing error handling...');
+
+            try {
+                const response = await fetch(`${getApiUrl()}/prescriptions/upload-pdf`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}) // Invalid payload
+                });
+
+                const duration = Date.now() - startTime;
+
+                if (!response.ok) {
+                    updateStatus(7, 'success', `Error handled - ${duration}ms`);
+                    addResult('Error Handling', true, duration, 'Properly rejected invalid request');
+                    return true;
+                } else {
+                    throw new Error('Should have failed with invalid data');
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                if (error.message.includes('Should have failed')) {
+                    updateStatus(7, 'error', 'Failed to catch error');
+                    addResult('Error Handling', false, duration, error.message);
+                    return false;
+                } else {
+                    updateStatus(7, 'success', `Error handled - ${duration}ms`);
+                    addResult('Error Handling', true, duration, 'Network error handled');
+                    return true;
+                }
+            }
+        }
+
+        // Test 8: Large PDF Upload
+        async function largePDFTest() {
+            const startTime = Date.now();
+            updateStatus(8, 'running', 'Generating large PDF...');
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Add multiple pages to increase size
+                for (let i = 0; i < 50; i++) {
+                    doc.addPage();
+                    doc.text(`Page ${i + 1}`, 10, 10);
+                    for (let j = 0; j < 30; j++) {
+                        doc.text(`Line ${j}: Lorem ipsum dolor sit amet, consectetur adipiscing elit.`, 10, 20 + (j * 5));
+                    }
+                }
+
+                const base64 = doc.output('datauristring').split(',')[1];
+                const uploadStart = Date.now();
+
+                const token = getAuthToken();
+                const response = await fetch(`${getApiUrl()}/prescriptions/upload-pdf-buffer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `Bearer ${token}` })
+                    },
+                    body: JSON.stringify({
+                        pdfBuffer: base64,
+                        fileName: 'large_test.pdf',
+                        patientId: 'test123'
+                    })
+                });
+
+                const duration = Date.now() - startTime;
+                const uploadDuration = Date.now() - uploadStart;
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    updateStatus(8, 'success', `Uploaded - ${uploadDuration}ms`);
+                    addResult('Large PDF Upload', true, duration, `Total: ${duration}ms, Upload: ${uploadDuration}ms`);
+                    return true;
+                } else {
+                    throw new Error(data.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                updateStatus(8, 'error', `Failed: ${error.message}`);
+                addResult('Large PDF Upload', false, duration, error.message);
+                return false;
+            }
+        }
+
+        // Test 9: HTML to Canvas
+        async function html2canvasTest() {
+            const startTime = Date.now();
+            updateStatus(9, 'running', 'Rendering HTML...');
+
+            try {
+                const testDiv = document.createElement('div');
+                testDiv.innerHTML = '<h1 style="color: blue;">Test HTML Content</h1><p>This is a test paragraph.</p>';
+                testDiv.style.width = '800px';
+                testDiv.style.padding = '20px';
+                testDiv.style.position = 'absolute';
+                testDiv.style.left = '-9999px';
+                document.body.appendChild(testDiv);
+
+                const canvas = await html2canvas(testDiv);
+                document.body.removeChild(testDiv);
+
+                const duration = Date.now() - startTime;
+
+                if (canvas && canvas.width && canvas.height > 0) {
+                    updateStatus(9, 'success', `Rendered - ${duration}ms`);
+                    addResult('HTML to Canvas', true, duration, `Size: ${canvas.width}x${canvas.height}`);
+                    return canvas;
+                } else {
+                    throw new Error('Invalid canvas generated');
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                updateStatus(9, 'error', `Failed: ${error.message}`);
+                addResult('HTML to Canvas', false, duration, error.message);
+                return null;
+            }
+        }
+
+        // Test 10: Complete Flow
+        async function completeFlowTest() {
+            const startTime = Date.now();
+            updateStatus(10, 'running', 'Running complete flow...');
+
+            try {
+                // 1. Create HTML prescription
+                const prescriptionHTML = `
+                    <div style="font-family: Arial; padding: 40px; max-width: 800px;">
+                        <h2 style="color: #2563eb; text-align: center;">PRESCRIPTION</h2>
+                        <p><strong>Patient:</strong> John Doe</p>
+                        <p><strong>Age/Gender:</strong> 30 / Male</p>
+                        <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                        <h3 style="color: #2563eb;">Medicines</h3>
+                        <ul>
+                            <li>Paracetamol 500mg - 1-0-1</li>
+                            <li>Amoxicillin 250mg - 1-1-1</li>
+                        </ul>
+                        <h3 style="color: #2563eb;">Diet Advice</h3>
+                        <ul>
+                            <li>Drink plenty of water</li>
+                            <li>Eat fresh fruits</li>
+                        </ul>
+                    </div>
+                `;
+
+                // 2. Render to canvas
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = prescriptionHTML;
+                tempDiv.style.width = '800px';
+                tempDiv.style.position = 'absolute';
+                tempDiv.style.left = '-9999px';
+                document.body.appendChild(tempDiv);
+
+                const canvas = await html2canvas(tempDiv, { scale: 2 });
+                document.body.removeChild(tempDiv);
+
+                // 3. Convert to PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                pdf.addImage(canvas, 'PNG', 0, 0, imgWidth, imgHeight);
+
+                // 4. Convert to base64
+                const base64 = pdf.output('datauristring').split(',')[1];
+
+                // 5. Upload to server
+                const token = getAuthToken();
+                const response = await fetch(`${getApiUrl()}/prescriptions/upload-pdf-buffer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `Bearer ${token}` })
+                    },
+                    body: JSON.stringify({
+                        pdfBuffer: base64,
+                        fileName: 'complete_flow_test.pdf',
+                        patientId: 'test123',
+                        appointmentId: 'appt456'
+                    })
+                });
+
+                const duration = Date.now() - startTime;
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    updateStatus(10, 'success', `Complete - ${duration}ms`);
+                    addResult('Complete Flow', true, duration, 'Full workflow successful');
+                    return true;
+                } else {
+                    throw new Error(data.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                updateStatus(10, 'error', `Failed: ${error.message}`);
+                addResult('Complete Flow', false, duration, error.message);
+                return false;
+            }
+        }
+
+        // Event Listeners
+        document.querySelectorAll('[data-test]').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const testName = e.target.getAttribute('data-test');
+                e.target.disabled = true;
+                await window[testName]();
+                e.target.disabled = false;
+            });
+        });
+
+        document.getElementById('runAll').addEventListener('click', async () => {
+            const runAllBtn = document.getElementById('runAll');
+            runAllBtn.disabled = true;
+
+            // Clear previous results
+            document.getElementById('resultsContainer').innerHTML = '';
+            totalTests = 0;
+            passedTests = 0;
+            failedTests = 0;
+            results.length = 0;
+
+            await connectionTest();
+            await pdfGenerationTest();
+            await base64ConversionTest();
+            await blobConversionTest();
+            await formDataUploadTest();
+            await bufferUploadTest();
+            await errorHandlingTest();
+            await largePDFTest();
+            await html2canvasTest();
+            await completeFlowTest();
+
+            runAllBtn.disabled = false;
+        });
+
+        // Auto-fill token from localStorage
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                document.getElementById('authToken').value = token;
+            }
+        });
+    </script>
+</body>
+</html>

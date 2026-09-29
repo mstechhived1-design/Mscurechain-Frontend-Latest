@@ -1,0 +1,121 @@
+{
+  "symptoms_data": [
+    {
+      "symptom": "fever",
+      "keywords": ["pyrexia", "high temperature", "febrile"],
+      "medicine": ["Paracetamol 500mg (1-0-1)", "Ibuprofen 400mg (1-0-1)"],
+      "diet_advice": ["Drink plenty of fluids", "Rest adequately", "Avoid cold foods"],
+      "suggested_tests": ["CBC", "Malaria Antigen Test", "Dengue NS1 Antigen"],
+      "avoid": ["Cold drinks", "Heavy meals", "Strenuous activity"],
+      "follow_up": "Review after 3 days if fever persists"
+    },
+    {
+      "symptom": "cold",
+      "keywords": ["common cold", "runny nose", "nasal congestion", "rhinitis"],
+      "medicine": ["Cetirizine 10mg (0-0-1)", "Phenylephrine 10mg (1-0-1)", "Vitamin C 500mg (1-0-0)"],
+      "diet_advice": ["Steam inhalation twice daily", "Warm fluids", "Honey and ginger tea"],
+      "suggested_tests": [],
+      "avoid": ["Cold water", "Air conditioning", "Dusty environments"],
+      "follow_up": "Review after 5 days if symptoms persist"
+    },
+    {
+      "symptom": "cough",
+      "keywords": ["dry cough", "wet cough", "productive cough", "bronchitis"],
+      "medicine": ["Ambroxol 30mg (1-1-1)", "Dextromethorphan 15mg (1-0-1)", "Salbutamol 2mg (1-1-1)"],
+      "diet_advice": ["Warm water gargles", "Honey with warm water", "Avoid cold beverages"],
+      "suggested_tests": ["Chest X-Ray", "Sputum Culture"],
+      "avoid": ["Smoking", "Dust", "Cold air"],
+      "follow_up": "Review after 7 days"
+    },
+    {
+      "symptom": "headache",
+      "keywords": ["migraine", "head pain", "cephalgia"],
+      "medicine": ["Paracetamol 650mg (1-0-1)", "Sumatriptan 50mg (as needed)"],
+      "diet_advice": ["Stay hydrated", "Avoid screen time", "Rest in dark room"],
+      "suggested_tests": ["BP Monitoring", "CBC"],
+      "avoid": ["Bright lights", "Loud noise", "Caffeine excess"],
+      "follow_up": "Review if headache persists beyond 3 days"
+    },
+    {
+      "symptom": "diarrhea",
+      "keywords": ["loose stools", "gastroenteritis", "stomach upset"],
+      "medicine": ["ORS Sachets (after each loose stool)", "Loperamide 2mg (1-0-1)", "Metronidazole 400mg (1-1-1)"],
+      "diet_advice": ["ORS frequently", "BRAT diet (Banana, Rice, Apple, Toast)", "Avoid spicy food"],
+      "suggested_tests": ["Stool Routine", "Stool Culture"],
+      "avoid": ["Dairy products", "Fatty foods", "Raw vegetables"],
+      "follow_up": "Review after 3 days"
+    },
+    {
+      "symptom": "hypertension",
+      "keywords": ["high blood pressure", "BP", "elevated BP"],
+      "medicine": ["Amlodipine 5mg (1-0-0)", "Telmisartan 40mg (1-0-0)"],
+      "diet_advice": ["Low sodium diet", "Regular exercise", "Reduce stress"],
+      "suggested_tests": ["ECG", "Renal Function Test", "Lipid Profile"],
+      "avoid": ["Salt excess", "Alcohol", "Smoking"],
+      "follow_up": "Review BP after 2 weeks"
+    },
+    {
+      "symptom": "diabetes",
+      "keywords": ["high blood sugar", "hyperglycemia", "DM", "type 2 diabetes"],
+      "medicine": ["Metformin 500mg (1-0-1)", "Glimepiride 1mg (1-0-0)"],
+      "diet_advice": ["Low carbohydrate diet", "Regular blood sugar monitoring", "Exercise daily"],
+      "suggested_tests": ["HbA1c", "Fasting Blood Sugar", "Post-Prandial Blood Sugar", "Urine Routine"],
+      "avoid": ["Sweets", "Refined carbohydrates", "Sedentary lifestyle"],
+      "follow_up": "Review HbA1c after 3 months"
+    },
+    {
+      "symptom": "back pain",
+      "keywords": ["lumbar pain", "spine pain", "lower back pain"],
+      "medicine": ["Diclofenac 50mg (1-0-1)", "Thiocolchicoside 4mg (1-0-1)", "Pantoprazole 40mg (1-0-0)"],
+      "diet_advice": ["Hot fomentation", "Gentle stretching", "Adequate calcium intake"],
+      "suggested_tests": ["X-Ray Lumbar Spine", "MRI Spine (if severe)"],
+      "avoid": ["Heavy lifting", "Prolonged sitting", "High heels"],
+      "follow_up": "Review after 1 week"
+    },
+    {
+      "symptom": "acidity",
+      "keywords": ["heartburn", "GERD", "acid reflux", "gastritis"],
+      "medicine": ["Pantoprazole 40mg (1-0-0)", "Domperidone 10mg (1-1-1)", "Antacid suspension (as needed)"],
+      "diet_advice": ["Small frequent meals", "Avoid lying down after eating", "Elevate head while sleeping"],
+      "suggested_tests": ["H. Pylori Test"],
+      "avoid": ["Spicy food", "Coffee", "Alcohol", "NSAIDs"],
+      "follow_up": "Review after 2 weeks"
+    },
+    {
+      "symptom": "allergy",
+      "keywords": ["allergic reaction", "urticaria", "hives", "skin allergy"],
+      "medicine": ["Cetirizine 10mg (0-0-1)", "Montelukast 10mg (0-0-1)", "Hydrocortisone cream (topical)"],
+      "diet_advice": ["Identify and avoid allergens", "Keep skin moisturized"],
+      "suggested_tests": ["IgE Levels", "Allergy Panel"],
+      "avoid": ["Known allergens", "Harsh soaps", "Synthetic fabrics"],
+      "follow_up": "Review after 1 week"
+    },
+    {
+      "symptom": "dry eye",
+      "keywords": ["eye burning sensation", "gritty feeling", "dryness", "tired eyes", "itching", "eye burning"],
+      "medicine": ["Carboxymethylcellulose 0.5% eye drops (1-1-1)", "Lubricating eye ointment (0-0-1)"],
+      "diet_advice": ["Increase Omega-3 intake", "Stay hydrated"],
+      "suggested_tests": ["Schirmer's test", "Tear breakup time (TBUT)"],
+      "avoid": ["Prolonged screen time without breaks", "Direct AC air on face", "Dust and smoke"],
+      "follow_up": "Review after 2 weeks"
+    },
+    {
+      "symptom": "conjunctivitis",
+      "keywords": ["pink eye", "red eye", "eye discharge", "sticky eyes", "watering"],
+      "medicine": ["Moxifloxacin 0.5% eye drops (1-1-1-1)", "Artificial tears (1-1-1)"],
+      "diet_advice": ["Maintain hygiene", "Wash hands frequently"],
+      "suggested_tests": [],
+      "avoid": ["Touching or rubbing eyes", "Sharing towels or pillows", "Contact lenses"],
+      "follow_up": "Review after 3 days"
+    },
+    {
+      "symptom": "blurred vision",
+      "keywords": ["poor vision", "decreased vision", "blurry", "refractive error"],
+      "medicine": [],
+      "diet_advice": ["Green leafy vegetables", "Vitamin A rich foods"],
+      "suggested_tests": ["Refraction test", "Fundus examination", "Slit lamp examination"],
+      "avoid": ["Reading in dim light", "Holding screens too close"],
+      "follow_up": "Immediate refraction correction or detailed examination"
+    }
+  ]
+}

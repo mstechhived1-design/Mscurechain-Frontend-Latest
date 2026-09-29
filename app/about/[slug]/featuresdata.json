@@ -1,0 +1,597 @@
+{
+    "patient-portal": {
+        "title": "Patient Portal",
+        "slug": "patient-portal",
+        "icon": "User",
+        "image": "../assets/paportal.avif",
+        "loginWith": "Mobile Number + OTP",
+        "shortDesc": "Complete health dashboard for patients and their families.",
+        "sections": [
+            {
+                "title": "Personal Health Dashboard",
+                "text": "Your complete medical information center consolidates all aspects of your healthcare experience into a single, easy-to-navigate interface.",
+                "details": "The Patient Dashboard is your personal health command center, with fast access to your entire medical history at your fingertips. This unified platform reduces the inconvenience of maintaining paper data and keeps you up to date on your health status.",
+                "features": [
+                    "Complete medical history, including a timeline of all consultations and treatments.",
+                    "Active medication list, including dosing schedules and refill reminders.",
+                    "Upcoming appointments with one-click navigation and calendar sync.",
+                    "Health vitals tracking charts illustrate trends in blood pressure, weight, and other crucial indicators.",
+                    "Personalized wellness objectives and progress tracking for chronic illness management."
+                ]
+            },
+            {
+                "title": "Smart Appointment Booking",
+                "text": "Book, reschedule, or cancel healthcare appointments using intelligent scheduling that considers both your time and the doctor's availability.",
+                "image": "../assets/pf2.jpeg",
+                "features": [
+                    "Real-time doctor availability calendar with specialty-based filtering",
+                    "Live queue position tracking on appointment day - see exactly how many patients ahead",
+                    "One-tap rescheduling with automatic conflict detection",
+                    "Video consultation option for follow-ups and minor health questions",
+                    "Manage appointments for family members from one account.",
+                    "Automatic SMS and push notifications for appointment reminders"
+                ]
+            },
+            {
+                "title": "Digital Medical Records",
+                "text": "You may instantly access all of your diagnostic findings, medications, and medical papers in high-resolution digital format.",
+                "details": "Every lab test, X-ray, MRI scan, and prescription is automatically posted to your account once validated by medical professionals. You may download, distribute, or print any document at any time and from anywhere. All records are encrypted and securely stored in accordance with healthcare data protection guidelines.",
+                "features": [
+                    "Instant download of lab reports in PDF format as soon as they're validated",
+                    "High-resolution medical imaging (X-rays, CT scans, MRI) with zoom and annotation features.",
+                    "Complete prescription history, including drug names, doses, and prescribing doctors.",
+                    "Secure sharing capability for sending records to other healthcare professionals.",
+                    "Automatic categorization based on date, department, and document type",
+                    "Cloud backup ensures that your records are not lost."
+                ]
+            },
+            {
+                "title": "Transparent Billing & Payments",
+                "text": "Clear, itemized invoicing with numerous secure payment alternatives and immediate receipt generation for insurance claims.",
+                "image": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=800&auto=format&fit=crop",
+                "features": [
+                    "Detailed bill breakdowns of consultation fees, diagnostic expenses, and prescription costs",
+                    "Real-time payment processing and fast confirmation.",
+                    "Several payment methods: UPI, cards, internet banking, and digital wallets",
+                    "Automatically generate tax invoices for insurance reimbursement.",
+                    "Payment history and printable receipts for all previous transactions.",
+                    "Pending dues alerts and payment plans for greater medical expenses."
+                ]
+            }
+        ]
+    },
+    "doctor-terminal": {
+        "title": "Doctor Terminal",
+        "slug": "doctor-terminal",
+        "icon": "Stethoscope",
+        "image": "../assets/doc3.jpg",
+        "loginWith": "Doctor ID + Password",
+        "shortDesc": "Professional consultation interface for clinical excellence.",
+        "sections": [
+            {
+                "title": "Intelligent Patient Queue Management",
+                "text": "Stay organized with a real-time smart queue that automatically prioritizes patients based on urgency, appointment time, and medical needs.",
+                "details": "The Doctor Terminal features an advanced queue management system that tracks every patient waiting for consultation. The 'Next Patient' button intelligently suggests who to see next, while emergency cases are automatically flagged and pushed to the top of the queue.",
+                "features": [
+                    "Live patient queue with real-time updates showing exact waiting positions",
+                    "'Next Patient' smart recommendation based on appointment time and urgency",
+                    "Emergency_case auto-flagging with visual and audio alerts",
+                    "Estimated wait time calculator to inform patients accurately"
+                ]
+            },
+            {
+                "title": "Comprehensive Patient Medical History",
+                "image":"../assets/dpf2.avif",
+                "text": "Access complete longitudinal health records with interactive timelines showing every consultation, diagnosis, prescription, and lab result.",
+                "details": "View a patient's entire medical journey in one screen. Our system aggregates data from all previous visits, lab tests, prescriptions, and hospital admissions to give you the full clinical picture before you even start the consultation.",
+                "features": [
+                    "Chronological timeline view of all past consultations and treatments",
+                    "Interactive vitals chart showing BP, weight, and sugar trends over time",
+                    "Complete medication history with current active prescriptions",
+                    "Previous diagnoses with ICD-10 codes and treatment outcomes"
+                ]
+            },
+            {
+                "title": "Smart Digital Prescription System",
+                "text": "Create prescriptions faster with AI-assisted drug suggestions, automatic dosage calculations, and pharmacy inventory checks.",
+                "details": "Our intelligent prescription engine suggests medicines based on the diagnosis, checks for drug interactions and allergies in real-time, and verifies availability in the hospital pharmacy before you prescribe. Everything is saved digitally and sent instantly to the patient's mobile app.",
+                "features": [
+                    "AI-powered medicine suggestions based on diagnosed condition",
+                    "Real-time drug interaction and allergy conflict warnings",
+                    "Pharmacy stock verification to ensure medicine availability",
+                    "Auto-complete for medicine names with dosage recommendations"
+                ]
+            },
+            {
+                "title": "Seamless Cross-Department Integration",
+                "text": "Order lab tests, request consultations from specialists, and send patients to pharmacy or discharge—all from one unified interface.",
+                "image": "https://images.unsplash.com/photo-1516549655169-df83a0774514?q=80&w=800&auto=format&fit=crop",
+                "details": "The Doctor Terminal is fully integrated with every hospital department. Order diagnostic tests that instantly appear in the Lab queue, write prescriptions that the pharmacy can pre-pack, or refer patients to specialists with one click.",
+                "features": [
+                    "One-click lab test ordering with instant notification to diagnostic team",
+                    "Specialist referral system with automatic appointment scheduling",
+                    "Direct communication with nursing staff for admitted patients",
+                    "Admission request workflow with bed availability checking"
+                ]
+            }
+        ]
+    },
+   "hospital-admin": {
+    "title": "Hospital Admin",
+    "slug": "hospital-admin",
+    "icon": "Building2",
+    "image": "../assets/admin1.jpg",
+    "loginWith": "Admin ID + Password",
+    "shortDesc": "Central command hub for managing hospital operations, finances, staff, and communications.",
+    "sections": [
+        {
+            "title": "Real-Time Resource Tracking",
+            "text": "Monitor and control hospital resources in real time to ensure smooth clinical and operational workflows.",
+            "details": "The Real-Time Resource Tracking module gives hospital administrators complete visibility into beds, diagnostic services, pharmacy requests, and inter-department coordination. It helps eliminate delays, reduce manual follow-ups, and ensures that every department operates in sync with real-time demand.",
+            "image": "https://images.unsplash.com/photo-1516549655169-df83a0774514?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Live tracking of bed availability across wards, ICU, and emergency units",
+                "Centralized lab test orders with real-time status updates",
+                "Pharmacy request monitoring with prescription fulfillment status",
+                "Inter-department referrals with instant notifications"
+            ]
+        },
+        {
+            "title": "Financial Governance",
+            "text": "Gain complete control over hospital finances with transparent, department-wise financial insights.",
+            "details": "The Financial Governance module provides a consolidated view of the hospital’s revenue streams, operational expenses, and profitability. Administrators can track billing performance, identify cost leakages, and make informed decisions to maintain financial sustainability and compliance.",
+            "image": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Real-time revenue tracking from OPD, IPD, diagnostics, and pharmacy",
+                "Department-wise income and expense analysis",
+                "Outstanding dues and payment reconciliation reports",
+                "Integration with billing and payment systems"
+            ]
+        },
+       
+        {
+            "title": "System-Wide Communications",
+            "text": "Deliver critical information instantly across the hospital ecosystem.",
+            "details": "The System-Wide Communications module ensures timely and consistent communication with all hospital personnel. Whether it’s an emergency alert, policy update, or operational announcement, messages reach the right users without delay.",
+            "image": "https://images.unsplash.com/photo-1581091870627-3f9a33c8f4b1?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Emergency broadcast alerts to all departments",
+                "Targeted announcements for specific roles or units",
+                "Policy and protocol update notifications",
+                "Read-receipt tracking for critical communications"
+            ]
+        },
+         {
+            "title": "Staff & Doctor Management",
+            "text": "Efficiently manage doctors, nurses, and support staff from onboarding to performance evaluation.",
+            "details": "This module enables administrators to oversee workforce operations, including scheduling, attendance, and role assignments. It ensures optimal staffing levels, improves accountability, and supports data-driven performance assessments across all hospital departments.",
+            "image": "../assets/hf4.avif",
+            "features": [
+                "Centralized staff directory with roles and department mapping",
+                "Duty roster and shift scheduling for doctors and nurses",
+                "Leave management and approval workflows",
+                "Attendance and working-hours tracking"
+            ]
+        }
+    ]
+},
+"lab-diagnostics": {
+    "title": "Lab & Diagnostics",
+    "slug": "lab-diagnostics",
+    "icon": "Beaker",
+    "image": "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?q=80&w=800&auto=format&fit=crop",
+    "loginWith": "Lab ID + Password",
+    "shortDesc": "Comprehensive laboratory management with precise sample tracking and automated diagnostic reporting.",
+    "sections": [
+        {
+            "title": "End-to-End Sample Tracking",
+            "text": "Track every diagnostic sample from collection to final report with complete transparency and accuracy.",
+            "details": "This module ensures that each sample is uniquely identified and continuously tracked throughout its lifecycle. From patient collection to lab processing and validation, every step is logged digitally to eliminate mix-ups, delays, and manual errors.",
+            "image": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Unique barcode or QR code generation for every sample",
+                "Real-time status updates from collection to report approval",
+                "Sample rejection and recollection tracking with reasons",
+                "Department-wise sample routing and prioritization"
+            
+            ]
+        },
+        {
+            "title": "Automated Report Delivery",
+            "text": "Deliver validated diagnostic reports instantly to patients and doctors without manual intervention.",
+            "details": "Once test results are verified by authorized lab personnel, reports are automatically published to the patient portal and the doctor’s dashboard. This reduces turnaround time and ensures timely clinical decisions.",
+            "image": "../assets/lf2.jpeg",
+            "features": [
+                "Instant digital report publishing after validation",
+                "Automatic notifications to patients and doctors",
+                "Downloadable and printable PDF reports",
+                "Critical value alerts for abnormal results"
+               
+            ]
+        },
+        {
+            "title": "LIS Integration",
+            "text": "Integrate seamlessly with existing Laboratory Information Systems for unified data management.",
+            "details": "The LIS Integration module allows labs to connect their existing systems directly with the CureChain platform. This ensures consistent data flow, eliminates duplicate data entry, and maintains a single source of truth for diagnostic records.",
+            "image": "https://images.unsplash.com/photo-1581091012184-7c54c9b0b8b6?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Bi-directional data sync with LIS platforms",
+                "Automatic test order imports from doctors",
+                "Real-time status updates from lab machines",
+                "Error reduction through system-level validation"
+                
+            ]
+        },
+        {
+            "title": "Quality Control Dashboard",
+            "text": "Maintain high diagnostic accuracy through continuous monitoring of lab quality standards.",
+            "details": "The Quality Control Dashboard provides administrators with real-time insights into equipment performance, reagent usage, and compliance with standard operating procedures. This ensures consistent accuracy and regulatory adherence across all lab operations.",
+            "image": "../assets/lf4.jpeg",
+            "features": [
+                "Equipment calibration and maintenance tracking",
+                "Quality control sample monitoring",
+                "Protocol compliance checklists",
+                "Error and deviation reporting"
+                
+            ]
+        }
+    ]
+},
+
+   "pharmacy-pos": {
+    "title": "Pharmacy POS",
+    "slug": "pharmacy-pos",
+    "icon": "Pill",
+    "image": "../assets/phrama.jpeg",
+    "loginWith": "Pharma ID + Password",
+    "shortDesc": "Smart pharmacy management with digital prescriptions, real-time inventory, and seamless billing.",
+    "sections": [
+        {
+            "title": "Digital Prescription Fetching",
+            "text": "Instantly receive and process digital prescriptions as soon as doctors authorize them.",
+            "details": "This feature eliminates handwritten prescriptions and manual entry. Once a doctor signs a prescription, it appears instantly on the pharmacy screen, ensuring faster dispensing, fewer errors, and a smoother patient checkout experience.",
+            "image": "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Real-time prescription visibility after doctor approval",
+                "Clear display of drug names, dosage, and duration",
+                "Automatic validation against patient records",
+                "Flags for allergies and drug interactions"
+            ]
+        },
+        {
+            "title": "Inventory Alert System",
+            "text": "Maintain optimal stock levels with automated alerts and expiry monitoring.",
+            "details": "The Inventory Alert System continuously tracks medicine stock levels and expiration dates. It helps pharmacy staff avoid stockouts, reduce wastage due to expiry, and ensure uninterrupted availability of critical medications.",
+            "image": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Real-time stock quantity tracking",
+                "Low-stock and out-of-stock alerts",
+                "Batch-wise expiry date monitoring",
+                "FIFO (First-In, First-Out) dispensing support"
+            ]
+        },
+        {
+            "title": "One-Click Billing",
+            "text": "Generate accurate pharmacy bills instantly with integrated pricing and discounts.",
+            "details": "This module automates the billing process by linking prescriptions directly to inventory and pricing rules. Bills are generated in one click, ensuring accuracy, faster payments, and seamless integration with hospital billing systems.",
+            "image": "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Automatic bill generation from prescriptions",
+                "Real-time price calculation based on inventory",
+                "Hospital and insurance discount application",
+                "Tax-compliant invoice generation"
+            ]
+        },
+        {
+            "title": "Medication History Log",
+            "text": "Maintain a complete audit trail of all dispensed medications for safety and compliance.",
+            "details": "The Medication History Log records every drug dispensed to a patient, including batch numbers and dispensing staff. This ensures traceability, improves patient safety, and supports compliance with pharmaceutical regulations.",
+            "image": "../assets/pf4.jpeg",
+            "features": [
+                "Patient-wise medication history tracking",
+                "Batch and lot number traceability",
+                "Dispensing staff accountability logs",
+                "Support for drug recall investigations"
+            ]
+        }
+    ]
+},
+
+    "emergency-ems": {
+    "title": "Emergency & EMS",
+    "slug": "emergency-ems",
+    "icon": "Truck",
+    "image": "../assets/eme1.avif",
+    "loginWith": "Staff ID + Password",
+    "shortDesc": "Mission-critical emergency response system for ambulance dispatch, trauma care, and real-time coordination.",
+    "sections": [
+        {
+            "title": "Ambulance Dispatch Tracker",
+            "text": "Track ambulances in real time and coordinate emergency dispatch for the fastest possible response.",
+            "details": "The Ambulance Dispatch Tracker provides live GPS visibility of all ambulances, enabling dispatch teams to assign the nearest available unit. It reduces response times, improves route planning, and ensures efficient coordination between EMS teams and hospitals.",
+            "image": "https://images.unsplash.com/photo-1600959907703-125ba1374bcd?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Live GPS tracking of ambulances",
+                "Nearest-vehicle auto-assignment",
+                "Route optimization with traffic awareness",
+                "Dispatch status updates (en-route, on-scene, arriving)"
+            ]
+        },
+        {
+            "title": "Trauma Bed Mapping",
+            "text": "View real-time ER and ICU bed availability to prepare for incoming critical patients.",
+            "details": "This module provides instant visibility into emergency and trauma bed availability across ER, ICU, and specialty units. It allows hospitals to prepare equipment and staff before patient arrival, reducing delays in life-saving care.",
+            "image": "https://images.unsplash.com/photo-1579154204601-01588f351e67?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Live ER, ICU, and trauma bed availability",
+                "Bed reservation for incoming emergency cases",
+                "Critical care equipment readiness indicators",
+                "Automatic bed release after patient transfer"
+            ]
+        },
+        {
+            "title": "Live Trauma Feed",
+            "text": "Receive patient vitals and incident updates from EMS teams while en route to the hospital.",
+            "details": "The Live Trauma Feed enables EMS teams to transmit patient vitals, injury details, and observations directly to the ER. This allows doctors to prepare treatment protocols, assemble trauma teams, and reduce time to intervention.",
+            "image": "https://images.unsplash.com/photo-1580281657521-6c6c85b3f97b?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Real-time vitals streaming from ambulance devices",
+                "Pre-arrival patient condition summaries",
+                "Photo and note sharing from accident scenes",
+                "Automatic alerting for critical vitals"
+            ]
+        },
+        {
+            "title": "Incident Logging",
+            "text": "Capture emergency patient data from the moment of rescue for accurate clinical records.",
+            "details": "The Incident Logging module allows rapid data entry in high-pressure situations. It ensures that patient records begin at the scene of rescue, maintaining continuity of care from EMS to emergency department treatment.",
+            "image": "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Quick-entry forms optimized for emergency use",
+                "Time-stamped incident and rescue logs",
+                "Initial diagnosis and triage categorization",
+                "Integration with ER admission workflows"
+            ]
+        }
+    ]
+},
+
+  "helpdesk-reception": {
+    "title": "Helpdesk & Reception",
+    "slug": "helpdesk-reception",
+    "icon": "Headset",
+    "image": "../assets/repction.jpeg",
+    "loginWith": "Staff ID + Password",
+    "shortDesc": "Central front-desk system for fast patient onboarding, queue management, and appointment coordination.",
+    "sections": [
+        {
+            "title": "Digital Patient Onboarding",
+            "text": "Register patients quickly with minimal data entry while ensuring accuracy and security.",
+            "details": "The Digital Patient Onboarding module streamlines registration by capturing essential patient details using OTP-based verification. It reduces waiting times, prevents duplicate records, and instantly links patients to appointments, consultations, lab reports, prescriptions, and billing workflows.",
+            "image": "https://images.unsplash.com/photo-1576765607924-b2f06eaf6f87?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Quick registration with mobile number and OTP verification",
+                "Automatic duplicate record detection",
+                "Instant patient ID generation",
+                "Direct mapping to appointments and consultations"
+            ]
+        },
+        {
+            "title": "Queue Coordination",
+            "text": "Manage patient flow efficiently with real-time queue visibility and control.",
+            "details": "This module provides live queue status across departments, allowing staff and doctors to track patient progress. It enables smooth patient flow management, prioritization of emergency cases, and reduced waiting time in OPD and specialty clinics.",
+            "image": "../assets/queue.jpeg",
+            "features": [
+                "Live queue display with patient status indicators",
+                "One-click next-patient calling for doctors",
+                "Priority handling for emergencies and senior citizens",
+                "Skip, hold, or reassign patient options"
+            ]
+        },
+        {
+            "title": "Appointment Validation",
+            "text": "Verify appointments quickly and check in patients without manual effort.",
+            "details": "The Appointment Validation feature allows reception staff to confirm online bookings using QR code scanning or appointment IDs. This ensures faster check-ins, reduces manual errors, and keeps schedules perfectly synchronized with doctors’ availability.",
+            "image": "https://images.unsplash.com/photo-1581091012184-7c54c9b0b8b6?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "QR code–based appointment check-in",
+                "Instant verification of online and offline bookings",
+                "Automatic queue assignment after check-in",
+                "Real-time schedule updates for doctors"
+            ]
+        },
+        {
+            "title": "General Information Hub",
+            "text": "Provide accurate information to patients and visitors at all times.",
+            "details": "The General Information Hub gives front-desk staff access to real-time doctor schedules, department timings, and service availability. It ensures that patient and visitor queries are answered accurately, improving overall experience and trust.",
+            "image": "https://images.unsplash.com/photo-1526256262350-7da7584cf5eb?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Live doctor and department schedules",
+                "Service availability and operating hours",
+                "OPD, lab, and pharmacy guidance",
+                "Internal hospital directory access"
+            ]
+        }
+    ]
+}
+,
+   "staff-portal": {
+    "title": "Staff Portal",
+    "slug": "staff-portal",
+    "icon": "Users",
+    "image": "../assets/staff.avif",
+    "loginWith": "Staff ID + Password",
+    "shortDesc": "Self-service employee management platform for non-clinical hospital staff.",
+    "sections": [
+        {
+            "title": "Shift & Roster Management",
+            "text": "View and manage work schedules, department assignments, and duty rotations from one place.",
+            "details": "The Shift & Roster Management module allows staff members to stay informed about their daily schedules and assignments. It reduces confusion, improves punctuality, and ensures smooth coordination across departments.",
+            "image": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Personalized shift calendar view",
+                "Department and role-based assignments",
+                "Holiday and rotation schedules",
+                "Real-time roster updates",
+                "Shift swap and approval requests",
+                "Notifications for schedule changes"
+            ]
+        },
+        {
+            "title": "Attendance & Payroll",
+            "text": "Track attendance and access salary details with complete transparency.",
+            "details": "This module provides a unified view of attendance records and payroll information. Staff can check daily attendance logs, download salary slips, and view tax deductions and incentives without HR dependency.",
+            "image": "../assets/at1.jpeg",
+            "features": [
+                "Daily attendance logging and history",
+                "Integration with biometric or access systems",
+                "Downloadable salary slips",
+                "Tax and statutory deduction visibility"
+            ]
+        },
+        {
+            "title": "Internal Communications",
+            "text": "Stay informed with instant access to hospital updates and internal resources.",
+            "details": "The Internal Communications module serves as a central repository for hospital policies, safety guidelines, announcements, and training materials. It ensures that staff always have access to the latest information.",
+            "image": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Hospital handbook and policy access",
+                "Safety and compliance documentation",
+                "Internal announcements and notices",
+                "Training manuals and learning resources"
+            ]
+        },
+        {
+            "title": "Leave & Request Workflow",
+            "text": "Submit leave applications and administrative requests with real-time status updates.",
+            "details": "This module simplifies interactions with HR by digitizing leave requests and administrative approvals. Staff can track request status, receive notifications, and maintain a transparent record of all submissions.",
+            "image": "../assets/aten.jpeg",
+            "features": [
+                "Online leave application and approval flow",
+                "Real-time request status tracking",
+                "Leave balance visibility",
+                "Administrative request submissions"
+            ]
+        }
+    ]
+},
+"discharge-center": {
+    "title": "Discharge Center",
+    "slug": "discharge-center",
+    "icon": "FileText",
+    "image": "../assets/dis.jpeg",
+    "loginWith": "Staff ID + Password",
+    "shortDesc": "Centralized discharge management for faster clearances, accurate summaries, and smooth patient exit.",
+    "sections": [
+        {
+            "title": "Department Clearance Sync",
+            "text": "Ensure all mandatory department clearances are completed before patient discharge.",
+            "details": "The Department Clearance Sync module provides real-time visibility into discharge approvals from Pharmacy, Laboratory, Nursing, and other departments. It prevents delays, avoids manual follow-ups, and ensures a safe and compliant discharge process.",
+            "image": "https://images.unsplash.com/photo-1580281657521-6c6c85b3f97b?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Live clearance status from pharmacy, lab, and nursing",
+                "Automatic notifications for pending approvals",
+                "Block discharge until mandatory clearances are completed",
+                "One-click clearance verification"
+            ]
+        },
+        {
+            "title": "Digital Discharge Summary",
+            "text": "Create comprehensive, professional discharge summaries with clinical accuracy.",
+            "details": "This module enables staff and doctors to generate standardized discharge summaries that include diagnosis, treatment provided, medications, follow-up instructions, and lifestyle advice. Summaries are digitally signed and instantly available to patients.",
+            "image": "../assets/dss.jpeg",
+            "features": [
+                "Structured discharge summary templates",
+                "Automatic population of clinical data",
+                "Medicine schedules and dosage instructions",
+                "Follow-up dates and care guidelines"
+            ]
+        },
+        {
+            "title": "Billing Reconciliation",
+            "text": "Confirm all financial transactions are completed before patient exit.",
+            "details": "The Billing Reconciliation module ensures that all consultation, investigation, pharmacy, and room charges are settled. It synchronizes with the finance department to avoid revenue leakage and discharge delays.",
+            "image": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=800&auto=format&fit=crop",
+            "features": [
+                "Real-time billing status visibility",
+                "Pending dues and advance adjustment checks",
+                "Integration with hospital billing systems",
+                "Final invoice generation"
+            ]
+        },
+        {
+            "title": "Follow-up Booking",
+            "text": "Ensure continuity of care by scheduling follow-up visits at discharge.",
+            "details": "This module automatically assists staff in booking follow-up appointments as part of the discharge workflow. It improves patient compliance, reduces readmissions, and ensures timely post-discharge care.",
+            "image": "../assets/apps.png",
+            "features": [
+                "Automatic follow-up appointment suggestions",
+                "Doctor and department availability matching",
+                "Calendar-based scheduling",
+                "Patient notification via SMS and app"
+            ]
+        }
+    ]
+},
+    "nurse-portal": {
+        "title": "Nurse Portal",
+        "slug": "nurse-portal",
+        "icon": "HeartPulse",
+        "image": "../assets/nurse2.png",
+        "loginWith": "Staff ID + Password",
+        "shortDesc": "Real-time nursing dashboard for vitals monitoring, MAR, and ward management.",
+        "sections": [
+            
+            {
+                "title": "Medication Administration (MAR)",
+                "text": "Digital logging of medication delivery ensure the right dose for the right patient at the right time.",
+                "details": "The Medication Administration Record (MAR) digitizes the drug delivery process. Nurses receive scheduled alerts for medication times, scan patient IDs for verification, and log every dose administered to prevent errors and ensure compliance.",
+                "image": "../assets/nur2.jpeg",
+                "features": [
+                    "Automated medication schedule alerts and reminders",
+                    "Double-check verification for high-risk medications",
+                    "Digital signature for administration accountability",
+                    "Instant sync with Pharmacy for refill requests"
+                ]
+            },
+            {
+                "title": "Patient Vitals Monitoring",
+                "text": "Track and record patient health metrics in real time with automated trend alerts.",
+                "details": "The Vitals Monitoring module allows nurses to capture and monitor critical health indicators such as BP, Heart Rate, SpO2, and temperature. The system automatically highlights abnormal trends, ensuring proactive clinical intervention.",
+                "image": "../assets/mointaing.png",
+                "features": [
+                    "Digital vitals entry with instant synchronization to Doctor Terminal",
+                    "Real-time alerts for critical physiological changes",
+                    "Graphical trend visualization for longitudinal tracking",
+                    "Shift-wise vitals summary for effective handovers"
+                ]
+            },
+            
+            {
+                "title": "Nursing Task Queue",
+                "text": "A prioritized list of daily clinical tasks, rounds, and patient care activities.",
+                "details": "Stay organized with a smart task queue that prioritizes nursing activities based on urgency and schedule. From routine rounds to specific clinical procedures, the system ensures no task is overlooked during busy shifts.",
+                "image": "../assets/nur4.jpeg",
+                "features": [
+                    "Prioritized daily tasks based on patient care plans",
+                    "Shift handover reports with automated summaries",
+                    "Incident and observation logging at the bedside",
+                    "Seamless coordination with doctors for stat orders"
+                ]
+            },
+            {
+                "title": "Ward & Bed Management",
+                "text": "Complete oversight of patient placement, movements, and bed availability within the ward.",
+                "details": "Manage your assigned ward efficiently with live bed mapping. Track patient admissions, transfers, and discharges in real time, ensuring optimal resource utilization and smooth patient transitions.",
+                "image": "../assets/bed.png",
+                "features": [
+                    "Interactive ward floor plan with bed status indicators",
+                    "One-click patient transfer and movement logging",
+                    "Bed cleaning and maintenance status tracking",
+                    "Real-time coordination with Hospital Admin for admissions"
+                ]
+            }
+
+        ]
+    }
+}

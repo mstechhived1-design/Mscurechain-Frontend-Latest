@@ -1,0 +1,22 @@
+app/[hospitalId]/(portals)/nurse/medicine-return/page.tsx(6,10): error TS2305: Module '"@/lib/integrations/services/pharmacy.service"' has no exported member 'ipdIssuanceService'.
+app/[hospitalId]/(portals)/pharmacy/audit-logs/page.tsx(53,17): error TS2554: Expected 0 arguments, but got 5.
+app/[hospitalId]/(portals)/pharmacy/audit-logs/page.tsx(62,38): error TS2339: Property 'success' does not exist on type 'any[]'.
+app/[hospitalId]/(portals)/pharmacy/audit-logs/page.tsx(62,58): error TS2339: Property 'data' does not exist on type 'any[]'.
+app/[hospitalId]/(portals)/pharmacy/audit-logs/page.tsx(62,75): error TS2339: Property 'data' does not exist on type 'any[]'.
+app/[hospitalId]/(portals)/pharmacy/audit-logs/page.tsx(63,49): error TS2339: Property 'data' does not exist on type 'any[]'.
+app/[hospitalId]/(portals)/pharmacy/audit-logs/page.tsx(64,49): error TS2339: Property 'data' does not exist on type 'any[]'.
+app/[hospitalId]/(portals)/pharmacy/audit-logs/page.tsx(66,40): error TS2339: Property 'totalPages' does not exist on type 'any[]'.
+app/[hospitalId]/(portals)/pharmacy/audit-logs/page.tsx(67,42): error TS2339: Property 'total' does not exist on type 'any[]'.
+app/[hospitalId]/(portals)/pharmacy/ipd-billing/page.tsx(26,10): error TS2305: Module '"@/lib/integrations/services/pharmacy.service"' has no exported member 'ipdIssuanceService'.
+app/[hospitalId]/(portals)/pharmacy/ipd-issuance/page.tsx(7,10): error TS2305: Module '"@/lib/integrations/services/pharmacy.service"' has no exported member 'ipdIssuanceService'.
+app/[hospitalId]/(portals)/pharmacy/ipd-issuance/page.tsx(237,30): error TS2345: Argument of type '{ receivedByNurse?: string | undefined; nurseNote?: any; admissionId: string; items: IssuanceItem[]; notes: string; }' is not assignable to parameter of type 'void'.
+app/[hospitalId]/(portals)/pharmacy/ipd-issuance/page.tsx(457,83): error TS2345: Argument of type 'string' is not assignable to parameter of type 'void'.
+app/[hospitalId]/(portals)/pharmacy/profile/page.tsx(177,26): error TS2339: Property 'success' does not exist on type '{ url: string; }'.
+app/[hospitalId]/(portals)/pharmacy/profile/page.tsx(182,78): error TS2339: Property 'publicId' does not exist on type '{ url: string; }'.
+app/[hospitalId]/(portals)/pharmacy/profile/page.tsx(225,26): error TS2339: Property 'success' does not exist on type '{ url: string; }'.
+app/admin/create-lab/page.tsx(180,53): error TS2554: Expected 1 arguments, but got 2.
+app/admin/create-pharma/page.tsx(180,53): error TS2554: Expected 1 arguments, but got 2.
+app/admin/helpdesks/page.tsx(88,30): error TS2551: Property 'deleteHelpdeskClient' does not exist on type '{ apiClient: <T>(path: string, options?: (RequestInit & { skipCache?: boolean | undefined; }) | undefined) => Promise<T>; getDashboardClient: () => Promise<DashboardStats>; ... 39 more ...; getMyLeavesClient: () => Promise<...>; }'. Did you mean 'getHelpdesksClient'?
+app/admin/hospital-admins/page.tsx(77,51): error TS2554: Expected 1 arguments, but got 2.
+app/admin/users/page.tsx(126,80): error TS2554: Expected 1 arguments, but got 2.
+hooks/queries/useNursePatients.ts(56,47): error TS2345: Argument of type 'string' is not assignable to parameter of type '"pending" | "completed" | "in-progress"'.
