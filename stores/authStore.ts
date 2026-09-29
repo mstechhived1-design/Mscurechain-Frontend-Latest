@@ -711,7 +711,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         const user = JSON.parse(sessionUser);
         console.log("[Auth] 📂 Restored user from session cache:", user.role);
-        set({ user: stabilizeUser(user), isAuthenticated: true, isTabAuthorized: true });
+        set({ user: stabilizeUser(user), isAuthenticated: !!sessionToken, isTabAuthorized: true });
         if (typeof window !== "undefined") {
           localStorage.setItem("tabAuthorized", "true");
         }
