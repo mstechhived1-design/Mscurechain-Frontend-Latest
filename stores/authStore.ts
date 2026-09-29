@@ -711,7 +711,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         const user = JSON.parse(sessionUser);
         console.log("[Auth] 📂 Restored user from session cache:", user.role);
-        set({ user: stabilizeUser(user), isAuthenticated: true });
+        set({ user: stabilizeUser(user), isAuthenticated: true, isTabAuthorized: true });
+        if (typeof window !== "undefined") {
+          localStorage.setItem("tabAuthorized", "true");
+        }
       } catch {}
     }
 
@@ -724,7 +727,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       Date.now() - parseInt(lastCheck) < 30000 // 30s throttle
     ) {
       console.log("[Auth] 🏎️ Skipping auth check - throttled");
-      set({ isAuthenticated: true, isLoading: false, isInitialized: true });
+      set({ isAuthenticated: true, isLoading: false, isInitialized: true, isTabAuthorized: true });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("tabAuthorized", "true");
+      }
       return;
     }
 
@@ -816,7 +822,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           isLoading: false,
           isInitialized: true,
+          isTabAuthorized: true,
         });
+        if (typeof window !== "undefined") {
+          localStorage.setItem("tabAuthorized", "true");
+        }
       } else {
         console.log("[AUTH INIT] no valid session");
         set({
