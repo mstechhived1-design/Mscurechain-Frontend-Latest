@@ -127,8 +127,11 @@ async function silentRefresh(
   sessionId?: string,
   role?: string,
 ) {
-  const API_URL =
+  let API_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:5003/api";
+  if (API_URL && !/^https?:\/\//i.test(API_URL)) {
+    API_URL = `https://${API_URL}`;
+  }
   const poolKey = sessionId || refreshToken.slice(-20); // Fallback to token suffix if sessionId missing
 
   // 1. Check if a refresh for this session is already in flight

@@ -5,7 +5,11 @@ import io, { Socket } from "socket.io-client";
 import QueueDisplay from "@/components/display/QueueDisplay";
 import { Monitor, QrCode } from "lucide-react";
 
-const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/api\/?$/, "");
+let rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+if (rawApiUrl && !/^https?:\/\//i.test(rawApiUrl)) {
+  rawApiUrl = `https://${rawApiUrl}`;
+}
+const BACKEND_URL = rawApiUrl.replace(/\/api\/?$/, "");
 
 const LANGUAGE_TEMPLATES: Record<string, (token: string, patientName: string, doctorName: string) => string> = {
   'en-IN': (t, p, d) => t === "N/A" ? `Patient ${p}, please proceed to ${d}'s room.` : `Token ${t}, ${p}, please proceed to ${d}'s room.`,

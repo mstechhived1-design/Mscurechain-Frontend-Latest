@@ -1,4 +1,7 @@
 let apiUrl = process.env.NEXT_PUBLIC_API_URL;
+if (apiUrl && !/^https?:\/\//i.test(apiUrl)) {
+  apiUrl = `https://${apiUrl}`;
+}
 
 if (typeof window !== "undefined") {
   const currentHost = window.location.hostname;
