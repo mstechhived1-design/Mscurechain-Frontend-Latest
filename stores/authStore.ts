@@ -718,10 +718,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch {}
     }
 
-    // ✅ SPEED FIX: Throttle network calls unless forced
+    // ✅ SPEED FIX: Throttle network calls UNLESS forced, missing token, or on login page
+    const isLoginPage = typeof window !== "undefined" && window.location.pathname.includes("/login");
     const lastCheck = localStorage.getItem("lastAuthCheck");
     if (
       !force &&
+      !isLoginPage &&
+      sessionToken &&
       lastCheck &&
       get().user &&
       Date.now() - parseInt(lastCheck) < 30000 // 30s throttle
