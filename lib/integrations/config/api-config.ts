@@ -1,5 +1,8 @@
 let apiUrl = process.env.NEXT_PUBLIC_API_URL;
-if (apiUrl && !/^https?:\/\//i.test(apiUrl)) {
+
+if (typeof window !== "undefined" && apiUrl && apiUrl.startsWith("/")) {
+  apiUrl = `${window.location.origin}${apiUrl}`;
+} else if (apiUrl && !/^https?:\/\//i.test(apiUrl)) {
   apiUrl = `https://${apiUrl}`;
 }
 
