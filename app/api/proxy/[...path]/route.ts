@@ -11,9 +11,11 @@ import { NextRequest, NextResponse } from "next/server";
  * BACKEND_INTERNAL_URL should be set to: http://43.204.32.80:5002/api
  */
 
-const BACKEND_BASE =
-  process.env.BACKEND_INTERNAL_URL?.replace(/\/+$/, "") ||
-  "http://43.204.32.80:5002/api";
+let rawBackend = process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") || "http://43.204.32.80:5002/api";
+if (rawBackend && !/^https?:\/\//i.test(rawBackend)) {
+  rawBackend = `https://${rawBackend}`;
+}
+const BACKEND_BASE = rawBackend;
 
 async function handler(
   req: NextRequest,
