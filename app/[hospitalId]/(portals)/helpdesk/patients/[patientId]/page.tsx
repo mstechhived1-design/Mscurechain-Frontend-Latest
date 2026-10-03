@@ -86,16 +86,17 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    let finalValue = value;
     
     // Restrictions
     if (name === 'mobile' || name === 'emergencyContact') {
-      if (value !== '' && !/^\d*$/.test(value)) return;
-      if (value.length > 10) return;
+      finalValue = value.replace(/\D/g, '');
+      if (finalValue.length > 10) return;
     }
 
     if (name === 'age' || name === 'ageUnit') {
-      const currentUnit = name === 'ageUnit' ? (value as 'Years' | 'Months' | 'Days') : formData.ageUnit;
-      const currentAgeVal = name === 'age' ? value.replace(/\D/g, '') : formData.age;
+      const currentUnit = name === 'ageUnit' ? (finalValue as 'Years' | 'Months' | 'Days') : formData.ageUnit;
+      const currentAgeVal = name === 'age' ? finalValue.replace(/\D/g, '') : formData.age;
       const ageNum = parseInt(currentAgeVal, 10);
 
       if (!isNaN(ageNum) && ageNum >= 0 && ageNum <= 130) {
@@ -114,15 +115,15 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
         }));
       }
     } else if (name === 'dob') {
-      const exact = calculateExactAge(value);
+      const exact = calculateExactAge(finalValue);
       setFormData(prev => ({
         ...prev,
-        dob: value,
+        dob: finalValue,
         age: exact.primaryValue,
         ageUnit: exact.primaryUnit,
       }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData(prev => ({ ...prev, [name]: finalValue }));
     }
 
     // Clear error when user types
@@ -166,8 +167,9 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
       }
     }
     
-    if (!formData.address.trim()) newErrors.address = "Address is required";
-    else if (formData.address.trim().length < 3) newErrors.address = "Address is too short";
+    if (formData.address.trim() && formData.address.trim().length < 3) {
+      newErrors.address = "Address is too short";
+    }
 
     if (formData.emergencyContact && !/^\d{10}$/.test(formData.emergencyContact)) {
       newErrors.emergencyContact = "Must be 10 digits";

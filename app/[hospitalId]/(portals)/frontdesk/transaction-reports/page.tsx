@@ -12,6 +12,7 @@ import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/uti
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import PatientSearchDropdown from '@/components/shared/PatientSearchDropdown';
+import { apiClient } from '@/lib/integrations/api/apiClient';
 
 interface DoctorCharge { id: string; code?: string; doctorName: string; specialization: string; rate: number; visits: number; amount?: number; }
 interface AdmissionCharge { id: string; code?: string; chargeType: string; description: string; rate: number; days: number; amount?: number; }
@@ -198,6 +199,71 @@ export default function TransactionReportsPage() {
     const [totalAdmissionsCount, setTotalAdmissionsCount] = useState<number>(0);
     const [hasActiveAdmission, setHasActiveAdmission] = useState<boolean>(true);
     const [isLoadingActive, setIsLoadingActive] = useState<boolean>(false);
+
+    // Edit Doctor State
+    const [showDoctorModal, setShowDoctorModal] = useState(false);
+    const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
+    const [isUpdatingDoctor, setIsUpdatingDoctor] = useState(false);
+
+    const openDoctorModal = async () => {
+        if (!admission || !admission._id) {
+            toast.error("No active appointment/admission to update.");
+            return;
+        }
+        try {
+            const res = await hospitalAdminService.getDoctors() as any;
+            setAvailableDoctors(res.doctors || res.data || res || []);
+            setShowDoctorModal(true);
+        } catch (error) {
+            toast.error("Failed to fetch doctors");
+        }
+    };
+
+    const handleDoctorUpdate = async (doctorId: string) => {
+        if (!doctorId) return;
+        setIsUpdatingDoctor(true);
+        try {
+            if (patientType === 'IPD' && admission?._id) {
+                await apiClient(`/ipd/admissions/${admission._id}`, { method: 'PATCH', body: JSON.stringify({ primaryDoctor: doctorId }) });
+            } else if (patientType === 'OPD' && admission?._id) {
+                await apiClient(`/appointments/${admission._id}/doctor`, { method: 'PATCH', body: JSON.stringify({ doctorId }) });
+            } else {
+                toast.error("Cannot determine appointment type.");
+                return;
+            }
+            toast.success("Attending doctor updated successfully!");
+            setShowDoctorModal(false);
+            
+            // Update local state so UI reflects it immediately
+            const selectedDoc = availableDoctors.find(d => (d._id || d.id) === doctorId);
+            if (selectedDoc) {
+                const newDocName = selectedDoc.user?.name || selectedDoc.name;
+                setDoctors(prev => {
+                    const newDocs = [...prev];
+                    if (newDocs.length > 0) {
+                        newDocs[0].doctorName = newDocName;
+                        newDocs[0].specialization = selectedDoc.specialization || newDocs[0].specialization;
+                    }
+                    return newDocs;
+                });
+                if (admission) {
+                    setAdmission({
+                        ...admission,
+                        primaryDoctor: selectedDoc,
+                        doctor: selectedDoc,
+                        doctorReference: newDocName
+                    });
+                }
+            }
+            
+            fetchHistory(); // Refresh to pull updated history if applicable
+        } catch (error) {
+            toast.error("Failed to update doctor");
+            console.error(error);
+        } finally {
+            setIsUpdatingDoctor(false);
+        }
+    };
     const [patientType, setPatientType] = useState<'IPD' | 'OPD' | null>(null);
     const [availableEncounters, setAvailableEncounters] = useState<{
         ipd: any | null;
@@ -624,6 +690,15 @@ export default function TransactionReportsPage() {
                                 />
                             )}
                         </div>
+                        {patientId && (
+                            <button
+                                onClick={openDoctorModal}
+                                className="h-7 sm:h-9 px-2 sm:px-3.5 bg-white text-emerald-600 font-bold text-[9px] sm:text-xs rounded-lg sm:rounded-xl border border-emerald-200 hover:bg-emerald-50 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                            >
+                                <Stethoscope className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                <span>Change Doctor</span>
+                            </button>
+                        )}
                         <button
                             onClick={() => router.push(`/${params.hospitalId}/frontdesk/transaction-history`)}
                             className="h-7 sm:h-9 px-2 sm:px-3.5 bg-white text-slate-700 font-bold text-[9px] sm:text-xs rounded-lg sm:rounded-xl border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
@@ -1042,6 +1117,61 @@ export default function TransactionReportsPage() {
                     </div>
                 </div>
             )}
+            
+            {/* Inline Doctor Change Modal */}
+            {showDoctorModal && (() => {
+                const currentAdm = activeEncounterType === 'IPD' ? (admission || availableEncounters.ipd || {}) : (admission || {});
+                const currentDocObj = currentAdm?.primaryDoctor || currentAdm?.doctor;
+                const currentDoctorId = typeof currentDocObj === 'object' && currentDocObj !== null ? (currentDocObj._id || currentDocObj.id) : currentDocObj;
+                const fallbackDocName = doctors.length > 0 ? doctors[0].doctorName : '';
+                const currentDocNameStr = patient?.doctorReference || patient?.referredBy || currentAdm?.doctorReference || fallbackDocName || '';
+
+                return (
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                    <Stethoscope className="w-4 h-4 text-emerald-600" />
+                                    Change Attending Doctor
+                                </h3>
+                                <button onClick={() => setShowDoctorModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg leading-none">×</button>
+                            </div>
+                            <div className="p-4 space-y-4">
+                                <div className="text-xs text-slate-500 font-medium">
+                                    <p>Select the new doctor to assign to this {patientType} encounter.</p>
+                                    {currentDocNameStr && <p className="mt-1 text-slate-700 font-bold">Currently: <span className="text-indigo-600">{currentDocNameStr}</span></p>}
+                                </div>
+                                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                                    {availableDoctors.map((doc: any) => {
+                                        const docId = doc._id || doc.id;
+                                        const docName = doc.user?.name || doc.name;
+                                        const safeDocName = String(docName).trim().toLowerCase();
+                                        const safeCurrentDocName = String(currentDocNameStr).trim().toLowerCase();
+                                        const isCurrent = (currentDoctorId && docId === currentDoctorId) || (safeCurrentDocName && (safeDocName === safeCurrentDocName || safeDocName.includes(safeCurrentDocName) || safeCurrentDocName.includes(safeDocName)));
+                                        return (
+                                            <button
+                                                key={docId}
+                                                onClick={() => handleDoctorUpdate(docId)}
+                                                disabled={isUpdatingDoctor || isCurrent}
+                                                className={`w-full text-left px-3 py-2 rounded-xl border transition-all flex items-center justify-between group disabled:opacity-70 ${isCurrent ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500' : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'}`}
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className={`text-sm font-bold ${isCurrent ? 'text-emerald-800' : 'text-slate-800 group-hover:text-emerald-700'}`}>{docName}</span>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-widest ${isCurrent ? 'text-emerald-600/70' : 'text-slate-400'}`}>{doc.specialization}</span>
+                                                </div>
+                                                {isCurrent && <span className="text-[9px] font-black uppercase bg-emerald-200/50 text-emerald-800 px-1.5 py-0.5 rounded">Current</span>}
+                                            </button>
+                                        );
+                                    })}
+                                    {availableDoctors.length === 0 && (
+                                        <div className="text-center py-4 text-sm text-slate-400 font-bold">No doctors found.</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
