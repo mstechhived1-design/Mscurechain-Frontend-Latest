@@ -15,9 +15,13 @@ import { NextRequest, NextResponse } from "next/server";
  * Portals:  doctor | hospital-admin | helpdesk | nurse | lab | pharmacy | staff | hr
  */
 
-const BACKEND =
-  process.env.BACKEND_INTERNAL_URL?.replace(/\/+$/, "") ||
+let BACKEND =
+  process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") ||
   "http://43.204.32.80:5002/api";
+
+if (BACKEND && !/^https?:\/\//i.test(BACKEND)) {
+  BACKEND = `https://${BACKEND}`;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

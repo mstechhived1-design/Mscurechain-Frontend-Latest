@@ -91,7 +91,10 @@ export default function TVDisplayPage() {
   }, [audioUnlocked]);
 
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5003";
+    let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5003";
+    if (socketUrl && !/^https?:\/\//i.test(socketUrl)) {
+      socketUrl = `https://${socketUrl}`;
+    }
     const newSocket = io(`${socketUrl}/tv-display`, {
       transports: ["websocket"],
       reconnection: true,
