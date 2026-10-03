@@ -94,7 +94,10 @@ export async function apiServer<T>(
     
   const sessionId = cookieStore.get('sessionId')?.value ?? null;
 
-  const backendBase = process.env.BACKEND_INTERNAL_URL?.replace(/\/+$/, "") || "http://43.204.32.80:5002/api";
+  let backendBase = process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") || "http://43.204.32.80:5002/api";
+  if (backendBase && !/^https?:\/\//i.test(backendBase)) {
+    backendBase = `https://${backendBase}`;
+  }
   const fullUrl = `${backendBase}${path}`;
   // ✅ ENHANCED LOGGING: Track token source for debugging
   const tokenSource = headerStore.get('X-Access-Token') ? 'MIDDLEWARE-HEADER' : (cookieStore.get('accessToken') ? 'STALE-COOKIE' : 'MISSING');
