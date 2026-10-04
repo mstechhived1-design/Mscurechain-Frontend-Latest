@@ -227,9 +227,9 @@ export const generateTransactionReportHTML = (
                         <tr><td class="info-label">UMR No</td><td>: ${umrNo}</td></tr>
                         <tr><td class="info-label">Bill No</td><td>: ${invoiceNo}</td></tr>
                         <tr><td class="info-label">Bill Dt</td><td>: ${formatDate(new Date())}</td></tr>
-                        ${(admission?.status === 'Discharged' || admission?.dischargeDate) ? `
+                        ${(admission?.status === 'Discharged' && admission?.dischargeDate) ? `
                         <tr><td class="info-label">Discharge Type</td><td>: ${admission?.dischargeType || 'Regular'}</td></tr>
-                        <tr><td class="info-label">Discharge Dt</td><td>: ${formatDate(admission?.dischargeDate || admission?.dischargedAt || admission?.updatedAt)}</td></tr>
+                        <tr><td class="info-label">Discharge Dt</td><td>: ${formatDate(admission.dischargeDate)}</td></tr>
                         ` : ''}
                         ${(admission?.wardName || admission?.ward?.name || admission?.bed?.wardName || admission?.bed?.type || fallbackWard) ? `<tr><td class="info-label">Ward</td><td>: ${admission?.wardName || admission?.ward?.name || admission?.bed?.wardName || admission?.bed?.type || fallbackWard}</td></tr>` : ''}
                         ${(admission?.bedNumber || admission?.bed?.bedId || admission?.bed?.number || admission?.bedId || fallbackBed) ? `<tr><td class="info-label">Bed No</td><td>: ${admission?.bedNumber || admission?.bed?.bedId || admission?.bed?.number || admission?.bedId || fallbackBed}</td></tr>` : ''}
