@@ -6,7 +6,7 @@ import { Search, Printer, FileText, User, ArrowLeft, RefreshCw, AlertCircle, Che
 import { helpdeskService } from '@/lib/integrations/services/helpdesk.service';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import { useHelpdeskPatients } from "@/lib/integrations";
-import { sanitizePatientName } from "@/lib/utils/name-utils";
+import { sanitizePatientName, formatPatientDisplayName } from "@/lib/utils/name-utils";
 import { calculateAge } from "@/lib/utils/date-utils";
 import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
@@ -61,7 +61,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 export default function FinalBillPage() {
     const router = useRouter();
     const params = useParams() as any;
-    
+
     // Search & Pagination State for Table
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(1);
@@ -86,7 +86,7 @@ export default function FinalBillPage() {
             total: raw.pagination?.total || (raw.data?.length || 0),
         };
     }, [patientsRaw]);
-    
+
     const totalPages = Math.ceil(total / limit);
     const showRefreshing = isFetching && !isLoading && patientsRaw;
 
@@ -98,7 +98,7 @@ export default function FinalBillPage() {
     const [loadingReport, setLoadingReport] = useState(false);
 
     useEffect(() => {
-        hospitalAdminService.getHospital().then(res => setHospital(res?.hospital)).catch(() => {});
+        hospitalAdminService.getHospital().then(res => setHospital(res?.hospital)).catch(() => { });
     }, []);
 
     const handleSelectPatient = async (patient: any) => {
@@ -119,7 +119,7 @@ export default function FinalBillPage() {
 
     const fetchPatientBillingData = async (pId: string) => {
         setLoadingReport(true);
-        
+
         // Helper: race any promise against a timeout
         const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
             Promise.race([
@@ -195,7 +195,7 @@ export default function FinalBillPage() {
         const adm = latestReport.admissionInfo || admission;
         const hInfo = latestReport.hospitalInfo || {};
         const dateNow = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const referralDoctor = 
+        const referralDoctor =
             latestReport.doctorReference ||
             latestReport.referredBy ||
             latestReport.patientInfo?.doctorReference ||
@@ -320,11 +320,16 @@ export default function FinalBillPage() {
                         <td class="lbl">GST No</td><td class="val">: ${hInfo.gstNumber || hospital?.gstNumber || ''}</td>
                     </tr>
                     <tr>
-                        <td class="lbl">Patient Name</td><td class="val">: ${pt.name || ''}</td>
+                        <td class="lbl">Patient Name</td><td class="val">: ${formatPatientDisplayName(selectedPatient || pt, adm, true)}</td>
                         <td class="lbl">IP No</td><td class="val">: ${adm?.admissionId || ''}</td>
                     </tr>
                     <tr>
-                        <td class="lbl">Age/Sex</td><td class="val">: ${[pt?.age || pt?.profile?.age || pt?.patientDetails?.age || calculateAge(pt?.dob || pt?.profile?.dob || pt?.patientDetails?.dob) ? (pt?.age || pt?.profile?.age || pt?.patientDetails?.age || calculateAge(pt?.dob || pt?.profile?.dob || pt?.patientDetails?.dob)) + 'Y' : '', pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender ? (pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender).charAt(0).toUpperCase() + (pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender).slice(1) : ''].filter(Boolean).join(' / ') || 'N/A'}</td>
+                        <td class="lbl">Age/Sex</td><td class="val">: ${[
+                            (selectedPatient?.profile?.age || selectedPatient?.age || pt?.age || pt?.profile?.age || pt?.patientDetails?.age || calculateAge(selectedPatient?.profile?.dob || selectedPatient?.dob || pt?.dob || pt?.profile?.dob || pt?.patientDetails?.dob)) ? 
+                            (selectedPatient?.profile?.age || selectedPatient?.age || pt?.age || pt?.profile?.age || pt?.patientDetails?.age || calculateAge(selectedPatient?.profile?.dob || selectedPatient?.dob || pt?.dob || pt?.profile?.dob || pt?.patientDetails?.dob)) + (selectedPatient?.profile?.ageUnit || selectedPatient?.ageUnit || pt?.ageUnit || pt?.profile?.ageUnit || pt?.patientDetails?.ageUnit || 'Y') : '', 
+                            (selectedPatient?.profile?.gender || selectedPatient?.gender || pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender) ? 
+                            (selectedPatient?.profile?.gender || selectedPatient?.gender || pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender).charAt(0).toUpperCase() + (selectedPatient?.profile?.gender || selectedPatient?.gender || pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender).slice(1) : ''
+                        ].filter(Boolean).join(' / ') || 'N/A'}</td>
                         <td class="lbl">UMR No</td><td class="val">: ${pt.mrn || ''}</td>
                     </tr>
                     <tr>
@@ -374,7 +379,7 @@ export default function FinalBillPage() {
                     </thead>
                     <tbody>
         `;
-        
+
         // Helper to render a category section
         const renderCategory = (title: string, items: any[], nameKey: string, rateKey: string, qtyKey: string) => {
             if (!items || items.length === 0) return '';
@@ -392,13 +397,13 @@ export default function FinalBillPage() {
                 if (!itemCode || itemCode === '-') {
                     const prefix = title.toLowerCase().includes('consultation') ? 'SVC'
                         : title.toLowerCase().includes('investigation') ? 'LAB'
-                        : title.toLowerCase().includes('ward') ? 'BED'
-                        : title.toLowerCase().includes('radiology') ? 'RAD'
-                        : title.toLowerCase().includes('pharmacy') ? 'MED'
-                        : 'SVC';
+                            : title.toLowerCase().includes('ward') ? 'BED'
+                                : title.toLowerCase().includes('radiology') ? 'RAD'
+                                    : title.toLowerCase().includes('pharmacy') ? 'MED'
+                                        : 'SVC';
                     const idSuffix = item._id ? item._id.toString().slice(-6).toUpperCase()
                         : (item.id && typeof item.id === 'string' && item.id.length >= 4) ? item.id.slice(-6).toUpperCase()
-                        : `${sno}`;
+                            : `${sno}`;
                     itemCode = prefix === 'BED' ? `BED${sno}` : `${prefix}${idSuffix}`;
                 }
 
@@ -570,13 +575,13 @@ export default function FinalBillPage() {
                             </p>
 
                             <div className="flex justify-center gap-4">
-                                <button 
+                                <button
                                     onClick={() => { setSelectedPatient(null); setLatestReport(null); }}
                                     className="px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors"
                                 >
                                     Cancel
                                 </button>
-                                <button 
+                                <button
                                     onClick={handlePrint}
                                     className="px-8 py-3 rounded-xl bg-indigo-600 text-white font-black text-sm flex items-center gap-2 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all"
                                 >
@@ -593,13 +598,13 @@ export default function FinalBillPage() {
                                 There are no finalized transaction reports for this patient. Please create and save a report in the Transaction Reports section first.
                             </p>
                             <div className="flex justify-center gap-4">
-                                <button 
+                                <button
                                     onClick={() => setSelectedPatient(null)}
                                     className="px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors"
                                 >
                                     Go Back
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => router.push(`/${params.hospitalId}/frontdesk/transaction-reports?patientId=${selectedPatient._id}`)}
                                     className="px-6 py-3 rounded-xl bg-slate-900 text-white font-black text-sm hover:bg-slate-800 transition-colors"
                                 >
@@ -652,18 +657,18 @@ export default function FinalBillPage() {
                                                     <td className="px-4 sm:px-6 py-4">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-indigo-50 text-indigo-500 border border-indigo-100 transition-all flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-                                                                {sanitizePatientName(patient.name || patient.user?.name).charAt(0).toUpperCase()}
+                                                                {formatPatientDisplayName(patient, null, true).charAt(0).toUpperCase()}
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <span className="text-[13px] lg:text-[15px] font-[550] text-slate-700 uppercase tracking-tight truncate block">
-                                                                    {sanitizePatientName(patient.name || patient.user?.name)}
+                                                                    {formatPatientDisplayName(patient, null, true)}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-4 text-center">
                                                         <span className="text-[12px] lg:text-[13px] font-bold text-slate-600 bg-slate-50 border border-slate-200/50 px-2 py-1 rounded-lg">
-                                                            {patient.profile?.age || patient.age || calculateAge(patient.profile?.dob || patient.dob)} <span className="text-[9px] text-slate-400">YRS</span>
+                                                            {patient.profile?.age || patient.age || calculateAge(patient.profile?.dob || patient.dob)} <span className="text-[9px] text-slate-400">{patient.profile?.ageUnit || patient.ageUnit || patient.patientDetails?.ageUnit || 'YRS'}</span>
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-4 text-center">

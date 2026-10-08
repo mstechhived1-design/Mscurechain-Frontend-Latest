@@ -31,7 +31,7 @@ import {
 import { AttendanceModal } from "@/components/attendance/AttendanceModal";
 import { HelpdeskDashboardSkeleton } from "@/components/ui/skeletons";
 import { useAuthStore } from "@/stores/authStore";
-import { sanitizePatientName, formatDoctorName } from "@/lib/utils/name-utils";
+import { sanitizePatientName, formatDoctorName, formatPatientDisplayName } from "@/lib/utils/name-utils";
 
 function HelpdeskDashboard() {
     const formatTimeTo12h = (timeStr?: string) => {
@@ -845,11 +845,11 @@ function HelpdeskDashboard() {
                                                     <div className="col-span-3 flex items-center gap-4 min-w-0">
                                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${apt.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-900 text-white'
                                                             }`}>
-                                                            {sanitizePatientName(apt.patientName).charAt(0).toUpperCase()}
+                                                            {formatPatientDisplayName(apt.patient, apt, true).charAt(0).toUpperCase()}
                                                         </div>
                                                         <div className="min-w-0">
                                                             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-tight truncate">
-                                                                {sanitizePatientName(apt.patientName)}
+                                                                {formatPatientDisplayName(apt.patient, apt, true)}
                                                             </h4>
                                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                                                                 MRN: {(apt as any).mrn || 'N/A'}
@@ -914,12 +914,12 @@ function HelpdeskDashboard() {
                                                             <div className="flex flex-col items-center">
                                                                 <span className="text-[10px] font-black text-slate-300 mb-1">#{activeTab === 'active' ? (idx + 1).toString().padStart(2, '0') : ((historyPage - 1) * itemsPerPage + idx + 1).toString().padStart(2, '0')}</span>
                                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base bg-slate-900 text-white`}>
-                                                            {(apt.patient?.name || apt.patientName || "U").charAt(0).toUpperCase()}
+                                                            {formatPatientDisplayName(apt.patient, apt, true).charAt(0).toUpperCase()}
                                                                 </div>
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight truncate max-w-[140px]">
-                                                                {apt.patient?.name || apt.patientName || "Unknown Patient"}
+                                                                {formatPatientDisplayName(apt.patient, apt, true)}
                                                                 </h4>
                                                                 <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase mt-1 inline-block ${(apt as any).type === 'EMERGENCY' ? 'bg-rose-50 text-rose-600 border border-rose-100' : (apt as any).type === 'IPD' ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
                                                                     {(apt as any).type?.toUpperCase() === 'CONSULTATION' ? 'OPD' : ((apt as any).type || 'OPD')}
