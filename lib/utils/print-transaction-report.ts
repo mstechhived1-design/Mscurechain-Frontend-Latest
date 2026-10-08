@@ -178,14 +178,14 @@ export const generateTransactionReportHTML = (
                 <td style="width: 50%;">
                     <table style="width: 100%; border: none;">
                         <tr><td class="info-label">CIN No</td><td>: ${hospital?.cinNumber || hospital?.cin || ''}</td></tr>
-                        <tr><td class="info-label">Patient Name</td><td>: <b>${formatPatientDisplayName(patient)}</b></td></tr>
+                        <tr><td class="info-label">Patient Name</td><td>: <b>${formatPatientDisplayName(patient, admission)}</b></td></tr>
                         <tr><td class="info-label">Age/Sex</td><td>: ${(() => {
                             const patientDob = patient?.dob || patient?.profile?.dob || patient?.patientDetails?.dob || patient?.dateOfBirth || patient?.user?.dateOfBirth;
                             const encounterDate = admission?.admissionDate || admission?.createdAt || reportData?.date || new Date();
                             const ageCalc = calculateExactAge(patientDob, new Date(encounterDate));
                             const ageText = ageCalc.display !== "N/A"
                                 ? (ageCalc.years >= 2 ? `${ageCalc.years} Y` : ageCalc.shortDisplay)
-                                : (patient?.age || patient?.profile?.age ? `${patient?.age || patient?.profile?.age} Y` : '');
+                                : (patient?.age || patient?.profile?.age ? `${patient?.age || patient?.profile?.age} ${patient?.ageUnit || patient?.profile?.ageUnit || patient?.patientDetails?.ageUnit || 'Y'}` : '');
                             const genderText = patient?.gender || patient?.profile?.gender || patient?.patientDetails?.gender || patient?.user?.gender
                                 ? (patient?.gender || patient?.profile?.gender || patient?.patientDetails?.gender || patient?.user?.gender).charAt(0).toUpperCase() + (patient?.gender || patient?.profile?.gender || patient?.patientDetails?.gender || patient?.user?.gender).slice(1)
                                 : '';
