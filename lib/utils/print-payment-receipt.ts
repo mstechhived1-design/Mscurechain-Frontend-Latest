@@ -29,13 +29,13 @@ export const printPaymentReceipt = (payment: any, summary: any, hospitalDetails?
 
     const txDate = payment.createdAt || payment.transactionTime || payment.date || new Date();
     const receiptDate = format(new Date(txDate), 'dd-MMM-yyyy hh:mm a');
-    const amountInWords = numberToWords(Math.round(payment.amount)) + "Only";
+    const amountInWords = numberToWords(Math.round(payment.amount)) + " Only";
 
     const patientName = formatPatientNameWithPrefix(
         summary?.patientName || payment?.patientName || "Unknown Patient",
         summary?.patientHonorific || summary?.patientPrefix || summary?.honorific || payment?.honorific
     );
-    const rawAge = summary?.patientAge || summary?.age || payment?.patientAge || payment?.age || "";
+    const rawAge = summary?.patientAge ?? summary?.age ?? payment?.patientAge ?? payment?.age ?? "";
     const rawAgeUnit = summary?.patientAgeUnit || summary?.ageUnit || payment?.patientAgeUnit || payment?.ageUnit || "Y";
     const rawGender = summary?.patientGender || summary?.gender || payment?.patientGender || payment?.gender || "";
     

@@ -161,8 +161,10 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                 };
 
                 data.mrn = data.mrn || patientObj.mrn || profileObj.mrn || admissionDetails.mrn || "";
-                data.patientAge = data.patientAge || patientObj.age || profileObj.age || calcAge(patientObj.dateOfBirth) || calcAge(profileObj.dateOfBirth) || "";
+                data.patientAge = data.patientAge ?? patientObj.age ?? profileObj.age ?? calcAge(patientObj.dateOfBirth) ?? calcAge(profileObj.dateOfBirth) ?? "";
+                data.patientAgeUnit = data.patientAgeUnit || patientObj.ageUnit || profileObj.ageUnit || "Y";
                 data.patientGender = data.patientGender || patientObj.gender || profileObj.gender || "";
+                data.patientHonorific = data.patientHonorific || data.honorific || patientObj.honorific || profileObj.honorific || patientObj.user?.honorific || patientObj.honorificTitle || "";
                 data.patientAddress = data.patientAddress || patientObj.address || profileObj.address || "";
                 data.patientContact = data.patientContact || patientObj.phone || patientObj.mobile || profileObj.phone || profileObj.mobile || "";
                 data.admissionDate = data.admissionDate || admissionDetails.admissionDate || "";
@@ -201,8 +203,10 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                         };
 
                         data.mrn = data.mrn || patientObj.mrn || profileObj.mrn || admissionDetails.mrn || "";
-                        data.patientAge = data.patientAge || patientObj.age || profileObj.age || calcAge(patientObj.dateOfBirth) || calcAge(profileObj.dateOfBirth) || "";
+                        data.patientAge = data.patientAge ?? patientObj.age ?? profileObj.age ?? calcAge(patientObj.dateOfBirth) ?? calcAge(profileObj.dateOfBirth) ?? "";
+                        data.patientAgeUnit = data.patientAgeUnit || patientObj.ageUnit || profileObj.ageUnit || "Y";
                         data.patientGender = data.patientGender || patientObj.gender || profileObj.gender || "";
+                        data.patientHonorific = data.patientHonorific || data.honorific || patientObj.honorific || profileObj.honorific || patientObj.user?.honorific || patientObj.honorificTitle || "";
                         data.patientAddress = data.patientAddress || patientObj.address || profileObj.address || "";
                         data.patientContact = data.patientContact || patientObj.phone || patientObj.mobile || profileObj.phone || profileObj.mobile || "";
                         data.admissionDate = data.admissionDate || admissionDetails.admissionDate || "";
