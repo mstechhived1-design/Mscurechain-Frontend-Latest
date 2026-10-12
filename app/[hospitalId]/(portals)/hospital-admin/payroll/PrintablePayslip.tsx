@@ -2,7 +2,6 @@
 
 import React from "react";
 import { usePrintStore } from '@/stores/printStore';
-import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 // ============================================================================
 // UTILITY: NUMBER TO WORDS (INDIAN FORMAT)
 // ============================================================================
@@ -63,7 +62,6 @@ export const PrintablePayslip = React.forwardRef<HTMLDivElement, PrintablePaysli
 
    return (
       <div ref={ref} className="bg-white text-black font-sans p-[4mm] leading-none box-border flex flex-col mx-auto overflow-hidden relative" style={{ width: '210mm', height: '297mm', maxHeight: '297mm', fontSize: '10px' }}>
-         <PrintSettingsToggle />
          <PayslipContent h={h} u={u} rx={rx} b={b} c={c} monthName={monthName} fullPeriod={fullPeriod} totalGross={totalGross} totalDeducts={totalDeducts} netSalary={netSalary} totalCTC={totalCTC} />
       </div>
    );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
     X,
     Printer,
@@ -8,6 +8,9 @@ import {
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { Frequency, formatFrequency } from '@/lib/frequencyUtils';
+import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
+import { useParams } from 'next/navigation';
 
 interface Medicine {
     productId?: string;
@@ -51,6 +54,43 @@ const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> = ({
     handleSendToPharma,
     sentToPharma
 }) => {
+    const paperRef = useRef<HTMLDivElement>(null);
+    const params = useParams();
+    const hospitalId = (params?.hospitalId as string) || '';
+
+    const patientMobile = formData.patientMobile || formData.phone || formData.mobile || formData.patientPhone || '';
+    const pName = formData.patientName || 'Valued Patient';
+    const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+    const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+
+    const mrn = getValidMrn(formData.mrn) || 'N/A';
+    const docName = formData.doctorName ? (formData.doctorName.startsWith('Dr.') ? formData.doctorName : `Dr. ${formData.doctorName}`) : 'Attending Specialist';
+    const hospName = hospitalBranding?.name || 'MSCCURECHAIN HEALTHCARE';
+    const dateStr = formData.date || new Date().toLocaleDateString('en-GB');
+    const diag = formData.diagnosis || 'General Consultation';
+    const medsCount = formData.medicines?.length || 0;
+
+    const rxCaption = `*${hospName.toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*E-PRESCRIPTION & CLINICAL SUMMARY*
+
+*Patient Name:* ${pName}
+*MRN / Token ID:* ${mrn}
+*Doctor Name:* ${docName}
+*Specialty:* ${activeSpecialty || 'General'}
+*Consultation Date:* ${dateStr}
+*Prescribed Medications:* ${medsCount} Item(s)
+*Diagnosis:* ${diag}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your detailed official digital prescription PDF attached above.
+• Take prescribed medicines as directed by your doctor.
+• Show this PDF to the Pharmacy for medicine collection.
+• Contact ${hospName} Helpdesk for any queries or follow-up appointments.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+
     React.useEffect(() => {
         const main = document.querySelector('main');
         if (isOpen) {
@@ -147,6 +187,7 @@ const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> = ({
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
+                                <PrintSettingsToggle />
                                 <button
                                     onClick={onClose}
                                     className="p-2.5 bg-slate-50 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-500 transition-all active:scale-95 border border-slate-100"
@@ -157,7 +198,7 @@ const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> = ({
                         </div>
 
                         {/* The Actual "Paper" Preview */}
-                        <div className="preview-paper animate-in fade-in zoom-in-95 duration-300">
+                        <div ref={paperRef} className="preview-paper animate-in fade-in zoom-in-95 duration-300">
                             <MainHeader initialDetails={hospitalBranding} />
 
                             <div className="preview-content">
@@ -1434,7 +1475,7 @@ return (
 
                 {/* Action Bar */}
                 <div className="sticky bottom-0 w-full bg-slate-900 p-3 sm:p-5 border-t border-slate-800 flex flex-col sm:flex-row justify-end items-center gap-2 sm:gap-4 shadow-2xl">
-                    <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
                         {!sentToPharma && formData.medicines.length > 0 && (
                             <button
                                 onClick={handleSendToPharma}
@@ -1444,6 +1485,16 @@ return (
                                 <span>Pharma</span>
                             </button>
                         )}
+
+                        <WhatsAppSendButton
+                            hospitalId={hospitalId}
+                            targetRef={paperRef}
+                            phoneNumber={patientMobile}
+                            documentName={`Prescription_${formData.patientName || 'Patient'}.pdf`}
+                            caption={rxCaption}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 sm:gap-3 px-4 sm:px-8 py-2.5 sm:py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg sm:rounded-xl font-black uppercase text-[8px] sm:text-[10px] tracking-widest transition-all active:scale-95 shadow-lg shadow-[#25D366]/20 disabled:opacity-50 h-full"
+                        />
+
                         <button
                             onClick={onClose}
                             className="flex-1 sm:flex-none px-4 sm:px-8 py-2.5 sm:py-4 bg-slate-800 text-slate-300 rounded-lg sm:rounded-xl font-black uppercase text-[8px] sm:text-[10px] tracking-widest hover:bg-slate-700 transition-all active:scale-95 border border-slate-700"

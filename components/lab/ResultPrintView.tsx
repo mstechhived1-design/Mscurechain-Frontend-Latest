@@ -1,7 +1,6 @@
 import React, { forwardRef } from 'react';
 import { LabSample } from '@/lib/integrations/types/labSample';
 import { usePrintStore } from '@/stores/printStore';
-import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 interface ResultPrintViewProps {
     sample: LabSample;
@@ -41,7 +40,6 @@ const ResultPrintView = forwardRef<HTMLDivElement, ResultPrintViewProps>(({ samp
 
     return (
         <div ref={ref} className="p-8 bg-white text-black font-sans max-w-4xl mx-auto border border-gray-300 relative" id="printable-result">
-            <PrintSettingsToggle />
             <table className="lab-master-print-table w-full border-collapse border-0">
                 <thead>
                     <tr>

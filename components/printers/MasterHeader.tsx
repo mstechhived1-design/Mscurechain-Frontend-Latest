@@ -1,7 +1,6 @@
 import React from 'react';
 import { Phone, Mail, MapPin } from 'lucide-react';
 import { usePrintStore } from '@/stores/printStore';
-import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 export interface MasterShopDetails {
     name: string;
@@ -20,7 +19,6 @@ const MasterHeader: React.FC<MasterHeaderProps> = ({ initialDetails }) => {
 
     return (
         <div style={{ position: 'relative', width: '100%' }}>
-            <PrintSettingsToggle />
             {printWithHeader ? (
                 <div style={{
             width: '100%',

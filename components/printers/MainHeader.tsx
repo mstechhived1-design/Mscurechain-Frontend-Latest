@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Phone, Mail } from 'lucide-react';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import { usePrintStore } from '@/stores/printStore';
-import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 export interface ShopDetails {
     name: string;
@@ -51,7 +50,6 @@ const MainHeader: React.FC<MainHeaderProps> = ({ initialDetails }) => {
 
     return (
         <div style={{ position: 'relative', width: '100%' }} className="main-header-print-container">
-            <PrintSettingsToggle />
             {printWithHeader ? (
                 <div style={{
                     width: '100%',

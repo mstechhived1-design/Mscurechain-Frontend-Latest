@@ -11,6 +11,7 @@ import { useReactToPrint } from 'react-to-print';
 import { toast } from 'react-hot-toast';
 import { useTenantLink } from '@/hooks/useTenantLink';
 import { usePrintStore } from '@/stores/printStore';
+import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
 
 const InvoicePreviewPage = () => {
     const params = useParams() as any;
@@ -25,7 +26,7 @@ const InvoicePreviewPage = () => {
 
     const invoiceId = params?.id as string;
 
-    const shopDetails: ShopDetails = {
+    const shopDetails: ShopDetails = React.useMemo(() => ({
         name: (user as any)?.shopName || user?.name || 'Pharmacy Store',
         address: (user as any)?.address || 'No Address Provided',
         phone: (user as any)?.mobile || (user as any)?.phone || '-',
@@ -34,7 +35,53 @@ const InvoicePreviewPage = () => {
         dlNo: (user as any)?.licenseNo || '',
         logo: (user as any)?.image || (user as any)?.logo || (user as any)?.avatar || (user as any)?.profilePic,
         pharmacyTerms: user?.pharmacyTerms || []
-    };
+    }), [user]);
+
+    const hospitalId = (params?.hospitalId as string) || '';
+
+    const pharmaInvoiceCaption = React.useMemo(() => {
+        if (!bill) return '';
+        const pName = bill.patientName || 'Valued Patient';
+        const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+        const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+
+        const mrn =
+            getValidMrn(bill.mrn) ||
+            getValidMrn((bill as any).patientMrn) ||
+            getValidMrn((bill as any).patient?.mrn) ||
+            getValidMrn((bill as any).user?.mrn) ||
+            'N/A';
+        const docName = bill.doctorName ? (bill.doctorName.startsWith('Dr.') ? bill.doctorName : `Dr. ${bill.doctorName}`) : 'Attending Specialist';
+        const hospName = shopDetails.name || 'HORIZIN HOSPITAL PHARMACY';
+        const invId = bill.invoiceId || 'INV';
+        const dateStr = bill.createdAt ? new Date(bill.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+        const totalAmt = bill.paymentSummary?.grandTotal ?? 0;
+        const statusStr = bill.paymentSummary?.status || 'PAID';
+        const pMode = bill.paymentSummary?.paymentMode || 'CASH';
+        const itemsCount = bill.items?.length || 0;
+
+        return `*${hospName.toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*PHARMACY MEDICINE INVOICE & RECEIPT*
+
+*Patient Name:* ${pName}
+*MRN / Token ID:* ${mrn}
+*Prescribed Doctor:* ${docName}
+*Invoice No:* ${invId}
+*Invoice Date:* ${dateStr}
+*Medicines Dispensed:* ${itemsCount} Item(s)
+*Payment Mode:* ${String(pMode).toUpperCase()}
+*Total Amount:* ₹${totalAmt} (${String(statusStr).toUpperCase()})
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your official pharmacy tax invoice PDF attached above.
+• Check your medicines and dosage schedule carefully.
+• Keep medicines in a cool, dry place away from direct sunlight.
+• Contact ${hospName} Pharmacy for any queries or refilling.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+    }, [bill, shopDetails]);
 
     const handlePrint = useReactToPrint({
         contentRef: componentRef,
@@ -135,6 +182,15 @@ const InvoicePreviewPage = () => {
                                 />
                                 <span>Header & Footer</span>
                             </label>
+
+                            <WhatsAppSendButton
+                                hospitalId={hospitalId}
+                                targetRef={componentRef}
+                                phoneNumber={bill.customerPhone}
+                                documentName={`Invoice_${bill.invoiceId || 'Pharmacy'}.pdf`}
+                                caption={pharmaInvoiceCaption}
+                                layout="stacked"
+                            />
 
                             <button
                                 onClick={() => handlePrint()}

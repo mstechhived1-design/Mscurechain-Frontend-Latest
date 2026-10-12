@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { LabSettingsService, LabSettings } from '@/lib/integrations/services/labSettings.service';
 import { Phone, Mail } from 'lucide-react';
 import { usePrintStore } from '@/stores/printStore';
-import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 const HeaderPrint: React.FC = () => {
     const [settings, setSettings] = useState<LabSettings>({
@@ -135,7 +134,6 @@ const HeaderPrint: React.FC = () => {
 
     return (
         <div style={{ position: 'relative', width: '100%' }}>
-            <PrintSettingsToggle />
             {printWithHeader ? (
                 <div style={containerStyle} className="lab-header-container">
                     <style>

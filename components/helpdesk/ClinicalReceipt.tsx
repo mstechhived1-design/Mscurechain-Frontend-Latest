@@ -7,6 +7,8 @@ import MainFooter from "../printers/MainFooter";
 import { hospitalAdminService } from "@/lib/integrations/services/hospitalAdmin.service";
 import { sanitizePatientName } from "@/lib/utils/name-utils";
 import { usePrintStore } from "@/stores/printStore";
+import { WhatsAppSendButton } from "../WhatsApp/WhatsAppSendButton";
+import { useParams } from "next/navigation";
 
 interface ReceiptProps {
   hospital: {
@@ -115,6 +117,8 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
   const [hospital, setHospital] = React.useState(propHospital);
   const [dataLoaded, setDataLoaded] = React.useState(false);
   const { printWithHeader, setPrintWithHeader } = usePrintStore();
+  const params = useParams();
+  const hospitalId = (params?.hospitalId as string) || '';
 
   const isOPDOrReg = !((patient.dischargeType && patient.dischargeType.toUpperCase() !== 'NONE') ||
     (appointment.type && (appointment.type.toUpperCase().includes('DISCHARGE') || appointment.type.toUpperCase().includes('SETTLEMENT'))) ||
@@ -403,6 +407,25 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                <WhatsAppSendButton
+                  hospitalId={hospitalId}
+                  targetRef={iframeRef}
+                  phoneNumber={patient.mobile}
+                  documentName={`Appointment_Receipt_${patient.name}.pdf`}
+                  appointmentDetails={{
+                    patientName: patient.name,
+                    mrn: patient.mrn,
+                    appointmentId: appointment.appointmentId,
+                    doctorName: appointment.doctorName,
+                    specialty: appointment.specialization,
+                    date: appointment.date,
+                    timeSlot: appointment.time,
+                    hospitalName: hospital.name,
+                    fee: payment.amount,
+                    paymentStatus: payment.status
+                  }}
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-all text-[11px] sm:text-xs uppercase tracking-wider disabled:opacity-50 h-full"
+                />
               <button
                 onClick={handlePrint}
                 disabled={isConfirming}

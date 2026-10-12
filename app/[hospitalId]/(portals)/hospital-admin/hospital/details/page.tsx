@@ -25,6 +25,8 @@ import { PageHeader, Card, Button, FormInput, FormTextarea } from '@/components/
 import { LogoManager } from '@/components/hospital-admin/LogoManager';
 import { ipdService } from '@/lib/integrations/services/ipd.service';
 import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'next/navigation';
+import { WhatsAppSettingsHub } from '@/components/WhatsApp/WhatsAppSettingsHub';
 
 const HospitalDetailsPage = () => {
   const [hospital, setHospital] = useState<any>(null);
@@ -32,6 +34,9 @@ const HospitalDetailsPage = () => {
   const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [formData, setFormData] = useState<any>({});
+
+  const params = useParams();
+  const hospitalId = params?.hospitalId as string;
 
   const fetchHospitalData = useCallback(async () => {
     try {
@@ -468,6 +473,13 @@ const HospitalDetailsPage = () => {
               </div>
             </div>
           </Card>
+
+          {/* WhatsApp Settings Configuration Hub */}
+          {hospitalId && (
+            <div className="mt-8">
+              <WhatsAppSettingsHub hospitalId={hospitalId} />
+            </div>
+          )}
         </div>
 
         {/* Right Column: Asset Metrics */}

@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import Image from 'next/image';
 import { usePrintStore } from '@/stores/printStore';
-import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 interface DoctorCharge    { id: string; doctorName: string; specialization: string; rate: number; visits: number; }
 interface AdmissionCharge { id: string; chargeType: string; description: string; rate: number; days: number; }
@@ -98,7 +97,6 @@ export default function TransactionReportPrint({ data }: { data: PrintData }) {
 
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', color: '#111', padding: '15mm', width: '210mm', minHeight: '297mm', boxSizing: 'border-box', background: '#fff', position: 'relative' }}>
-            <PrintSettingsToggle />
             {/* ── Hospital Header ── */}
             {printWithHeader ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, borderBottom: '3px solid #1e3a8a', paddingBottom: 15, marginBottom: 20 }}>

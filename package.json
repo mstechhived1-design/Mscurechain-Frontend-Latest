@@ -8,6 +8,9 @@
     "dev:fast": "NEXT_DISABLE_SOURCEMAPS=1 next dev --turbo",
     "build": "next build",
     "start": "next start",
+    "build:worker": "opennextjs-cloudflare build",
+    "preview:worker": "wrangler dev",
+    "deploy:worker": "opennextjs-cloudflare deploy",
     "lint": "eslint",
     "type-check": "tsc --noEmit",
     "test:prod": "next build && next start"
@@ -47,6 +50,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.10",
     "@tailwindcss/postcss": "^4",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
@@ -57,6 +61,7 @@
     "eslint": "^9",
     "eslint-config-next": "^15.1.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.149.0"
   }
 }

@@ -16,6 +16,8 @@ import { LabSettingsService } from '@/lib/integrations/services/labSettings.serv
 import { Download, ArrowLeft, Printer, FileText, Send, Edit3 } from 'lucide-react';
 import { invalidateCachePattern } from '@/lib/integrations/api/apiClient';
 import { API_CONFIG } from '@/lib/integrations/config/api-config';
+import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 export default function LabResultEntryPage() {
     const params = useParams() as any;
@@ -33,6 +35,48 @@ export default function LabResultEntryPage() {
 
     const isCompleted = sample?.status?.toLowerCase() === 'completed';
     const printRef = useRef<HTMLDivElement>(null);
+    const hospitalId = (params?.hospitalId as string) || '';
+
+    const labReportCaption = React.useMemo(() => {
+        if (!sample) return '';
+        const pName = sample.patientDetails?.name || 'Valued Patient';
+        const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+        const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+
+        const mrn =
+            getValidMrn((sample.patientDetails as any)?.mrn) ||
+            getValidMrn((sample.patientDetails as any)?.patientMrn) ||
+            getValidMrn((sample as any)?.patient?.mrn) ||
+            getValidMrn((sample as any)?.mrn) ||
+            getValidMrn((sample.patientDetails as any)?.personal?.mrn) ||
+            getValidMrn((sample.patientDetails as any)?.patientId) ||
+            getValidMrn((sample as any)?.patientId) ||
+            'N/A';
+        const docName = sample.patientDetails?.refDoctor ? (sample.patientDetails.refDoctor.startsWith('Dr.') ? sample.patientDetails.refDoctor : `Dr. ${sample.patientDetails.refDoctor}`) : 'Consulting Specialist';
+        const hospName = labInfo?.labName || labInfo?.hospitalName || 'MEDI LAB LABORATORIES';
+        const sampId = sample.sampleId || 'SMP-REPORT';
+        const dateStr = sample.reportDate ? new Date(sample.reportDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+        const testList = (sample.tests || []).map(t => t.testName).join(', ') || 'Diagnostic Report';
+
+        return `*${hospName.toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*OFFICIAL LABORATORY TEST REPORT*
+
+*Patient Name:* ${pName}
+*MRN / UHID:* ${mrn}
+*Ref. Doctor:* ${docName}
+*Sample / Report ID:* ${sampId}
+*Report Date:* ${dateStr}
+*Tests Performed:* ${testList}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your official diagnostic laboratory test report PDF attached above.
+• Please consult ${docName} for clinical interpretation and further evaluation.
+• Keep this diagnostic report safely for future medical reference.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+    }, [sample, labInfo]);
 
     // Sync form values when sample data is loaded
     useEffect(() => {
@@ -402,23 +446,16 @@ export default function LabResultEntryPage() {
         }
     };
 
-    useEffect(() => {
-        if (id) {
-            // Parallel data fetching for better performance
-            Promise.all([fetchSample(), fetchLabInfo()]);
-        }
-    }, [id]);
-
-    const fetchLabInfo = async () => {
+    const fetchLabInfo = React.useCallback(async () => {
         try {
             const settings = await LabSettingsService.getSettings();
             if (settings) setLabInfo(settings);
         } catch (error) {
             console.error('Failed to load lab settings', error);
         }
-    };
+    }, []);
 
-    const fetchSample = async (skipCache = false) => {
+    const fetchSample = React.useCallback(async (skipCache = false) => {
         setLoading(true);
         try {
             const data = await LabSampleService.getSampleById(id, skipCache);
@@ -433,7 +470,14 @@ export default function LabResultEntryPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        if (id) {
+            // Parallel data fetching for better performance
+            Promise.all([fetchSample(), fetchLabInfo()]);
+        }
+    }, [id, fetchSample, fetchLabInfo]);
 
     const handleInputChange = (testIndex: number, key: string, value: string) => {
         setFormValues(prev => ({
@@ -542,7 +586,8 @@ export default function LabResultEntryPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3 w-full md:w-auto">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
+                            <PrintSettingsToggle />
                             <button
                                 onClick={() => setShowReport(false)}
                                 className="flex-1 sm:flex-none px-3 sm:px-4 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-[10px] sm:text-xs md:text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition-all shadow-sm active:scale-[0.98]"
@@ -555,6 +600,13 @@ export default function LabResultEntryPage() {
                             >
                                 <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Print
                             </button>
+                            <WhatsAppSendButton
+                                hospitalId={hospitalId}
+                                targetRef={printRef}
+                                phoneNumber={sample.patientDetails?.mobile || (sample.patientDetails as any)?.phone || ''}
+                                documentName={`Lab_Report_${sample.sampleId || 'Report'}.pdf`}
+                                caption={labReportCaption}
+                            />
                             {/* <button
                                 onClick={handleDownload}
                                 className="flex-1 sm:flex-none px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[10px] sm:text-xs md:text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition-all shadow-sm active:scale-95"

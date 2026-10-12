@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev();
+}
 
 /**
  * MongoDB ObjectId pattern: exactly 24 hex characters
@@ -37,6 +42,7 @@ const nextConfig: NextConfig = {
 
   // ✅ Image optimization
   images: {
+    unoptimized: true,
     formats: ["image/webp", "image/avif"], // Modern image formats
     minimumCacheTTL: 60, // Cache images for 60 seconds
     deviceSizes: [640, 750, 828, 1080, 1200, 1920], // Responsive breakpoints

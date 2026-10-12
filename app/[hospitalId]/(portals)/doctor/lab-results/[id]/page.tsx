@@ -8,6 +8,8 @@ import jsPDF from 'jspdf';
 import { Download, ArrowLeft, FileText, Clock} from 'lucide-react';
 import { apiClient } from '@/lib/integrations/api/apiClient';
 import LabReportTemplate from '@/components/lab/LabReportTemplate';
+import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 export default function DoctorLabResultDetailPage() {
     const params = useParams() as any;
@@ -20,15 +22,49 @@ export default function DoctorLabResultDetailPage() {
     const [loading, setLoading] = useState(true);
     const [labInfo, setLabInfo] = useState<any>(null);
     const printRef = useRef<HTMLDivElement>(null);
+    const hospitalId = (params?.hospitalId as string) || '';
 
-    useEffect(() => {
-        if (id) {
-            fetchOrderDetails();
-            fetchLabSettings();
-        }
-    }, [id]);
+    const labReportCaption = React.useMemo(() => {
+        if (!order) return '';
+        const pName = order.patientDetails?.name || 'Valued Patient';
+        const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+        const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
 
-    const fetchOrderDetails = async () => {
+        const mrn =
+            getValidMrn((order.patientDetails as any)?.mrn) ||
+            getValidMrn((order.patientDetails as any)?.patientMrn) ||
+            getValidMrn((order.patient as any)?.mrn) ||
+            getValidMrn((order as any)?.mrn) ||
+            getValidMrn(order.patientDetails?.patientId) ||
+            'N/A';
+        const docName = order.patientDetails?.refDoctor ? (order.patientDetails.refDoctor.startsWith('Dr.') ? order.patientDetails.refDoctor : `Dr. ${order.patientDetails.refDoctor}`) : 'Consulting Doctor';
+        const hospName = labInfo?.labName || labInfo?.hospitalName || 'HORIZIN HOSPITAL DIAGNOSTICS';
+        const sampId = order.sampleId || 'SMP-REPORT';
+        const dateStr = order.reportDate ? new Date(order.reportDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+        const testList = (order.tests || []).map((t: any) => t.testName).join(', ') || 'Diagnostic Report';
+
+        return `*${hospName.toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*OFFICIAL LABORATORY TEST REPORT*
+
+*Patient Name:* ${pName}
+*MRN / UHID:* ${mrn}
+*Ref. Doctor:* ${docName}
+*Sample / Report ID:* ${sampId}
+*Report Date:* ${dateStr}
+*Tests Performed:* ${testList}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your official diagnostic laboratory test report PDF attached above.
+• Please consult ${docName} for clinical interpretation and further evaluation.
+• Keep this diagnostic report safely for future medical reference.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+    }, [order, labInfo]);
+
+    const fetchOrderDetails = React.useCallback(async () => {
+        if (!id) return;
         try {
             const data = await apiClient<any>(`/lab/orders/${id}`);
             if (data) {
@@ -41,7 +77,8 @@ export default function DoctorLabResultDetailPage() {
                     gender: rawOrder.patient?.gender || rawOrder.patientDetails?.gender || 'N/A',
                     mobile: rawOrder.patient?.mobile || rawOrder.patientDetails?.mobile || '',
                     refDoctor: rawOrder.referredBy || rawOrder.doctor?.name || rawOrder.patientDetails?.refDoctor || 'Self',
-                    patientId: rawOrder.patient?.mrn || rawOrder.patientDetails?.patientId || rawOrder._id.toString().slice(-6).toUpperCase()
+                    mrn: rawOrder.mrn || rawOrder.patientDetails?.mrn || rawOrder.patient?.mrn,
+                    patientId: rawOrder.mrn || rawOrder.patientDetails?.mrn || rawOrder.patient?.mrn || rawOrder.patientDetails?.patientId || rawOrder._id.toString().slice(-6).toUpperCase()
                 };
 
                 const mappedSample = {
@@ -72,9 +109,9 @@ export default function DoctorLabResultDetailPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
-    const fetchLabSettings = async () => {
+    const fetchLabSettings = React.useCallback(async () => {
         try {
             const data = await apiClient<any>('/lab/settings');
             if (data) {
@@ -83,7 +120,14 @@ export default function DoctorLabResultDetailPage() {
         } catch (error) {
             console.error('Failed to fetch lab settings');
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        if (id) {
+            fetchOrderDetails();
+            fetchLabSettings();
+        }
+    }, [id, fetchOrderDetails, fetchLabSettings]);
 
     const calculateAge = (dob: string) => {
         if (!dob) return 0;
@@ -215,6 +259,7 @@ export default function DoctorLabResultDetailPage() {
                 </button>
 
                 <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <PrintSettingsToggle />
                     <button
                         onClick={handleDownload}
                         className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg sm:rounded-xl shadow-lg shadow-blue-500/20 transition-all font-bold text-xs sm:text-sm tracking-wide active:scale-95"
@@ -222,6 +267,14 @@ export default function DoctorLabResultDetailPage() {
                         <Download size={16} className="sm:size-[18px]" />
                         Download PDF
                     </button>
+
+                    <WhatsAppSendButton
+                        hospitalId={hospitalId}
+                        targetRef={printRef}
+                        phoneNumber={order.patientDetails?.mobile || order.patientDetails?.phone || ''}
+                        documentName={`Lab_Report_${order.sampleId || 'Report'}.pdf`}
+                        caption={labReportCaption}
+                    />
                 </div>
             </div>
 
