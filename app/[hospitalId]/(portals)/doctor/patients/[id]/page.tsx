@@ -15,6 +15,8 @@ import LabReportTemplate from '@/components/lab/LabReportTemplate';
 import toast from 'react-hot-toast';
 import { useVitalsSocket } from '@/lib/hooks/useVitalsSocket';
 import { useTenantLink } from '@/hooks/useTenantLink';
+import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 const MonitoringTimer = ({ lastRecorded, nextDue, status }: { lastRecorded?: string | Date; nextDue?: string | Date; status?: string }): any => {
     const [timeLeft, setTimeLeft] = useState<string>("");
@@ -91,6 +93,49 @@ function PatientDetailsPage() {
     const [selectedCardioData, setSelectedCardioData] = useState<any>(null);
     const [isPivoting, setIsPivoting] = useState(false);
     const [isRxModalOpen, setIsRxModalOpen] = useState(false);
+    const rxContainerRef = React.useRef<HTMLDivElement>(null);
+
+    const hospitalId = (params?.hospitalId as string) || '';
+
+    const patientMobile = React.useMemo(() => {
+        return patient?.user?.mobile || patient?.user?.phone || patient?.mobile || patient?.phone || patient?.profile?.mobile || patient?.profile?.phone || '';
+    }, [patient]);
+
+    const rxCaption = React.useMemo(() => {
+        if (!selectedPrescription) return '';
+        const pName = patient?.user?.name || patient?.name || 'Valued Patient';
+        const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+        const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+
+        const mrn = getValidMrn(patient?.profile?.mrn) || getValidMrn(patient?.mrn) || getValidMrn(selectedPrescription.mrn) || 'N/A';
+        const docName = selectedPrescription.doctor?.user?.name || (selectedPrescription.doctorName ? (selectedPrescription.doctorName.startsWith('Dr.') ? selectedPrescription.doctorName : `Dr. ${selectedPrescription.doctorName}`) : 'Attending Specialist');
+        const spec = selectedPrescription.department || selectedPrescription.specialty || 'General Consultation';
+        const hospName = selectedPrescription.hospital?.name || 'MSCCURECHAIN HEALTHCARE';
+        const dateStr = selectedPrescription.date ? new Date(selectedPrescription.date).toLocaleDateString('en-GB') : (selectedPrescription.createdAt ? new Date(selectedPrescription.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'));
+        const diag = selectedPrescription.diagnosis || 'General Consultation';
+        const medsCount = selectedPrescription.medicines?.length || 0;
+
+        return `*${hospName.toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*E-PRESCRIPTION & CLINICAL SUMMARY*
+
+*Patient Name:* ${pName}
+*MRN / Token ID:* ${mrn}
+*Doctor Name:* ${docName}
+*Specialty:* ${spec}
+*Consultation Date:* ${dateStr}
+*Prescribed Medications:* ${medsCount} Item(s)
+*Diagnosis:* ${diag}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your detailed official digital prescription PDF attached above.
+• Take prescribed medicines as directed by your doctor.
+• Show this PDF to the Pharmacy for medicine collection.
+• Contact ${hospName} Helpdesk for any queries or follow-up appointments.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+    }, [selectedPrescription, patient]);
     
     // Lab View State
     const [selectedLabReport, setSelectedLabReport] = useState<any>(null);
@@ -982,13 +1027,24 @@ function PatientDetailsPage() {
                                 <p className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">Verified Multi-Role Registry</p>
                             </div>
                             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                                <PrintSettingsToggle />
                                 {selectedPrescription && (
-                                    <button
-                                        onClick={handlePrintPrescription}
-                                        className="p-1.5 sm:p-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg sm:rounded-xl font-black flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs uppercase tracking-widest shadow-sm active:scale-95 transition-all"
-                                    >
-                                        <Printer size={14} className="sm:size-[16px]" /> <span className="hidden xs:inline">Print</span><span className="xs:hidden">Print</span>
-                                    </button>
+                                    <>
+                                        <WhatsAppSendButton
+                                            hospitalId={hospitalId}
+                                            targetRef={rxContainerRef}
+                                            phoneNumber={patientMobile}
+                                            documentName={`Prescription_${patient?.user?.name || patient?.name || 'Patient'}.pdf`}
+                                            caption={rxCaption}
+                                            className="px-3 sm:px-4 py-1.5 sm:py-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg sm:rounded-xl font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-wider disabled:opacity-50 h-full"
+                                        />
+                                        <button
+                                            onClick={handlePrintPrescription}
+                                            className="p-1.5 sm:p-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg sm:rounded-xl font-black flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs uppercase tracking-widest shadow-sm active:scale-95 transition-all"
+                                        >
+                                            <Printer size={14} className="sm:size-[16px]" /> <span className="hidden xs:inline">Print</span><span className="xs:hidden">Print</span>
+                                        </button>
+                                    </>
                                 )}
                                 <button
                                     onClick={() => { setIsRxModalOpen(false); setSelectedPrescription(null); setSelectedDermData(null); }}
@@ -1007,7 +1063,7 @@ function PatientDetailsPage() {
                                     <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Fetching Clinical Data...</p>
                                 </div>
                             ) : selectedPrescription ? (
-                                <div className="print-prescription-container shadow-none bg-white w-full sm:w-[210mm] shrink-0">
+                                <div ref={rxContainerRef} className="print-prescription-container shadow-none bg-white w-full sm:w-[210mm] shrink-0">
                                     {selectedCardioData ? (
                                         <CardiologyPrescriptionDocument 
                                             prescription={selectedPrescription} 
@@ -1049,6 +1105,7 @@ function PatientDetailsPage() {
                                 <p className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">Certified Diagnostic Results</p>
                             </div>
                             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                                <PrintSettingsToggle />
                                 {selectedLabReport && (
                                     <button
                                         onClick={handlePrintLabReport}

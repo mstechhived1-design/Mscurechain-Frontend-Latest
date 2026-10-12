@@ -66,6 +66,8 @@
     import { DentistryModule } from './create/modules/DentistryModule';
     import { UrologyModule } from './create/modules/UrologyModule';
     import { RadiologyModule } from './create/modules/RadiologyModule';
+    import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+    import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
     // --- Types ---
     interface Medicine {
@@ -1078,6 +1080,72 @@
         refetchOnMount: true,
         refetchOnWindowFocus: false,
     });
+
+    // ── WhatsApp & Print Ref Setup ─────────────────────────────────────────
+    const printIframeRef = useRef<HTMLIFrameElement>(null);
+
+    const patientMobile = useMemo(() => {
+        return (
+            appointmentData?.patient?.mobile ||
+            appointmentData?.patient?.phone ||
+            appointmentData?.patientDetails?.mobile ||
+            appointmentData?.patientDetails?.phone ||
+            appointmentData?.mobile ||
+            appointmentData?.phone ||
+            patientData?.user?.mobile ||
+            patientData?.user?.phone ||
+            patientData?.profile?.mobile ||
+            patientData?.profile?.phone ||
+            ''
+        );
+    }, [appointmentData, patientData]);
+
+    const rxCaption = useMemo(() => {
+        const pName = formData.patientName || 'Valued Patient';
+        const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+        const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+
+        const mrn = getValidMrn(formData.mrn) || getValidMrn(appointmentData?.patient?.mrn) || getValidMrn(appointmentData?.mrn) || 'N/A';
+        const docName = formData.doctorName ? (formData.doctorName.startsWith('Dr.') ? formData.doctorName : `Dr. ${formData.doctorName}`) : 'Attending Specialist';
+        const spec = activeSpecialty || 'General Consultation';
+        const hospName = hospitalData?.hospital?.name || 'MSCCURECHAIN HEALTHCARE';
+        const dateStr = formData.date || new Date().toLocaleDateString('en-GB');
+        const diag = formData.diagnosis || 'General Consultation';
+        const medsCount = formData.medicines?.length || 0;
+
+        return `*${hospName.toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*E-PRESCRIPTION & CLINICAL SUMMARY*
+
+*Patient Name:* ${pName}
+*MRN / Token ID:* ${mrn}
+*Doctor Name:* ${docName}
+*Specialty:* ${spec}
+*Consultation Date:* ${dateStr}
+*Prescribed Medications:* ${medsCount} Item(s)
+*Diagnosis:* ${diag}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your detailed official digital prescription PDF attached above.
+• Take prescribed medicines as directed by your doctor.
+• Show this PDF to the Pharmacy for medicine collection.
+• Contact ${hospName} Helpdesk for any queries or follow-up appointments.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+    }, [formData, appointmentData, activeSpecialty, hospitalData]);
+
+    useEffect(() => {
+        if (printIframeRef.current) {
+            const html = generatedHtml?.prescription || generatePrescriptionHTML();
+            const doc = printIframeRef.current.contentDocument;
+            if (doc) {
+                doc.open();
+                doc.write(html);
+                doc.close();
+            }
+        }
+    }, [formData, generatedHtml, hospitalData, activeSpecialty]);
 
 
 
@@ -3691,27 +3759,46 @@
                     </div>
                 </div>
 
+                {/* Hidden Iframe for PDF Capture & WhatsApp */}
+                <iframe
+                    ref={printIframeRef}
+                    title="Prescription Document Render"
+                    className="fixed -left-[9999px] -top-[9999px] w-[210mm] min-h-[297mm] pointer-events-none opacity-0"
+                />
+
                 {/* Footer Actions */}
                 <div className="pb-4 !mt-2">
-                    <div className="flex justify-center sm:justify-end gap-2 sm:gap-4 p-3 sm:p-6 bg-card border border-border-theme rounded-3xl">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:gap-4 p-3 sm:p-6 bg-card border border-border-theme rounded-3xl">
                         <button
                             onClick={handleClearForm}
-                            className="flex-1 sm:flex-none px-2 sm:px-10 py-2 sm:py-4 bg-secondary-theme text-muted rounded-2xl font-black uppercase text-[8px] sm:text-xs tracking-widest border border-border-theme hover:bg-card transition-all active:scale-95 text-center shadow-xs"
+                            className="flex-1 sm:flex-none px-2 sm:px-8 py-2 sm:py-4 bg-secondary-theme text-muted rounded-2xl font-black uppercase text-[8px] sm:text-xs tracking-widest border border-border-theme hover:bg-card transition-all active:scale-95 text-center shadow-xs"
                         >
                             Reset Form
                         </button>
+
+                        <PrintSettingsToggle />
                         <button
                             onClick={handleSendToPharma}
                             disabled={isSaving || isSending || sentToPharma}
-                            className={`flex-[1.5] sm:flex-none px-2 sm:px-12 py-2 sm:py-4 rounded-2xl font-black uppercase text-[8px] sm:text-xs tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1 sm:gap-3 ${sentToPharma ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/10'}`}
+                            className={`flex-[1.5] sm:flex-none px-2 sm:px-10 py-2 sm:py-4 rounded-2xl font-black uppercase text-[8px] sm:text-xs tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1 sm:gap-3 ${sentToPharma ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/10'}`}
                         >
                             {isSending ? <Loader2 className="animate-spin" size={14} /> : (sentToPharma ? <CheckCircle2 size={14} /> : <Pill size={14} />)}
                             <span className="truncate">{sentToPharma ? 'Pharma' : 'Pharma'}</span>
                         </button>
+
+                        <WhatsAppSendButton
+                            hospitalId={hospitalId}
+                            targetRef={printIframeRef}
+                            phoneNumber={patientMobile}
+                            documentName={`Prescription_${formData.patientName || 'Patient'}.pdf`}
+                            caption={rxCaption}
+                            className="px-4 sm:px-8 py-2 sm:py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-[#25D366]/20 active:scale-95 transition-all text-[8px] sm:text-xs uppercase tracking-widest disabled:opacity-50 h-full min-h-[38px] sm:min-h-[48px]"
+                        />
+
                         <button
                             onClick={handleSaveAndPrint}
                             disabled={isSaving || isSending}
-                            className="flex-[2] sm:flex-none px-2 sm:px-12 py-2 sm:py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-[8px] sm:text-xs tracking-widest hover:bg-teal-700 active:scale-95 flex items-center justify-center gap-1 sm:gap-3 transition-all shadow-lg shadow-teal-600/10"
+                            className="flex-[2] sm:flex-none px-2 sm:px-10 py-2 sm:py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-[8px] sm:text-xs tracking-widest hover:bg-teal-700 active:scale-95 flex items-center justify-center gap-1 sm:gap-3 transition-all shadow-lg shadow-teal-600/10"
                         >
                             {isSaving && !isSending ? <Loader2 className="animate-spin" size={14} /> : <Printer size={14} />}
                             <span className="truncate">Finalize & Print</span>
@@ -3730,21 +3817,30 @@
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold text-slate-900 mb-2">Prescription Ready!</h2>
-                            <p className="text-slate-500 text-sm">The prescription has been saved and formatted for printing.</p>
+                            <p className="text-slate-500 text-sm">The prescription has been saved and formatted for printing and WhatsApp.</p>
                         </div>
 
-                        <div className="flex justify-center pt-4">
+                        <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+                            <PrintSettingsToggle />
+                            <WhatsAppSendButton
+                                hospitalId={hospitalId}
+                                targetRef={printIframeRef}
+                                phoneNumber={patientMobile}
+                                documentName={`Prescription_${formData.patientName || 'Patient'}.pdf`}
+                                caption={rxCaption}
+                                className="px-5 py-3.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl font-bold flex items-center gap-2 shadow-md active:scale-95 transition-all text-xs uppercase tracking-wider disabled:opacity-50"
+                            />
                             <button
                                 onClick={() => handlePrintDocument('prescription')}
-                                className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-teal-50 border-2 border-teal-100 text-teal-700 hover:bg-teal-100 hover:border-teal-200 group w-48 transition-all active:scale-95"
+                                className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-teal-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-teal-700 transition-all active:scale-95 shadow-md"
                             >
-                                <Printer size={32} className="group-hover:scale-110 transition-transform" />
-                                <span className="font-bold text-sm">Print Prescription</span>
+                                <Printer size={18} />
+                                <span>Print Prescription</span>
                             </button>
                         </div>
                         <button
                             onClick={() => { setShowSuccess(false); router.back(); }}
-                            className="text-slate-400 hover:text-slate-600 text-xs font-bold uppercase tracking-widest mt-4 transition-colors"
+                            className="text-slate-400 hover:text-slate-600 text-xs font-bold uppercase tracking-widest mt-4 transition-colors block mx-auto"
                         >
                             Close & Return
                         </button>

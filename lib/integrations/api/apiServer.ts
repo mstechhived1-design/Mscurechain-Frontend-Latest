@@ -94,7 +94,7 @@ export async function apiServer<T>(
     
   const sessionId = cookieStore.get('sessionId')?.value ?? null;
 
-  let backendBase = process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") || "http://43.204.32.80:5002/api";
+  let backendBase = process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") || process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "") || "http://localhost:5003/api";
   if (backendBase && !/^https?:\/\//i.test(backendBase)) {
     backendBase = `https://${backendBase}`;
   }

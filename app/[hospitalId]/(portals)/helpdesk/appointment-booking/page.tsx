@@ -24,7 +24,10 @@ import {
     Check,
     Phone,
     X,
-    Droplets
+    Droplets,
+    MessageCircle,
+    Trash2,
+    RotateCcw
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -84,6 +87,21 @@ export default function AppointmentBooking() {
     const [mixedPayments, setMixedPayments] = useState({ cash: '', card: '', upi: '' });
     const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid'>('paid');
     const [sendToDoctor, setSendToDoctor] = useState(true);
+    const [autoWhatsApp, setAutoWhatsApp] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            setAutoWhatsApp(localStorage.getItem('msc_auto_whatsapp') === 'true');
+        }
+    }, []);
+
+    const handleToggleAutoWhatsApp = (checked: boolean) => {
+        setAutoWhatsApp(checked);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp', String(checked));
+        }
+    };
+
     const [followUpStatus, setFollowUpStatus] = useState<{
         eligible: boolean;
         remainingDays?: number;
@@ -236,15 +254,21 @@ export default function AppointmentBooking() {
                     doctorReference: cleanG.doctorReference
                 };
                 setSavedPreviousGuardian(prev);
-                setAdditionalDetails(prev);
+                setAdditionalDetails(curr => {
+                    const hasExisting = Boolean(curr.guardianName || curr.guardianRelation || curr.guardianMobile || curr.doctorReference);
+                    return hasExisting ? curr : prev;
+                });
                 setGuardianMode('previous');
             } else {
                 setSavedPreviousGuardian(null);
-                setAdditionalDetails({
-                    guardianName: cleanG.guardianName,
-                    guardianRelation: cleanG.guardianRelation,
-                    guardianMobile: cleanG.guardianMobile,
-                    doctorReference: cleanG.doctorReference
+                setAdditionalDetails(curr => {
+                    const hasExisting = Boolean(curr.guardianName || curr.guardianRelation || curr.guardianMobile || curr.doctorReference);
+                    return hasExisting ? curr : {
+                        guardianName: cleanG.guardianName,
+                        guardianRelation: cleanG.guardianRelation,
+                        guardianMobile: cleanG.guardianMobile,
+                        doctorReference: cleanG.doctorReference
+                    };
                 });
                 setGuardianMode('new');
             }
@@ -263,6 +287,7 @@ export default function AppointmentBooking() {
             setGuardianMode('new');
             setGuardianLookupMessage(null);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedPatient]);
 
     const handleConfirmHonorificUpdate = async () => {
@@ -380,6 +405,179 @@ export default function AppointmentBooking() {
             }
         }
         return '';
+    };
+
+    const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+    const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+
+    const getDraftKey = useCallback((hospitalId?: string) => {
+        return `msc_draft_appointment_booking_${hospitalId || 'default'}`;
+    }, []);
+
+    // Restoration Effect
+    useEffect(() => {
+        if (loading || isDraftLoaded) return;
+
+        try {
+            const key = getDraftKey(profile?.hospital?._id);
+            const savedDraftStr = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+            if (savedDraftStr) {
+                const draft = JSON.parse(savedDraftStr);
+                if (draft && typeof draft === 'object') {
+                    if (draft.selectedPatient && !patientIdFromQuery) {
+                        setSelectedPatient(draft.selectedPatient);
+                    }
+                    if (draft.registrationType) setRegistrationType(draft.registrationType);
+                    if (draft.selectedDoctorId && doctors.length > 0) {
+                        const foundDoc = doctors.find(d => (d._id === draft.selectedDoctorId || (d as any).id === draft.selectedDoctorId));
+                        if (foundDoc) setSelectedDoctor(foundDoc);
+                    } else if (draft.selectedDoctor) {
+                        setSelectedDoctor(draft.selectedDoctor);
+                    }
+                    if (draft.selectedDept) setSelectedDept(draft.selectedDept);
+                    if (draft.selectedDate) setSelectedDate(draft.selectedDate);
+                    if (draft.selectedTime) setSelectedTime(draft.selectedTime);
+                    if (draft.selectedSlot) setSelectedSlot(draft.selectedSlot);
+                    if (draft.bookingMode) setBookingMode(draft.bookingMode);
+                    if (draft.appointmentType) setAppointmentType(draft.appointmentType);
+                    if (draft.notes) setNotes(draft.notes);
+                    if (draft.additionalDetails) setAdditionalDetails(draft.additionalDetails);
+                    if (draft.guardianMode) setGuardianMode(draft.guardianMode);
+                    if (draft.vitals) setVitals(draft.vitals);
+                    if (draft.admissionData) setAdmissionData(draft.admissionData);
+                    if (draft.paymentMethod) setPaymentMethod(draft.paymentMethod);
+                    if (draft.paymentStatus) setPaymentStatus(draft.paymentStatus);
+                    if (draft.discountAmount !== undefined) setDiscountAmount(draft.discountAmount);
+                    if (draft.discountType) setDiscountType(draft.discountType);
+                    if (draft.mixedPayments) setMixedPayments(draft.mixedPayments);
+                    if (draft.customClinicalFee !== undefined) setCustomClinicalFee(draft.customClinicalFee);
+                    if (draft.confirmedHonorific) setConfirmedHonorific(draft.confirmedHonorific);
+
+                    setHasRestoredDraft(true);
+                    toast.success("Restored appointment draft from previous session", {
+                        icon: '📝',
+                        duration: 4000
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("Error restoring draft:", e);
+        } finally {
+            setIsDraftLoaded(true);
+        }
+    }, [loading, profile, doctors, patientIdFromQuery, isDraftLoaded, getDraftKey]);
+
+    // Auto-Save Effect
+    useEffect(() => {
+        if (!isDraftLoaded) return;
+        const key = getDraftKey(profile?.hospital?._id);
+
+        const hasContent = Boolean(
+            selectedPatient ||
+            selectedDoctor ||
+            notes.trim() ||
+            additionalDetails.guardianName ||
+            additionalDetails.guardianRelation ||
+            additionalDetails.guardianMobile ||
+            additionalDetails.doctorReference ||
+            vitals.height || vitals.weight || vitals.bp || vitals.temperature || vitals.pulse || vitals.spo2 || vitals.glucose ||
+            admissionData.roomType || admissionData.roomId || admissionData.bedId || admissionData.clinicalNotes
+        );
+
+        if (hasContent) {
+            const draftData = {
+                selectedPatient,
+                registrationType,
+                selectedDoctorId: selectedDoctor?._id || (selectedDoctor as any)?.id || null,
+                selectedDoctor,
+                selectedDept,
+                selectedDate,
+                selectedTime,
+                selectedSlot,
+                bookingMode,
+                appointmentType,
+                notes,
+                additionalDetails,
+                guardianMode,
+                vitals,
+                admissionData,
+                paymentMethod,
+                paymentStatus,
+                discountAmount,
+                discountType,
+                mixedPayments,
+                customClinicalFee,
+                confirmedHonorific,
+                savedAt: new Date().toISOString()
+            };
+            try {
+                localStorage.setItem(key, JSON.stringify(draftData));
+                setHasRestoredDraft(true);
+            } catch (e) {
+                console.error("Failed to auto-save draft:", e);
+            }
+        }
+    }, [
+        isDraftLoaded,
+        profile?.hospital?._id,
+        selectedPatient,
+        registrationType,
+        selectedDoctor,
+        selectedDept,
+        selectedDate,
+        selectedTime,
+        selectedSlot,
+        bookingMode,
+        appointmentType,
+        notes,
+        additionalDetails,
+        guardianMode,
+        vitals,
+        admissionData,
+        paymentMethod,
+        paymentStatus,
+        discountAmount,
+        discountType,
+        mixedPayments,
+        customClinicalFee,
+        confirmedHonorific,
+        getDraftKey
+    ]);
+
+    const handleClearDraft = () => {
+        try {
+            const key = getDraftKey(profile?.hospital?._id);
+            localStorage.removeItem(key);
+        } catch (e) {
+            console.error("Failed to clear draft:", e);
+        }
+        setSelectedPatient(null);
+        setSelectedDoctor(null);
+        setSelectedDept("");
+        setNotes("");
+        setAdditionalDetails({
+            guardianName: '',
+            guardianRelation: '',
+            guardianMobile: '',
+            doctorReference: ''
+        });
+        setGuardianMode('new');
+        setVitals({
+            height: '', weight: '', bp: '', temperature: '', pulse: '', spo2: '', glucose: ''
+        });
+        setAdmissionData({
+            roomType: '', roomId: '', bedId: '', diet: '', clinicalNotes: ''
+        });
+        setPaymentMethod('cash');
+        setPaymentStatus('paid');
+        setDiscountAmount('0');
+        setDiscountType('flat');
+        setMixedPayments({ cash: '', card: '', upi: '' });
+        setCustomClinicalFee('0');
+        setConfirmedHonorific("");
+        setPendingHonorific("");
+        setHasRestoredDraft(false);
+        toast.success("Draft cleared. Form reset to default.");
     };
 
 
@@ -1133,6 +1331,13 @@ export default function AppointmentBooking() {
             }));
             
             setIsBooked(true);
+            try {
+                const key = getDraftKey(profile?.hospital?._id);
+                localStorage.removeItem(key);
+                setHasRestoredDraft(false);
+            } catch (e) {
+                console.error("Post-booking draft cleanup error:", e);
+            }
             toast.success("Booking Indexed & Receipt Generated");
         } catch (error: any) {
             toast.error(error.message || "Execution failure during booking");
@@ -1172,6 +1377,20 @@ export default function AppointmentBooking() {
                     </h1>
                     <p className="hidden sm:block text-[9px] font-bold text-teal-600 uppercase tracking-[0.2em]">Clinical Manifest Gateway</p>
                 </div>
+                {/* RIGHT: CLEAR DRAFT BUTTON */}
+                <div className="flex items-center gap-2 z-10 sm:ml-auto">
+                    {hasRestoredDraft && (
+                        <button
+                            type="button"
+                            onClick={handleClearDraft}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95"
+                            title="Clear auto-saved draft data"
+                        >
+                            <Trash2 size={12} className="text-rose-500" />
+                            <span>Clear Draft</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden p-4 md:p-6 lg:p-8">
@@ -1182,11 +1401,27 @@ export default function AppointmentBooking() {
 
                         {/* 1. PATIENT OBJECT */}
                         <section className="space-y-4">
-                            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                                <div className="w-6 h-6 rounded-lg bg-teal-50 flex items-center justify-center text-teal-600">
-                                    <User size={14} />
+                            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-lg bg-teal-50 flex items-center justify-center text-teal-600">
+                                        <User size={14} />
+                                    </div>
+                                    <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Patient Selection</h2>
+                                    {hasRestoredDraft && (
+                                        <span className="px-2 py-0.5 bg-teal-100 text-teal-800 text-[8px] font-black uppercase rounded-full tracking-wider animate-pulse">
+                                            Draft Active
+                                        </span>
+                                    )}
                                 </div>
-                                <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Patient Selection</h2>
+                                {hasRestoredDraft && (
+                                    <button
+                                        type="button"
+                                        onClick={handleClearDraft}
+                                        className="text-[9px] font-bold text-rose-500 hover:text-rose-700 uppercase tracking-wider flex items-center gap-1 hover:underline"
+                                    >
+                                        <RotateCcw size={10} /> Clear Draft
+                                    </button>
+                                )}
                             </div>
 
                             {selectedPatient ? (
@@ -2053,6 +2288,21 @@ export default function AppointmentBooking() {
                                             </div>
                                             <CheckCircle2 size={14} className={`transition-colors ${sendToDoctor ? 'text-teal-400' : 'text-white/10'}`} />
                                         </label>
+
+                                        <label className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all group ${autoWhatsApp ? 'bg-[#25D366]/10 border-[#25D366]/30' : 'bg-white/5 border-white/10 hover:bg-white/8'}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={autoWhatsApp}
+                                                onChange={(e) => handleToggleAutoWhatsApp(e.target.checked)}
+                                                className="w-5 h-5 rounded-lg accent-[#25D366] border-white/20 bg-transparent"
+                                            />
+                                            <div className="flex-1">
+                                                <p className={`text-[10px] font-black uppercase tracking-tight transition-colors ${autoWhatsApp ? 'text-[#25D366]' : 'text-white'}`}>Auto WhatsApp e-Bill</p>
+                                                <p className="text-[7.5px] font-bold text-white/30 uppercase mt-0.5">Automatically deliver receipt via WhatsApp</p>
+                                            </div>
+                                            <MessageCircle size={14} className={`transition-colors ${autoWhatsApp ? 'text-[#25D366]' : 'text-white/10'}`} />
+                                        </label>
+
 
                                         {(selectedPatient?.activeAdmission || selectedPatient?.activeConsultation) && (
                                             <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl mb-4 animate-pulse">

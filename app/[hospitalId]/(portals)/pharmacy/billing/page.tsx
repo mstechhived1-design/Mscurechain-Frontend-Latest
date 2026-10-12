@@ -14,6 +14,7 @@ import { useTenantLink } from '@/hooks/useTenantLink';
 import { patientService } from '@/lib/integrations/services/patient.service';
 import { pharmacyService } from '@/lib/integrations/services/pharmacy.service';
 import { usePrintStore } from '@/stores/printStore';
+import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
 
 const BillingPage = () => {
     const router = useRouter();
@@ -528,6 +529,78 @@ const BillingPage = () => {
         logo: (user as any)?.image || (user as any)?.logo || (user as any)?.avatar || (user as any)?.profilePic,
         pharmacyTerms: user?.pharmacyTerms || []
     };
+
+    const printBillRef = React.useRef<HTMLDivElement>(null);
+
+    const pharmaInvoiceCaption = React.useMemo(() => {
+        const pName = patientName || 'Valued Patient';
+        const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+        const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+
+        const mrn =
+            getValidMrn(patientMrn) ||
+            getValidMrn((tempBill as any)?.mrn) ||
+            'N/A';
+        const docName = doctorName ? (doctorName.startsWith('Dr.') ? doctorName : `Dr. ${doctorName}`) : 'Self / Walk-in';
+        const hospName = shopDetails.name || 'HORIZIN HOSPITAL PHARMACY';
+        const invId = tempBill?.invoiceId || 'INV-DRAFT';
+        const dateStr = new Date().toLocaleDateString('en-GB');
+        const totalAmt = Math.round(grandTotal);
+        const statusStr = status || 'PAID';
+        const pMode = paymentMode || 'CASH';
+        const itemsCount = cart.length;
+
+        return `*${hospName.toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*PHARMACY MEDICINE INVOICE & RECEIPT*
+
+*Patient Name:* ${pName}
+*MRN / Token ID:* ${mrn}
+*Prescribed Doctor:* ${docName}
+*Invoice No:* ${invId}
+*Invoice Date:* ${dateStr}
+*Medicines Dispensed:* ${itemsCount} Item(s)
+*Payment Mode:* ${String(pMode).toUpperCase()}
+*Total Amount:* ₹${totalAmt} (${String(statusStr).toUpperCase()})
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your official pharmacy tax invoice PDF attached above.
+• Check your medicines and dosage schedule carefully.
+• Keep medicines in a cool, dry place away from direct sunlight.
+• Contact ${hospName} Pharmacy for any queries or refilling.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+    }, [patientName, patientMrn, doctorName, shopDetails, tempBill, grandTotal, status, paymentMode, cart]);
+
+    const currentBillObj: PharmacyBill = React.useMemo(() => {
+        return tempBill || {
+            _id: 'DRAFT',
+            invoiceId: 'INV-DRAFT',
+            items: cart,
+            patientName: patientName || 'Patient',
+            customerPhone: mobileNumber,
+            mrn: patientMrn || undefined,
+            patientType: patientType || undefined,
+            patientAddress: patientAddress || undefined,
+            doctorName: doctorName || 'Self / Walk-in',
+            paymentSummary: {
+                subtotal: Number(subtotalMRP) || 0,
+                taxableAmount: Number(taxableAmount) || 0,
+                taxGST: Number(taxGST) || 0,
+                discount: Number(totalDiscount) || 0,
+                grandTotal: Number(Math.round(grandTotal)) || 0,
+                paidAmount: Number(paidAmount) || 0,
+                balanceDue: status === 'Paid' ? 0 : Math.round(grandTotal) - paidAmount,
+                paymentMode: paymentMode.toUpperCase() as any,
+                status: status.toUpperCase() as any,
+                paymentDetails: paymentMode === 'Mixed' ? mixedPayments : undefined
+            },
+            createdAt: new Date().toISOString() as any,
+            updatedAt: new Date().toISOString() as any,
+            pharmacyId: (user as any)?._id || 'PHARMACY'
+        };
+    }, [tempBill, cart, patientName, mobileNumber, patientMrn, patientType, patientAddress, doctorName, subtotalMRP, taxableAmount, taxGST, totalDiscount, grandTotal, paidAmount, status, paymentMode, mixedPayments, user]);
 
     const handlePreview = () => {
         if (cart.length === 0) return toast.error('Cart is empty');
@@ -1078,12 +1151,29 @@ const BillingPage = () => {
                                 <Printer size={18} />
                                 {isGenerating ? 'Generating...' : 'Save & Print'}
                             </button>
-                            <button className="w-full bg-teal-50 text-teal-600 py-3 rounded-2xl font-bold uppercase tracking-wider text-xs border border-teal-100 hover:bg-teal-100 dark:bg-teal-950/20 dark:border-teal-900/30 flex items-center justify-center gap-2" disabled={isGenerating || cart.length === 0} onClick={handlePreview}>
-                                <Eye size={18} />
-                                Preview Bill
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <WhatsAppSendButton
+                                    hospitalId={hospitalId}
+                                    targetRef={printBillRef}
+                                    phoneNumber={mobileNumber}
+                                    documentName={`Invoice_${patientName || 'Patient'}.pdf`}
+                                    caption={pharmaInvoiceCaption}
+                                    className="flex-1 bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 rounded-2xl font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 h-full"
+                                />
+                                <button className="flex-1 bg-teal-50 text-teal-600 py-3 rounded-2xl font-bold uppercase tracking-wider text-xs border border-teal-100 hover:bg-teal-100 dark:bg-teal-950/20 dark:border-teal-900/30 flex items-center justify-center gap-2" disabled={isGenerating || cart.length === 0} onClick={handlePreview}>
+                                    <Eye size={18} />
+                                    Preview Bill
+                                </button>
+                            </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Hidden Printable Container for WhatsApp Capture */}
+            <div className="fixed -left-[9999px] -top-[9999px] pointer-events-none opacity-0">
+                <div ref={printBillRef} style={{ width: '210mm', minHeight: '297mm', background: '#ffffff' }}>
+                    <PharmacyBillPrint billData={currentBillObj} shopDetails={shopDetails} />
                 </div>
             </div>
 
@@ -1093,6 +1183,14 @@ const BillingPage = () => {
                         <div className="sticky top-0 bg-white border-b z-10 p-4 flex justify-between items-center text-black">
                             <h3 className="font-bold uppercase tracking-wider text-sm">Invoice Preview</h3>
                             <div className="flex items-center gap-3">
+                                <WhatsAppSendButton
+                                    hospitalId={hospitalId}
+                                    targetRef={printBillRef}
+                                    phoneNumber={mobileNumber}
+                                    documentName={`Invoice_${patientName || 'Patient'}.pdf`}
+                                    caption={pharmaInvoiceCaption}
+                                    className="px-4 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg text-xs font-bold uppercase flex items-center gap-2 disabled:opacity-50"
+                                />
                                 <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 transition-all select-none">
                                     <input
                                         type="checkbox"

@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
  * BACKEND_INTERNAL_URL should be set to: http://43.204.32.80:5002/api
  */
 
-let rawBackend = process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") || "http://43.204.32.80:5002/api";
+let rawBackend = process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") || process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "") || "http://localhost:5003/api";
 if (rawBackend && !/^https?:\/\//i.test(rawBackend)) {
   rawBackend = `https://${rawBackend}`;
 }

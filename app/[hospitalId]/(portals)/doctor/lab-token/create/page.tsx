@@ -24,6 +24,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { useTenantLink } from '@/hooks/useTenantLink';
+import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
 
 function CreateLabTokenPage({ params }: { params: Promise<{ hospitalId: string }> }) {
   const resolvedParams = use(params);
@@ -69,6 +70,41 @@ function CreateLabTokenPage({ params }: { params: Promise<{ hospitalId: string }
   const [subtotal, setSubtotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
+  const labTokenIframeRef = React.useRef<HTMLIFrameElement>(null);
+
+  const labTokenCaption = React.useMemo(() => {
+    if (!patientData) return '';
+    const pName = patientData?.personal?.name || patientData?.name || 'Valued Patient';
+    const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+    const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+
+    const mrn = getValidMrn(patientData?.mrn) || getValidMrn(patientData?.personal?.mrn) || getValidMrn((patientData as any)?.patientMrn) || 'N/A';
+    const doc = doctorName ? (doctorName.startsWith('Dr.') ? doctorName : `Dr. ${doctorName}`) : 'Attending Specialist';
+    const tok = tokenNumber || 'LAB-TOKEN';
+    const testCount = tests.filter(t => t.name.trim()).length;
+    const priorityStr = priority.toUpperCase();
+    const hospName = hospitalData?.name || doctorData?.hospital?.name || 'HORIZIN HOSPITAL';
+
+    return `*${hospName.toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*LAB REQUISITION & TOKEN CONFIRMATION*
+
+*Patient Name:* ${pName}
+*MRN / Token ID:* ${mrn}
+*Ordering Doctor:* ${doc}
+*Token Number:* ${tok}
+*Priority:* ${priorityStr}
+*Investigations Requested:* ${testCount} Test(s)
+*Estimated Total:* ₹${total.toFixed(2)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${READ_MORE}
+*Important Patient Instructions:*
+• Show this token at the Laboratory Sample Collection Desk.
+• Complete any required pre-test instructions (e.g. 8-12 hours fasting if specified).
+• Contact ${hospName} Helpdesk for any queries.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+  }, [patientData, doctorName, tokenNumber, tests, priority, total, hospitalData, doctorData]);
 
   useEffect(() => {
     if (appointmentId) {
@@ -748,6 +784,24 @@ function CreateLabTokenPage({ params }: { params: Promise<{ hospitalId: string }
               >
                 <Printer size={18} /> Print Billing Receipt
               </button>
+              
+              <WhatsAppSendButton
+                hospitalId={hospitalIdFromParams}
+                targetRef={labTokenIframeRef}
+                phoneNumber={patientData?.personal?.mobile || patientData?.personal?.phone || patientData?.mobile || patientData?.phone || ''}
+                documentName={`Lab_Token_${tokenNumber || 'Token'}.pdf`}
+                caption={labTokenCaption}
+                className="w-full py-3 px-4"
+              />
+
+              {generatedHtml?.labToken && (
+                <iframe
+                  ref={labTokenIframeRef}
+                  srcDoc={generatedHtml.labToken}
+                  className="fixed -left-[9999px] -top-[9999px] w-[210mm] h-[297mm] pointer-events-none opacity-0"
+                />
+              )}
+
               {/* Visual Confirmation */}
               <div className="mt-2 p-3 bg-purple-50 rounded-xl border border-purple-100 flex items-center gap-3">
                 <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
