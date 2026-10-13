@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, use } from 'react';
+import React, { useState, useEffect, useRef, use, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
+import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 import {
     Printer,
     Sparkles,
@@ -36,8 +38,10 @@ import {
     Beaker,
     History,
     Building,
-    Pause
+    Pause,
+    Clock
 } from 'lucide-react';
+import ClockTimePicker from '@/components/ui/ClockTimePicker';
 import { CardiologyModule } from './modules/CardiologyModule';
 import { DermatologyModule } from './modules/DermatologyModule';
 import { OrthopedicModule } from './modules/OrthopedicModule';
@@ -68,6 +72,8 @@ import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.
 import medicineData from '@/medicine.json';
 import { doctorService } from '@/lib/integrations/services/doctor.service';
 import { Frequency, StandardFrequency, CustomFrequency, FoodTiming, INITIAL_FREQUENCY, mapFrequency, formatFrequency } from '@/lib/frequencyUtils';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
+import { computeAgeFromDob } from '@/lib/print-utils';
 
 // --- Types ---
 interface Medicine {
@@ -108,6 +114,7 @@ interface PrescriptionForm {
     suggestedTests: string[];
     followUp: string;
     followUpDate: string;
+    followUpTime?: string;
     avoid: string[];
     doctorName: string;
     doctorSpecialization: string;
@@ -507,6 +514,7 @@ const INITIAL_FORM: PrescriptionForm = {
     suggestedTests: [],
     followUp: '',
     followUpDate: '',
+    followUpTime: '',
     avoid: [],
     doctorName: '',
     doctorSpecialization: '',
@@ -981,6 +989,19 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
     const [loading, setLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+
+    const parseTimeTo24 = (timeStr?: string) => {
+        if (!timeStr) return { hour: 10, minute: 0 };
+        const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+        if (!match) return { hour: 10, minute: 0 };
+        let h = parseInt(match[1]);
+        const m = parseInt(match[2]);
+        const period = match[3]?.toUpperCase();
+        if (period === 'PM' && h < 12) h += 12;
+        if (period === 'AM' && h === 12) h = 0;
+        return { hour: h, minute: m };
+    };
 
     const [activeSpecialty, setActiveSpecialty] = useState<string>('General');
     const [availableSpecialties, setAvailableSpecialties] = useState<string[]>([]);
@@ -1071,6 +1092,78 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
     // Success State
     const [showSuccess, setShowSuccess] = useState(false);
     const [generatedHtml, setGeneratedHtml] = useState<{ prescription: string, billing: string } | null>(null);
+
+    // ── WhatsApp & Print Ref Setup ─────────────────────────────────────────
+    const printIframeRef = useRef<HTMLIFrameElement>(null);
+    const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
+    const [rawAppointmentData, setRawAppointmentData] = useState<any>(null);
+    const [rawPatientData, setRawPatientData] = useState<any>(null);
+    const [autoWhatsApp, setAutoWhatsApp] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('msc_auto_whatsapp') === 'true';
+        }
+        return false;
+    });
+
+    const handleToggleAutoWhatsApp = (val: boolean) => {
+        setAutoWhatsApp(val);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp', String(val));
+        }
+    };
+
+    const patientMobile = useMemo(() => {
+        return (
+            rawAppointmentData?.patient?.mobile ||
+            rawAppointmentData?.patient?.phone ||
+            rawAppointmentData?.patientDetails?.mobile ||
+            rawAppointmentData?.patientDetails?.phone ||
+            rawAppointmentData?.mobile ||
+            rawAppointmentData?.phone ||
+            rawPatientData?.user?.mobile ||
+            rawPatientData?.user?.phone ||
+            rawPatientData?.profile?.mobile ||
+            rawPatientData?.profile?.phone ||
+            rawPatientData?.mobile ||
+            rawPatientData?.phone ||
+            ''
+        );
+    }, [rawAppointmentData, rawPatientData]);
+
+    const rxCaption = useMemo(() => {
+        const pName = formData.patientName || 'Valued Patient';
+        const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+        const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+
+        const mrn = getValidMrn(formData.mrn) || getValidMrn(rawAppointmentData?.patient?.mrn) || getValidMrn(rawAppointmentData?.mrn) || getValidMrn(rawPatientData?.mrn) || 'N/A';
+        const docName = formData.doctorName ? (formData.doctorName.startsWith('Dr.') ? formData.doctorName : `Dr. ${formData.doctorName}`) : 'Attending Specialist';
+        const spec = activeSpecialty || 'General Consultation';
+        const hospName = hospitalBranding?.name || 'MSCCURECHAIN HEALTHCARE';
+        const dateStr = formData.date || new Date().toLocaleDateString('en-GB');
+        const diag = formData.diagnosis || 'General Consultation';
+        const medsCount = formData.medicines?.length || 0;
+
+        return `*${hospName.toUpperCase()}*
+${WA_DIVIDER}
+*E-PRESCRIPTION & CLINICAL SUMMARY*
+
+*Patient Name:* ${pName}
+*MRN / Token ID:* ${mrn}
+*Doctor Name:* ${docName}
+*Specialty:* ${spec}
+*Consultation Date:* ${dateStr}
+*Prescribed Medications:* ${medsCount} Item(s)
+*Diagnosis:* ${diag}
+${formData.followUpDate ? `*Follow-Up Review:* ${new Date(formData.followUpDate).toLocaleDateString('en-GB')}${formData.followUpTime ? ` at ${formData.followUpTime}` : ''}\n` : ''}${WA_DIVIDER}
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your detailed official digital prescription PDF attached above.
+• Take prescribed medicines as directed by your doctor.
+• Show this PDF to the Pharmacy for medicine collection.
+• Contact ${hospName} Helpdesk for any queries or follow-up appointments.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+    }, [formData, rawAppointmentData, rawPatientData, activeSpecialty, hospitalBranding]);
 
     // Preview Modal State
     const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -1191,8 +1284,27 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
 
                     if (res.success && res.data) {
                         const apt = res.data;
-                        const patientName = apt.patient?.name || apt.patientDetails?.name || '';
-                        const age = apt.patient?.age || apt.patientDetails?.age || '';
+                        setRawAppointmentData(apt);
+                        const rawName = apt.patient?.name || apt.patientDetails?.name || '';
+                        const rawHonorific = apt.appointmentHonorific || apt.honorific || apt.patientDetails?.honorific || apt.patient?.honorific || apt.patient?.profile?.honorific;
+                        const patientName = formatPatientNameWithPrefix(rawName, rawHonorific, false);
+
+                        const rawAge = (apt.patient?.age !== undefined && apt.patient?.age !== null && apt.patient?.age !== '' && apt.patient?.age !== 'N/A')
+                            ? apt.patient.age
+                            : (apt.patientDetails?.age !== undefined && apt.patientDetails?.age !== null && apt.patientDetails?.age !== '' && apt.patientDetails?.age !== 'N/A')
+                            ? apt.patientDetails.age
+                            : '';
+                        const rawUnit = apt.patient?.ageUnit || apt.patientDetails?.ageUnit || apt.patient?.profile?.ageUnit || '';
+                        const rawDob = apt.patient?.dob || apt.patient?.dateOfBirth || apt.patientDetails?.dob || apt.patientDetails?.dateOfBirth;
+
+                        let formattedAge = '';
+                        if (rawDob && rawDob !== 'N/A') {
+                            const computed = computeAgeFromDob(rawDob, rawAge, rawUnit);
+                            formattedAge = computed !== 'N/A' ? computed : (rawAge !== '' ? (rawUnit ? `${rawAge} ${rawUnit}` : String(rawAge)) : '');
+                        } else if (rawAge !== '') {
+                            formattedAge = /[a-zA-Z]/.test(String(rawAge)) ? String(rawAge) : (rawUnit ? `${rawAge} ${rawUnit}` : String(rawAge));
+                        }
+
                         const gender = normalizeGender(apt.patient?.gender || apt.patientDetails?.gender || 'Male');
                         const mrn = apt.patient?.mrn || apt.mrn || '';
                         const symptoms = Array.isArray(apt.symptoms) ? apt.symptoms.join(', ') : (apt.symptoms || '');
@@ -1211,8 +1323,8 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                         setFormData(prev => {
                             const baseForm = {
                                 ...prev,
-                                patientName,
-                                age: String(age),
+                                patientName: patientName || prev.patientName,
+                                age: formattedAge || prev.age || 'N/A',
                                 gender: gender,
                                 mrn,
                                 symptoms,
@@ -1238,18 +1350,24 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                     setLoading(true);
                     const res = await doctorService.getPatientDetails(patientId);
                     const p = res.patient || res; // Handle both direct and nested formats
-                            if (p) {
-                                setFormData(prev => {
-                                    const baseForm = {
-                                        ...prev,
-                                        patientName: p.name || '',
-                                        age: String(p.age || ''),
-                                        gender: normalizeGender(p.gender || 'Male'),
-                                        mrn: p.mrn || '',
-                                    };
-                                    return applyVitalsToForm(p.vitals, baseForm);
-                                });
-                            }
+                    if (p) {
+                        setRawPatientData(p);
+                        const rawName = p.name || '';
+                        const rawHonorific = p.honorific || p.profile?.honorific;
+                        const pName = formatPatientNameWithPrefix(rawName, rawHonorific, false);
+                        const pAge = computeAgeFromDob(p.profile?.dob || p.dob, p.profile?.age || p.age, p.profile?.ageUnit || p.ageUnit);
+
+                        setFormData(prev => {
+                            const baseForm = {
+                                ...prev,
+                                patientName: pName || rawName,
+                                age: pAge !== 'N/A' ? pAge : String(p.profile?.age || p.age || ''),
+                                gender: normalizeGender(p.gender || 'Male'),
+                                mrn: p.mrn || '',
+                            };
+                            return applyVitalsToForm(p.vitals, baseForm);
+                        });
+                    }
                 } catch (err) {
                     console.error("Failed to fetch patient data", err);
                 } finally {
@@ -1662,10 +1780,11 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                         padding: 0;
                     }
                     .container {
-                        width: 210mm;
-                        min-height: 297mm;
+                        width: 100%;
+                        max-width: 210mm;   
+                        min-height: 100%;
                         margin: 0 auto;
-                        padding: 10mm 25mm 10mm 25mm;
+                        padding: 8mm 12mm;
                         box-sizing: border-box;
                         display: flex;
                         flex-direction: column;
@@ -3047,7 +3166,7 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                             ${formData.followUpDate ? `
                             <div style="text-align: right;">
                                 <span class="follow-up-label">Scheduled Date:</span>
-                                <div class="follow-up-date">${new Date(formData.followUpDate).toLocaleDateString('en-GB')}</div>
+                                <div class="follow-up-date">${new Date(formData.followUpDate).toLocaleDateString('en-GB')}${formData.followUpTime ? ` at ${formData.followUpTime}` : ''}</div>
                             </div>
                             ` : ''}
                         </div>
@@ -3106,10 +3225,11 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                         padding: 0;
                     }
                     .container {
-                        width: 210mm;
-                        min-height: 297mm;
+                        width: 100%;
+                        max-width: 210mm;
+                        min-height: 100%;
                         margin: 0 auto;
-                        padding: 10mm 22mm 10mm 22mm;
+                        padding: 8mm 12mm;
                         box-sizing: border-box;
                         display: flex;
                         flex-direction: column;
@@ -3208,6 +3328,18 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
             </html>
         `;
     };
+
+    useEffect(() => {
+        if (printIframeRef.current) {
+            const html = generatedHtml?.prescription || generatePrescriptionHTML();
+            const doc = printIframeRef.current.contentDocument;
+            if (doc) {
+                doc.open();
+                doc.write(html);
+                doc.close();
+            }
+        }
+    }, [formData, generatedHtml, hospitalBranding, activeSpecialty]);
 
     const handleClearForm = () => {
         setShowClearConfirm(true);
@@ -3383,6 +3515,7 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                 }),
                 advice: formData.advice || formData.followUp,
                 followUpDate: formData.followUpDate,
+                followUpTime: formData.followUpTime,
                 dietAdvice: formData.dietAdvice,
                 suggestedTests: formData.suggestedTests,
                 avoid: formData.avoid,
@@ -3468,6 +3601,12 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
             });
 
             setIsSubmitted(true);
+
+            // Auto-send WhatsApp if toggle is active
+            if (autoWhatsApp) {
+                setTriggerWhatsApp(true);
+                setTimeout(() => setTriggerWhatsApp(false), 500);
+            }
 
             if (showSuccessModal) {
                 setShowSuccess(true);
@@ -4154,15 +4293,30 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                                 <h2 className="text-xs font-bold text-slate-900 uppercase tracking-widest">Follow Up</h2>
                             </div>
                             <div className="space-y-4">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Follow Up Date</label>
-                                    <input
-                                        type="date"
-                                        name="followUpDate"
-                                        value={formData.followUpDate}
-                                        onChange={handleInputChange}
-                                        className="w-full px-4 py-2.5 bg-slate-50 border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                                    />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Follow Up Date</label>
+                                        <input
+                                            type="date"
+                                            name="followUpDate"
+                                            value={formData.followUpDate}
+                                            onChange={handleInputChange}
+                                            className="w-full px-4 py-2.5 bg-slate-50 border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Follow Up Time</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsTimePickerOpen(true)}
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold flex items-center justify-between hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                                        >
+                                            <span className={formData.followUpTime ? "text-slate-900 font-bold" : "text-slate-400"}>
+                                                {formData.followUpTime || 'Select Time'}
+                                            </span>
+                                            <Clock size={16} className="text-teal-600" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <textarea
                                     name="followUp"
@@ -4203,9 +4357,16 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                     </div>
                 </div>
 
+                {/* Hidden Iframe for PDF Capture & WhatsApp */}
+                <iframe
+                    ref={printIframeRef}
+                    title="Prescription Document Render"
+                    className="fixed -left-[9999px] -top-[9999px] w-[210mm] min-h-[297mm] pointer-events-none opacity-0"
+                />
+
                 {/* Footer Actions */}
                 <div className="pb-4 !mt-2">
-                    <div className="flex justify-center sm:justify-end gap-2 sm:gap-4 p-3 sm:p-6 bg-card border border-border-theme rounded-3xl">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:gap-4 p-3 sm:p-6 bg-card border border-border-theme rounded-3xl">
                         <button
                             onClick={handleClearForm}
                             className="flex-1 sm:flex-none px-2 sm:px-10 py-2 sm:py-4 bg-secondary-theme text-muted rounded-2xl font-black uppercase text-[8px] sm:text-xs tracking-widest border border-border-theme hover:bg-card transition-all active:scale-95 text-center shadow-xs"
@@ -4227,6 +4388,7 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                                 <span className="truncate">{isPaused ? 'Paused' : 'Pause'}</span>
                             </button>
                         )}
+                        <PrintSettingsToggle />
                         <button
                             onClick={handleSendToPharma}
                             disabled={isSaving || isSending || sentToPharma}
@@ -4235,6 +4397,17 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                             {isSending ? <Loader2 className="animate-spin" size={14} /> : (sentToPharma ? <CheckCircle2 size={14} /> : <Pill size={14} />)}
                             <span className="truncate">{sentToPharma ? 'Pharma' : 'Pharma'}</span>
                         </button>
+                        <WhatsAppSendButton
+                            hospitalId={hospitalId}
+                            targetRef={printIframeRef}
+                            phoneNumber={patientMobile}
+                            documentName={`Prescription_${formData.patientName || 'Patient'}.pdf`}
+                            caption={rxCaption}
+                            autoSend={autoWhatsApp}
+                            onAutoSendChange={handleToggleAutoWhatsApp}
+                            triggerSend={triggerWhatsApp}
+                            className="px-4 sm:px-8 py-2 sm:py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-[#25D366]/20 active:scale-95 transition-all text-[8px] sm:text-xs uppercase tracking-widest disabled:opacity-50 h-full min-h-[38px] sm:min-h-[48px]"
+                        />
                         {/* <button
                             onClick={() => {
                                 // Preview: open modal only (do not submit)
@@ -4297,13 +4470,24 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                             )}
                         </div>
 
-                        <div className="flex justify-center pt-2">
+                        <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+                            <PrintSettingsToggle />
+                            <WhatsAppSendButton
+                                hospitalId={hospitalId}
+                                targetRef={printIframeRef}
+                                phoneNumber={patientMobile}
+                                documentName={`Prescription_${formData.patientName || 'Patient'}.pdf`}
+                                caption={rxCaption}
+                                autoSend={autoWhatsApp}
+                                onAutoSendChange={handleToggleAutoWhatsApp}
+                                className="px-5 py-3.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl font-bold flex items-center gap-2 shadow-md active:scale-95 transition-all text-xs uppercase tracking-wider disabled:opacity-50"
+                            />
                             <button
                                 onClick={() => handlePrintDocument('prescription')}
-                                className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-teal-50 border-2 border-teal-100 text-teal-700 hover:bg-teal-100 hover:border-teal-200 group w-48 transition-all active:scale-95 shadow-sm"
+                                className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-teal-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-teal-700 transition-all active:scale-95 shadow-md"
                             >
-                                <Printer size={32} className="group-hover:scale-110 transition-transform text-teal-600" />
-                                <span className="font-bold text-sm tracking-tight">Print Prescription</span>
+                                <Printer size={18} />
+                                <span>Print Prescription</span>
                             </button>
                         </div>
                         <button
@@ -4654,7 +4838,22 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
                     </div>
                 </div>
             )}
+            {/* Interactive Clock Time Picker Modal */}
+            <ClockTimePicker
+                isOpen={isTimePickerOpen}
+                initialHour24={parseTimeTo24(formData.followUpTime).hour}
+                initialMinute={parseTimeTo24(formData.followUpTime).minute}
+                onSave={(h24, m) => {
+                    const period = h24 >= 12 ? 'PM' : 'AM';
+                    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+                    const timeStr = `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+                    setFormData(prev => ({ ...prev, followUpTime: timeStr }));
+                    setIsTimePickerOpen(false);
+                }}
+                onClose={() => setIsTimePickerOpen(false)}
+            />
         </div>
     );
 }
+
 export default React.memo(CreatePrescriptionPage);

@@ -4,6 +4,7 @@ import React, {  useState , useMemo } from 'react';
 import toast from "react-hot-toast";
 import { useQuery } from '@tanstack/react-query';
 import { hospitalAdminService } from "@/lib/integrations/services/hospitalAdmin.service";
+import { formatPatientDisplayName } from "@/lib/utils/name-utils";
 import { 
   Users, 
   Search, 
@@ -38,11 +39,16 @@ function HospitalAdminPatients() {
     retry: 1,
   });
 
-  const filteredPatients = patients.filter(p => 
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.mobile?.includes(searchTerm)
-  );
+  const filteredPatients = patients.filter(p => {
+    const fullName = formatPatientDisplayName(p, p, false).toLowerCase();
+    const search = searchTerm.toLowerCase();
+    return (
+      fullName.includes(search) ||
+      p.name?.toLowerCase().includes(search) || 
+      p.email?.toLowerCase().includes(search) ||
+      p.mobile?.includes(searchTerm)
+    );
+  });
 
   if (loading) {
     return (
@@ -112,7 +118,7 @@ function HospitalAdminPatients() {
                                 <User size={24} strokeWidth={2.5} />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <h3 className="text-sm md:text-lg font-black text-slate-900 truncate leading-tight">{patient.name}</h3>
+                                <h3 className="text-sm md:text-lg font-black text-slate-900 truncate leading-tight">{formatPatientDisplayName(patient, patient, true)}</h3>
                                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter mt-1 inline-flex items-center gap-1.5">
                                     <BadgeCheck size={10} /> PID: {patient._id.slice(-8).toUpperCase()}
                                 </p>

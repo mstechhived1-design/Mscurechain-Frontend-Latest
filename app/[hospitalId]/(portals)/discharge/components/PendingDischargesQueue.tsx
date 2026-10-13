@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/admin';
 import toast from 'react-hot-toast';
 import { subscribeToSocket, unsubscribeFromSocket } from '@/lib/integrations/api/socket';
+import { formatPatientNameWithPrefix, formatDoctorName } from '@/lib/utils/name-utils';
 
 interface PendingDischargesQueueProps {
     searchTerm: string;
@@ -134,11 +135,11 @@ export function PendingDischargesQueue({ searchTerm, page, basePath, onPaginatio
                                     </div>
                                     <div className="min-w-0">
                                         <h3 className="font-bold text-gray-900 text-sm sm:text-base group-hover:text-blue-600 transition-colors uppercase truncate max-w-[150px] sm:max-w-none">
-                                            {discharge.patientName}
+                                            {formatPatientNameWithPrefix(discharge.patientName || discharge.patient?.name, discharge.honorific || discharge.patientHonorific || discharge.patientTitle || discharge.patient?.honorific, true) || discharge.patientName}
                                         </h3>
                                         <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4 gap-y-0.5 mt-0.5">
                                             <p className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider">MRN: <span className="text-gray-600">{discharge.mrn}</span></p>
-                                            <p className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden xs:block">Doc: <span className="text-gray-600 truncate max-w-[60px] inline-block align-middle">{discharge.primaryDoctor}</span></p>
+                                            <p className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden xs:block">Doc: <span className="text-gray-600 truncate max-w-[60px] inline-block align-middle">{discharge.primaryDoctor ? formatDoctorName(discharge.primaryDoctor) : ''}</span></p>
                                         </div>
                                     </div>
                                 </div>

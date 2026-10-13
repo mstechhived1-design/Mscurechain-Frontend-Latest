@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import MainHeader from '../printers/MainHeader';
 import MainFooter from '../printers/MainFooter';
 
@@ -35,10 +35,11 @@ function BillingDocument({
     return (
         <div className="print-block" style={{
             background: 'white',
-            width: '210mm',
-            height: '296mm',
+            width: '100%',
+            maxWidth: '210mm',
+            minHeight: '100%',
             margin: '0 auto',
-            padding: '10mm 15mm 10mm 25mm',
+            padding: '8mm 12mm',
             boxSizing: 'border-box',
             position: 'relative',
             display: 'flex',

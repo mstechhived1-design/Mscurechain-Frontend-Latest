@@ -106,12 +106,12 @@ export const DermatologyPrescriptionDocument: React.FC<DermatologyPrescriptionDo
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
                 .prescription-responsive-container { padding: 5mm; }
-                @media (min-width: 640px) { .prescription-responsive-container { padding: 10mm 15mm 10mm 20mm; } }
+                @media (min-width: 640px) { .prescription-responsive-container { padding: 8mm 12mm; } }
                 @media print {
                     @page { size: A4; margin: 0; }
                     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; }
                     .prescription-responsive-container {
-                        padding: 10mm 15mm 10mm 20mm !important;
+                        padding: 8mm 12mm !important;
                         width: 210mm !important;
                         min-height: 280mm !important;
                         height: auto !important;

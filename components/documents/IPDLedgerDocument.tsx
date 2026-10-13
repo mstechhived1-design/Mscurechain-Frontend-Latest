@@ -74,9 +74,10 @@ const IPDLedgerDocument: React.FC<IPDLedgerDocumentProps> = ({ summary, hospital
 
     return (
         <div className="print-block bg-white relative flex flex-col overflow-hidden text-[#1e293b] text-[11px] leading-relaxed mx-auto box-border" style={{
-            width: '210mm',
-            minHeight: '296mm',
-            padding: '10mm 15mm 10mm 25mm'
+            width: '100%',
+            maxWidth: '210mm',
+            minHeight: '100%',
+            padding: '8mm 12mm'
         }}>
             {/* Universal Header */}
             <MainHeader

@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, Search, ArrowLeft, ExternalLink, Calendar, User, RefreshCw, ChevronLeft, ChevronRight, Trash2, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { FileText, Search, ArrowLeft, ExternalLink, Calendar, User, RefreshCw, ChevronLeft, ChevronRight, Trash2, AlertTriangle, MessageCircle, Printer, X, Check } from 'lucide-react';
 import { helpdeskService } from '@/lib/integrations/services/helpdesk.service';
+import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import { useHelpdeskPatients } from "@/lib/integrations";
 import { sanitizePatientName, formatPatientDisplayName } from "@/lib/utils/name-utils";
 import { calculateAge } from "@/lib/utils/date-utils";
+import { generateTransactionReportHTML } from '@/lib/utils/print-transaction-report';
+import { useWhatsAppSender } from '@/components/WhatsApp/useWhatsAppSender';
+import { WA_DIVIDER, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
 import { useRouter, useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
@@ -92,9 +96,116 @@ export default function TransactionHistoryPage() {
     const [reportPage, setReportPage] = useState(1);
     const reportsLimit = 15;
 
+    // Hospital Data
+    const [hospital, setHospital] = useState<any>(null);
+
+    // WhatsApp Modal State
+    const [whatsAppModalReport, setWhatsAppModalReport] = useState<any>(null);
+    const [whatsAppPhone, setWhatsAppPhone] = useState<string>('');
+    const whatsAppIframeRef = useRef<HTMLIFrameElement>(null);
+    const { captureAndSend, isSending: isSendingWhatsApp } = useWhatsAppSender({ hospitalId: (params?.hospitalId as string) || '' });
+
     useEffect(() => {
+        hospitalAdminService.getHospital().then(res => setHospital(res?.hospital)).catch(() => { });
         fetchAllReports();
     }, []);
+
+    const reportHtml = useMemo(() => {
+        if (!whatsAppModalReport) return '';
+        const r = whatsAppModalReport;
+        const p = {
+            ...(r.patient || selectedPatient || {}),
+            name: formatPatientDisplayName(r.patient || selectedPatient),
+            mobile: whatsAppPhone || r.patient?.mobile || selectedPatient?.mobile || '',
+            phone: whatsAppPhone || r.patient?.mobile || selectedPatient?.mobile || '',
+            mrn: r.patient?.mrn || r.patient?.profile?.mrn || selectedPatient?.mrn || 'N/A',
+        };
+        const currentAdm = r.admission || r.reportData?.admission || {};
+        const reportData = r.reportData || {};
+        const totals = r.totals || { grandTotal: 0, totalPaid: 0, balance: 0, discount: 0 };
+        const printConfig = r.reportData?.printConfig || r.printConfig || {
+            consultations: true,
+            investigations: true,
+            wards: true,
+            radiology: true,
+            services: true,
+            pharmacy: true,
+            receipts: true,
+        };
+        const h = hospital || { name: 'HORIZIN HOSPITAL', address: 'Medical Plaza, Healthcare District', phone: '+91 98765 43211' };
+        return generateTransactionReportHTML(h, p, currentAdm, reportData, totals, printConfig);
+    }, [whatsAppModalReport, whatsAppPhone, hospital, selectedPatient]);
+
+    const handleOpenWhatsAppModal = (report: any) => {
+        const rawPhone = (
+            report.patient?.mobile ||
+            report.patient?.user?.mobile ||
+            report.patient?.profile?.contactNumber ||
+            report.patient?.phone ||
+            report.reportData?.phone ||
+            selectedPatient?.mobile ||
+            ''
+        );
+        const clean = String(rawPhone || '').replace(/[^0-9]/g, '');
+        const num = clean.length === 12 && clean.startsWith('91') ? clean.slice(2) : clean;
+        setWhatsAppPhone(num.slice(-10));
+        setWhatsAppModalReport(report);
+    };
+
+    const handleSendWhatsApp = async () => {
+        if (!whatsAppIframeRef.current || !whatsAppModalReport) {
+            toast.error('Document preview is not ready.');
+            return;
+        }
+        const cleanPhone = (whatsAppPhone || '').replace(/[^0-9]/g, '');
+        const validNum = cleanPhone.length === 12 && cleanPhone.startsWith('91') ? cleanPhone.slice(2) : cleanPhone;
+        if (validNum.length !== 10) {
+            toast.error('Please enter a valid 10-digit WhatsApp number.');
+            return;
+        }
+
+        const pName = formatPatientDisplayName(whatsAppModalReport.patient || selectedPatient);
+        const pMrn = whatsAppModalReport.patient?.mrn || whatsAppModalReport.patient?.profile?.mrn || selectedPatient?.mrn || 'N/A';
+        const hospName = hospital?.name || 'Horizin Hospital';
+        const totalAmt = whatsAppModalReport.totals?.grandTotal || 0;
+        let paidAmt = whatsAppModalReport.totals?.totalPaid || 0;
+        if (paidAmt === 0) {
+            const payments = whatsAppModalReport.reportData?.payments || whatsAppModalReport.receipts || [];
+            payments.forEach((p: any) => {
+                if (!p.status || p.status === 'Paid' || p.status === 'Completed') {
+                    paidAmt += Number(p.amount || 0);
+                }
+            });
+        }
+        const balAmt = Math.max(0, totalAmt - paidAmt);
+        const invoiceId = whatsAppModalReport.invoiceId || whatsAppModalReport._id?.slice(-8) || 'Txn';
+
+        const caption = `*${hospName.toUpperCase()}*
+${WA_DIVIDER}
+*FINANCIAL STATEMENT / INVOICE*
+${WA_DIVIDER}
+*Patient Name:* ${pName}
+*MRN:* ${pMrn}
+*Total Bill:* ₹${totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+*Total Paid:* ₹${paidAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+*Balance Due:* ₹${balAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+${WA_DIVIDER}
+${READ_MORE}
+Please find attached your detailed interim bill and financial statement.
+Contact hospital billing desk for any queries.
+Thank you for choosing ${hospName}.`;
+
+        const success = await captureAndSend(
+            whatsAppIframeRef,
+            validNum,
+            `Invoice_${pName.replace(/\s+/g, '_')}_${invoiceId}.pdf`,
+            caption
+        );
+
+        if (success) {
+            setWhatsAppModalReport(null);
+        }
+    };
 
     const fetchAllReports = async () => {
         try {
@@ -340,6 +451,22 @@ export default function TransactionHistoryPage() {
                                 <ChevronRight size={14} />
                             </button>
                         </div>
+
+                        <button
+                            onClick={() => {
+                                if (displayReports.length > 0) {
+                                    handleOpenWhatsAppModal(displayReports[0]);
+                                } else {
+                                    toast.error("No reports available to send.");
+                                }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all shadow-sm shadow-[#25D366]/20 cursor-pointer ml-auto sm:ml-0"
+                            title="Send transaction report via WhatsApp"
+                        >
+                            <MessageCircle size={13} />
+                            <span className="hidden sm:inline">Manual WhatsApp</span>
+                            <span className="sm:hidden">WhatsApp</span>
+                        </button>
                     </>
                 )}
             </div>
@@ -451,12 +578,24 @@ export default function TransactionHistoryPage() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => { setSelectedPatient(null); setPatientReports([]); setSearchTerm(""); }}
-                        className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 font-bold text-xs hover:bg-white transition-colors"
-                    >
-                        Clear Selection
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {displayReports.length > 0 && (
+                            <button
+                                onClick={() => handleOpenWhatsAppModal(displayReports[0])}
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-bold text-xs shadow-sm shadow-[#25D366]/20 transition-all cursor-pointer"
+                                title="Send latest report via WhatsApp"
+                            >
+                                <MessageCircle size={14} />
+                                <span>Manual WhatsApp</span>
+                            </button>
+                        )}
+                        <button
+                            onClick={() => { setSelectedPatient(null); setPatientReports([]); setSearchTerm(""); }}
+                            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 font-bold text-xs hover:bg-white transition-colors"
+                        >
+                            Clear Selection
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -602,20 +741,27 @@ export default function TransactionHistoryPage() {
                                                         })()}
                                                     </td>
                                                     <td className="px-4 py-3 text-right">
-                                                        <div className="flex items-center justify-end gap-2">
+                                                        <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+                                                            <button
+                                                                onClick={() => handleOpenWhatsAppModal(report)}
+                                                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                                                                title="Send via WhatsApp"
+                                                            >
+                                                                <MessageCircle size={14} />
+                                                            </button>
                                                             <button
                                                                 onClick={() => {
                                                                     const patientId = report.patient?._id || selectedPatient?._id || report.patientId;
                                                                     router.push(`/${params.hospitalId}/frontdesk/transaction-reports?patientId=${patientId}&loadReport=${report._id}`);
                                                                 }}
-                                                                className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shadow-sm"
+                                                                className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shadow-sm cursor-pointer"
                                                                 title="Open Report"
                                                             >
                                                                 <FileText size={14} />
                                                             </button>
                                                             <button
                                                                 onClick={() => setReportToDelete(report)}
-                                                                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors shadow-sm"
+                                                                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors shadow-sm cursor-pointer"
                                                                 title="Delete Report"
                                                             >
                                                                 <Trash2 size={14} />
@@ -626,7 +772,7 @@ export default function TransactionHistoryPage() {
                                             ))}
                                         </React.Fragment>
                                     );
-                                })}
+                                 })}
                             </tbody>
                         </table>
                     </div>
@@ -649,14 +795,14 @@ export default function TransactionHistoryPage() {
                                 <button
                                     onClick={() => setReportToDelete(null)}
                                     disabled={isDeleting}
-                                    className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors disabled:opacity-50"
+                                    className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={confirmDelete}
                                     disabled={isDeleting}
-                                    className="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                    className="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                                 >
                                     {isDeleting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                     Delete
@@ -664,6 +810,177 @@ export default function TransactionHistoryPage() {
                             </div>
                         </div>
                     </div>          
+                </div>
+            )}
+
+            {/* WhatsApp Send & Preview Modal (Exact A4 matching 3rd screenshot) */}
+            {whatsAppModalReport && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 via-white to-emerald-50/40 border-b border-slate-100 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shadow-md shadow-[#25D366]/20">
+                                    <MessageCircle size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                                        Send Interim Bill via WhatsApp
+                                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                            A4 PDF
+                                        </span>
+                                    </h3>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                                        Generates and delivers official hospital financial statement
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setWhatsAppModalReport(null)}
+                                disabled={isSendingWhatsApp}
+                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+                                title="Close"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Patient Summary & Manual WhatsApp Number Input */}
+                        <div className="p-4 sm:p-5 bg-slate-50/90 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+                            {/* Patient Info */}
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-sm shrink-0">
+                                    {formatPatientDisplayName(whatsAppModalReport.patient || selectedPatient).charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-sm font-black text-slate-900 truncate flex items-center gap-2">
+                                        <span>{formatPatientDisplayName(whatsAppModalReport.patient || selectedPatient)}</span>
+                                        <span className="text-[10px] text-slate-400 font-bold">
+                                            MRN: {whatsAppModalReport.patient?.mrn || whatsAppModalReport.patient?.profile?.mrn || selectedPatient?.mrn || 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs font-extrabold text-slate-600 mt-0.5 flex flex-wrap items-center gap-2">
+                                        <span>Total: <strong className="text-slate-900">{fmt(whatsAppModalReport.totals?.grandTotal || 0)}</strong></span>
+                                        <span>&bull;</span>
+                                        <span>Paid: <strong className="text-emerald-600">{(() => {
+                                            let calcPaid = whatsAppModalReport.totals?.totalPaid || 0;
+                                            if (calcPaid === 0) {
+                                                const payments = whatsAppModalReport.reportData?.payments || whatsAppModalReport.receipts || [];
+                                                payments.forEach((p: any) => {
+                                                    if (!p.status || p.status === 'Paid' || p.status === 'Completed') {
+                                                        calcPaid += Number(p.amount || 0);
+                                                    }
+                                                });
+                                            }
+                                            return fmt(calcPaid);
+                                        })()}</strong></span>
+                                        <span>&bull;</span>
+                                        <span>Balance: <strong className="text-rose-600">{(() => {
+                                            let calcPaid = whatsAppModalReport.totals?.totalPaid || 0;
+                                            if (calcPaid === 0) {
+                                                const payments = whatsAppModalReport.reportData?.payments || whatsAppModalReport.receipts || [];
+                                                payments.forEach((p: any) => {
+                                                    if (!p.status || p.status === 'Paid' || p.status === 'Completed') {
+                                                        calcPaid += Number(p.amount || 0);
+                                                    }
+                                                });
+                                            }
+                                            const grand = whatsAppModalReport.totals?.grandTotal || 0;
+                                            const bal = grand - calcPaid;
+                                            return fmt(bal < 0 ? 0 : bal);
+                                        })()}</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Manual Phone Input Field */}
+                            <div className="shrink-0">
+                                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                                    Patient WhatsApp Number (Editable)
+                                </label>
+                                <div className="flex items-center bg-white border border-slate-300 rounded-xl px-3 py-2 shadow-2xs focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20">
+                                    <span className="text-xs font-bold text-slate-400 mr-1.5 select-none">+91</span>
+                                    <input
+                                        type="tel"
+                                        maxLength={10}
+                                        placeholder="10-digit number"
+                                        value={whatsAppPhone}
+                                        onChange={(e) => setWhatsAppPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                                        className="w-36 text-xs font-black text-slate-800 outline-none bg-transparent"
+                                        disabled={isSendingWhatsApp}
+                                    />
+                                    {whatsAppPhone.length === 10 ? (
+                                        <span className="text-emerald-600 text-[10px] font-black uppercase tracking-wider ml-1 flex items-center gap-0.5">
+                                            <Check size={12} /> Valid
+                                        </span>
+                                    ) : (
+                                        <span className="text-amber-500 text-[10px] font-bold ml-1">
+                                            {10 - whatsAppPhone.length} digits left
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Document Live Preview Frame (Exact A4 matching 3rd screenshot) */}
+                        <div className="flex-1 overflow-y-auto p-4 bg-slate-200/60 flex justify-center">
+                            <div className="bg-white shadow-xl rounded-lg overflow-hidden border border-slate-300 w-full max-w-[794px] min-h-[500px]">
+                                <iframe
+                                    ref={whatsAppIframeRef}
+                                    srcDoc={reportHtml}
+                                    title="Invoice Detailed Preview"
+                                    className="w-full h-[620px] border-none bg-white block"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Footer Actions */}
+                        <div className="px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+                            <div className="text-[11px] font-bold text-slate-500 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span>Preview matches exact printed financial statement</span>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                                <button
+                                    onClick={() => {
+                                        if (whatsAppIframeRef.current?.contentWindow) {
+                                            whatsAppIframeRef.current.contentWindow.print();
+                                        }
+                                    }}
+                                    disabled={isSendingWhatsApp}
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-colors cursor-pointer"
+                                    title="Open print preview"
+                                >
+                                    <Printer size={14} />
+                                    <span>Print</span>
+                                </button>
+                                <button
+                                    onClick={() => setWhatsAppModalReport(null)}
+                                    disabled={isSendingWhatsApp}
+                                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSendWhatsApp}
+                                    disabled={isSendingWhatsApp || whatsAppPhone.replace(/[^0-9]/g, '').length !== 10}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-[#25D366] hover:bg-[#20bd5a] disabled:bg-slate-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/25 transition-all cursor-pointer disabled:cursor-not-allowed active:scale-[0.98]"
+                                >
+                                    {isSendingWhatsApp ? (
+                                        <>
+                                            <RefreshCw size={14} className="animate-spin" />
+                                            <span>Sending PDF...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MessageCircle size={15} />
+                                            <span>Send WhatsApp</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

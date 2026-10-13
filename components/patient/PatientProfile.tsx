@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import {
@@ -14,6 +14,7 @@ import {
 
 import { format } from 'date-fns';
 import { Card } from '@/components/admin';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 interface PatientProfileProps {
   profile: any;
@@ -44,14 +45,18 @@ function PatientProfile({ profile, appointments }: PatientProfileProps) {
     bloodGroup: profile.bloodGroup
   };
 
-
+  const patientDisplayName = formatPatientNameWithPrefix(
+    profile.user?.name || profile.name,
+    profile.honorific || profile.user?.honorific,
+    true
+  ) || profile.user?.name || profile.name || 'Patient';
 
   const infoGroups = [
     {
       title: 'Identity',
       icon: <User size={18} className="text-blue-600" />,
       items: [
-        { label: 'Name', value: profile.user?.name || profile.name },
+        { label: 'Name', value: patientDisplayName },
         { label: 'MRN', value: profile.mrn },
         { label: 'Gender', value: profile.gender },
         { label: 'Age', value: profile.age ? `${profile.age} Years` : (profile as any).dob ? format(new Date(profile.dob), 'yyyy') : '---' },

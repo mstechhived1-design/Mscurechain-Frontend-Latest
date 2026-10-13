@@ -60,10 +60,11 @@ export const LabTokenDocument: React.FC<LabTokenDocumentProps> = ({
     return (
         <div className="relative font-sans print-token-document"
             style={{
-                width: '210mm',
-                height: '296mm',
+                width: '100%',
+                maxWidth: '210mm',
+                minHeight: '100%',
                 margin: '0 auto',
-                padding: '12mm 15mm 12mm 25mm',
+                padding: '8mm 12mm',
                 boxSizing: 'border-box',
                 backgroundColor: colors.white,
                 overflow: 'hidden',

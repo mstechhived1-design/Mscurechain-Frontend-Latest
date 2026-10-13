@@ -17,6 +17,7 @@ import { LabSampleService } from '@/lib/integrations/services/labSample.service'
 import { apiClient, clearApiCache, invalidateCachePattern } from '@/lib/integrations/api/apiClient';
 import { patientService } from '@/lib/integrations/services/patient.service';
 import BillPrintView from '@/components/lab/BillPrintView';
+import { formatPatientDisplayName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 function LabBillingPage() {
     const router = useRouter();
@@ -89,10 +90,10 @@ function LabBillingPage() {
     }, [billingMode]);
 
     // Select a patient from suggestions and auto-fill fields
-    const handleSelectPatient = useCallback((p: { _id: string; name: string; mobile: string; email?: string; age?: number; ageUnit?: string; gender?: string }) => {
+    const handleSelectPatient = useCallback((p: { _id: string; name: string; mobile: string; email?: string; age?: number; ageUnit?: string; gender?: string; honorific?: string }) => {
         setPatient(prev => ({
             ...prev,
-            name: p.name,
+            name: formatPatientDisplayName(p, p, true) || p.name,
             mobile: p.mobile || prev.mobile,
             age: p.age ?? prev.age,
             ageUnit: (p.ageUnit as any) || prev.ageUnit,
@@ -559,6 +560,31 @@ function LabBillingPage() {
         (t.testName || t.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const handleSelectAll = () => {
+        const testsToAdd: BillItem[] = filteredTests.map(test => {
+            const currentName = test.testName || test.name || "Unknown";
+            const effectivePrice = billingMode === 'lab' && test.labPrice !== undefined
+                ? test.labPrice
+                : test.price;
+            return {
+                testName: currentName,
+                testId: test._id,
+                price: effectivePrice,
+                discount: 0
+            };
+        });
+
+        setSelectedTests(prev => {
+            const existingNames = new Set(prev.map(t => t.testName));
+            const newTests = testsToAdd.filter(t => !existingNames.has(t.testName));
+            return [...prev, ...newTests];
+        });
+    };
+
+    const handleClearAll = () => {
+        setSelectedTests([]);
+    };
+
     return (
         <div className="max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-700 pb-12">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 lg:gap-6 pb-4 border-b border-gray-100 dark:border-gray-800">
@@ -692,7 +718,7 @@ function LabBillingPage() {
                                                     <User size={13} className="text-indigo-600 dark:text-indigo-400" />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{p.name}</p>
+                                                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{formatPatientDisplayName(p, p, true) || p.name}</p>
                                                     <p className="text-xs text-gray-500 dark:text-gray-400">{p.mobile}</p>
                                                 </div>
                                             </button>
@@ -886,17 +912,39 @@ function LabBillingPage() {
 
                     {/* Test Selection Card */}
                     <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col min-h-[500px]">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0 mb-4 lg:mb-6 pb-3 lg:pb-4 border-b border-gray-100 dark:border-gray-700">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 lg:mb-6 pb-3 lg:pb-4 border-b border-gray-100 dark:border-gray-700">
                             <div className="flex items-center gap-2">
                                 <span className="w-1 h-5 bg-indigo-600 rounded-full" />
                                 <h3 className="text-base font-semibold text-gray-900 dark:text-white">Select Services</h3>
+                                <span className="text-xs text-gray-400 font-medium ml-1">
+                                    ({selectedTests.length} selected)
+                                </span>
                             </div>
-                            <input
-                                placeholder="Search tests..."
-                                className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 w-full sm:w-64 transition-all"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                <button
+                                    type="button"
+                                    onClick={handleSelectAll}
+                                    title="Select all matching tests"
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 transition-all active:scale-95 whitespace-nowrap"
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleClearAll}
+                                    disabled={selectedTests.length === 0}
+                                    title="Clear selected tests"
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed text-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 transition-all active:scale-95 whitespace-nowrap"
+                                >
+                                    Clear All
+                                </button>
+                                <input
+                                    placeholder="Search tests..."
+                                    className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-1.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 w-full sm:w-56 transition-all"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
                         </div>
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 auto-rows-min max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                             {filteredTests.map((test) => {

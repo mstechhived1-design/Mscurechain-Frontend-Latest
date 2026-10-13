@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useTenantLink } from "@/hooks/useTenantLink";
+import { formatPatientDisplayName } from "@/lib/utils/name-utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -349,6 +350,15 @@ export default function IPDIssuancePage() {
 
                         <div className="hidden md:block h-6 w-px bg-gray-200 dark:bg-gray-700 shrink-0" />
 
+                        {/* Total Count Badge */}
+                        {!selectedAdmission && (
+                            <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 rounded-lg px-2.5 py-1 md:py-1.5 shrink-0 shadow-sm">
+                                <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                                <span className="text-[9px] font-bold text-blue-600/70 dark:text-blue-400/70 uppercase tracking-wider">Patients:</span>
+                                <span className="text-[11px] font-black text-blue-700 dark:text-blue-300">{filteredAdmissions.length}</span>
+                            </div>
+                        )}
+
                         {/* Search Bar - Flex 1 */}
                         {!selectedAdmission && (
                             <div className="relative flex-1 min-w-[120px] md:min-w-[200px] max-w-md">
@@ -417,7 +427,7 @@ export default function IPDIssuancePage() {
                                                             {adm.patient?.name?.[0]}
                                                         </div>
                                                         <div>
-                                                            <p className="text-[10px] md:text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-tight">{adm.patient?.name}</p>
+                                                            <p className="text-[10px] md:text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-tight">{formatPatientDisplayName(adm.patient, adm, true)}</p>
                                                             <div className="flex items-center gap-1.5 mt-0.5">
                                                                 <Fingerprint size={10} className="text-gray-400" />
                                                                 <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
@@ -505,7 +515,7 @@ export default function IPDIssuancePage() {
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-white/70 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-1">Selected Patient Registry</p>
-                                                <h2 className="text-xl md:text-3xl font-black leading-none uppercase tracking-tight truncate">{selectedAdmission.patient?.name}</h2>
+                                                <h2 className="text-xl md:text-3xl font-black leading-none uppercase tracking-tight truncate">{formatPatientDisplayName(selectedAdmission.patient, selectedAdmission, true)}</h2>
                                                 <div className="flex items-center gap-3 mt-2">
                                                     <p className="text-white/60 text-[10px] md:text-xs font-black uppercase tracking-widest">{selectedAdmission.admissionId}</p>
                                                     {selectedAdmission.patient?.mobile && (
@@ -899,7 +909,7 @@ export default function IPDIssuancePage() {
                                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Statement For</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-sm md:text-base font-black text-gray-800 dark:text-white leading-tight uppercase tracking-tight">{selectedAdmission.patient?.name}</p>
+                                                <p className="text-sm md:text-base font-black text-gray-800 dark:text-white leading-tight uppercase tracking-tight">{formatPatientDisplayName(selectedAdmission.patient, selectedAdmission, true)}</p>
                                                 <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1">
                                                     <div className="flex flex-col">
                                                         <p className="text-[7px] font-black text-gray-400 uppercase">MRN Number</p>

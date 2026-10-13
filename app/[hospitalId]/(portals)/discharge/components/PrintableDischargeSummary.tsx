@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 export const PrintableDischargeSummary = React.forwardRef<HTMLDivElement, { data: any, consultants: string[] }>(({ data, consultants }, ref) => {
     const [hospitalInfo, setHospitalInfo] = useState<any>(null);
@@ -223,7 +224,7 @@ export const PrintableDischargeSummary = React.forwardRef<HTMLDivElement, { data
                         <div className="info-card">
                             <div className="info-card-badge">Patient Identity</div>
                             <div className="text-[14px] font-black text-slate-900 uppercase mb-3 pr-20">
-                                {data.patientTitle} {data.patientName}
+                                {formatPatientNameWithPrefix(data.patientName, data.patientTitle || data.honorific || data.patientHonorific, true) || data.patientName}
                             </div>
                             <div className="grid grid-cols-2 gap-y-3 gap-x-2">
                                 <div>

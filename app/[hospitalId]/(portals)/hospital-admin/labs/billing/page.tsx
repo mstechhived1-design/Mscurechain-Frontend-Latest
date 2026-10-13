@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { LabBillingService } from '@/lib/integrations/services/labBilling.service';
 import { BillItem, PatientDetails, BillPayload } from '@/lib/integrations/types/labBilling';
@@ -10,6 +10,7 @@ import { useReactToPrint } from 'react-to-print';
 import { toast } from 'react-hot-toast';
 import { LabTestService } from '@/lib/integrations/services/labTest.service';
 import { LabTest } from '@/lib/integrations/types/labTest';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import {
     User,
     Phone,
@@ -20,14 +21,31 @@ import {
     Activity,
     Stethoscope
 } from 'lucide-react';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 function HospitalAdminLabBillingPage() {
     const router = useRouter();
+    const params = useParams();
+    const hospitalId = (params?.hospitalId as string) || '';
     const { user } = useAuthStore();
     const [loading, setLoading] = useState(false);
     const [testsLoading, setTestsLoading] = useState(true);
     const [availableTests, setAvailableTests] = useState<LabTest[]>([]);
     const [generatedBill, setGeneratedBill] = useState<(BillPayload & { invoiceId: string; createdAt: string }) | null>(null);
+    const [autoWhatsApp, setAutoWhatsApp] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('msc_auto_whatsapp') === 'true';
+        }
+        return false;
+    });
+    const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
+
+    const handleToggleAutoWhatsApp = (val: boolean) => {
+        setAutoWhatsApp(val);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp', String(val));
+        }
+    };
 
     useEffect(() => {
         const fetchTests = async () => {
@@ -108,6 +126,10 @@ function HospitalAdminLabBillingPage() {
             const res = await LabBillingService.createBill(payload);
             setGeneratedBill({ ...payload, invoiceId: res.bill.invoiceId, createdAt: res.bill.createdAt });
             toast.success('Billing sequence synchronized');
+
+            if (autoWhatsApp && patient.mobile) {
+                setTriggerWhatsApp(true);
+            }
 
             setTimeout(() => {
                 handlePrint();
@@ -336,7 +358,7 @@ function HospitalAdminLabBillingPage() {
                         <button
                             onClick={handleGenerateBill}
                             disabled={loading || selectedTests.length === 0}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 rounded-3xl font-black uppercase tracking-[0.3em] text-xs shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-3xl font-black uppercase tracking-[0.3em] text-xs shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
                         >
                             {loading ? (
                                 <Activity className="w-5 h-5 animate-spin" />
@@ -347,6 +369,21 @@ function HospitalAdminLabBillingPage() {
                                 </>
                             )}
                         </button>
+
+                        <WhatsAppSendButton
+                            hospitalId={hospitalId}
+                            targetRef={printRef}
+                            phoneNumber={patient.mobile || ''}
+                            documentName={`Lab_Invoice_${formatPatientNameWithPrefix(patient.name, (patient as any).honorific, false) || patient.name || 'Patient'}.pdf`}
+                            caption={`${WA_DIVIDER}\n*LAB DIAGNOSTIC INVOICE*\n${WA_DIVIDER}\n*Patient Name:* ${formatPatientNameWithPrefix(patient.name, (patient as any).honorific, true) || patient.name || 'N/A'}\n*Tests:* ${(selectedTests || []).map((t: any) => t.testName).join(', ') || 'N/A'}\n*Amount:* ₹${finalAmount}\n*Paid:* ₹${paidAmount}\n*Payment Mode:* ${paymentMode}\n${WA_DIVIDER}\n${READ_MORE}\nPlease collect your diagnostic report from the lab reception counter.`}
+                            layout="stacked"
+                            showCheckbox={true}
+                            autoSend={autoWhatsApp}
+                            onAutoSendChange={handleToggleAutoWhatsApp}
+                            triggerSend={triggerWhatsApp}
+                            className={`w-full py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-3xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-3 mt-3`}
+                            containerClassName="w-full"
+                        />
                     </div>
 
                     <div className="bg-indigo-600 rounded-[0.5rem] p-2 md:p-4 md:p-8 text-white flex items-center justify-between group cursor-pointer hover:bg-indigo-700 shadow-xl shadow-indigo-200 dark:shadow-none"

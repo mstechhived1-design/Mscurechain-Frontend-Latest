@@ -27,6 +27,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { formatTime12Hr } from '@/lib/print-utils';
+import ClinicalReceipt from '@/components/helpdesk/ClinicalReceipt';
 
 export const formatPaymentMode = (tx: any) => {
     const mode = (tx.paymentMethod || tx.paymentMode || 'CASH').toUpperCase();
@@ -53,6 +54,7 @@ export default function TransactionsPage() {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [hospital, setHospital] = useState<any>(null);
+    const [previewTx, setPreviewTx] = useState<any>(null);
 
     // Fetch hospital branding for receipts
     useEffect(() => {
@@ -1037,12 +1039,12 @@ export default function TransactionsPage() {
                                                     {formatPaymentMode(tx)}
                                                 </div>
                                             </td>
-                                            {/* PRINT BUTTON COLUMN */}
+                                            {/* PRINT & WHATSAPP BUTTON COLUMN */}
                                             <td className="px-4 py-4 text-center">
                                                 <button
-                                                    onClick={() => handlePrintTransaction(tx)}
-                                                    className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all border border-transparent hover:border-indigo-100"
-                                                    title="Print Receipt"
+                                                    onClick={() => setPreviewTx(tx)}
+                                                    className="p-2 text-slate-300 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all border border-transparent hover:border-teal-100"
+                                                    title="Receipt & WhatsApp"
                                                 >
                                                     <Printer size={15} />
                                                 </button>
@@ -1061,6 +1063,60 @@ export default function TransactionsPage() {
                 </div>
             </div>
 
-        </div >
+            {previewTx && (() => {
+                const tx = previewTx;
+                const p = tx.patientDetails || tx.patientId || tx.patient || tx.referenceId?.patient || {};
+                const pProfile = p.profile || {};
+                const honorific = p.honorific || pProfile.honorific || tx.referenceId?.honorific || tx.honorific || '';
+                const rawName = tx.patientName || p.name || tx.referenceId?.patientName || 'Unknown';
+                const upHonorific = honorific ? honorific.toUpperCase() : '';
+                const prefixStr = ['MR', 'MRS', 'MS', 'DR'].includes(upHonorific) ? `${upHonorific}.` : upHonorific;
+                const formattedName = `${prefixStr} ${rawName}`.trim();
+
+                const pAge = p.age || pProfile.age || tx.patientDetails?.age || '';
+                const pGender = p.gender || pProfile.gender || tx.patientDetails?.gender || '';
+                const pMobile = tx.patientMobile || tx.mobile || p.mobile || p.contactNumber || pProfile.contactNumber || 'N/A';
+                const pMrn = tx.patientMRN || p.mrn || pProfile.mrn || tx.referenceId?.mrn || 'N/A';
+
+                const rawType = (tx.type || '').toLowerCase();
+                const apptData = tx.referenceId || {};
+                const isLabTx = rawType === 'lab_test' || rawType === 'lab' || rawType.includes('lab') || Boolean(apptData.tests && apptData.tests.length > 0) || Boolean(tx.tests && tx.tests.length > 0);
+                const labTestsList = apptData.tests || tx.tests || (apptData.testName ? [{ name: apptData.testName, cost: tx.amount }] : (apptData.description ? [{ name: apptData.description, cost: tx.amount }] : []));
+
+                return (
+                    <ClinicalReceipt
+                        hospital={hospital}
+                        isLab={isLabTx}
+                        labTests={labTestsList}
+                        patient={{
+                            name: formattedName,
+                            mrn: pMrn,
+                            mobile: pMobile,
+                            gender: pGender,
+                            age: pAge,
+                            address: p.address || pProfile.address || 'N/A',
+                            bloodGroup: p.bloodGroup || pProfile.bloodGroup || 'N/A',
+                            dateOfBirth: p.dob || p.dateOfBirth || pProfile.dob,
+                        }}
+                        appointment={{
+                            appointmentId: tx.referenceId?.appointmentId || tx.referenceId?.sampleId || tx.transactionId || tx.receiptNumber || 'N/A',
+                            type: tx.type || 'consultation',
+                            date: tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
+                            time: tx.appointmentTime || tx.time || '10:00 AM',
+                            doctorName: tx.referenceId?.primaryDoctor || tx.referenceId?.doctorName || 'Doctor',
+                            specialization: tx.type || 'Consultation',
+                        }}
+                        payment={{
+                            amount: Number(tx.payment?.amount || tx.amount || 0),
+                            method: (tx.paymentMethod || tx.paymentMode || 'cash').toLowerCase(),
+                            mode: tx.paymentMethod || tx.paymentMode || 'Cash',
+                            status: tx.status || 'Paid',
+                            receiptNumber: tx.receiptNumber || tx.transactionId || 'REC-N/A',
+                        }}
+                        onClose={() => setPreviewTx(null)}
+                    />
+                );
+            })()}
+        </div>
     );
 }

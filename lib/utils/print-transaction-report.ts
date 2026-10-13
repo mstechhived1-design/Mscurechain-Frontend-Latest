@@ -83,7 +83,7 @@ export const generateTransactionReportHTML = (
         <style>
             @page {
                 size: A4;
-                margin: 10mm 15mm;
+                margin: 5mm 8mm;
                 @bottom-right {
                     content: "Page " counter(page) " of " counter(pages);
                 }
@@ -97,9 +97,8 @@ export const generateTransactionReportHTML = (
             
             .title-bar { 
                 text-align: center; 
-                border-top: 2px solid #000; 
                 border-bottom: 2px solid #000; 
-                padding: 4px 0; 
+                padding: 5px 0; 
                 font-weight: bold; 
                 font-size: 13px;
                 background-color: #f8f8f8;
@@ -117,31 +116,33 @@ export const generateTransactionReportHTML = (
                 print-color-adjust: exact;
             }
 
-            .info-grid { width: 100%; border-bottom: 1px solid #000; font-size: 11px; padding: 4px 0; }
-            .info-grid td { vertical-align: top; padding: 1px; }
-            .info-label { width: 120px; }
+            .info-grid { width: 100%; border-bottom: 1px solid #ccc; font-size: 11px; padding: 6px 0; margin-bottom: 4px; }
+            .info-grid td { vertical-align: top; padding: 2px 4px; line-height: 1.5; }
+            .info-label { width: 120px; font-weight: 600; color: #333; }
             
-            .data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 5px; }
+            .data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
             .data-table th { 
-                border-top: 1px solid #000; 
-                border-bottom: 1px solid #000; 
-                padding: 4px; 
+                border-top: 1.5px solid #000; 
+                border-bottom: 1.5px solid #000; 
+                padding: 5px 4px; 
                 text-align: left;
                 font-weight: bold;
+                background-color: #fafafa;
             }
             .data-table th.right { text-align: right; }
-            .data-table td { padding: 3px 4px; vertical-align: top; }
+            .data-table td { padding: 4px 4px; vertical-align: top; line-height: 1.4; }
             .data-table td.right { text-align: right; }
             .data-table td.center { text-align: center; }
             
             .cat-header { 
                 font-weight: bold; 
-                color: #000080; /* Dark blue from reference */
-                padding-top: 8px !important;
-                padding-bottom: 4px !important;
+                color: #000080;
+                padding-top: 10px !important;
+                padding-bottom: 5px !important;
+                font-size: 11.5px;
             }
-            .subtotal-row { border-top: 1px solid #000; border-bottom: 1px solid #000; font-weight: bold; }
-            .subtotal-row td { padding: 4px; }
+            .subtotal-row { border-top: 1px solid #555; border-bottom: 1px solid #555; font-weight: bold; background-color: #f9f9f9; }
+            .subtotal-row td { padding: 4px 4px; }
             
             .summary-section { margin-top: 10px; width: 100%; border-top: 2px solid #000; padding-top: 10px; display: flex; justify-content: space-between; }
             .words { font-weight: bold; width: 60%; }
@@ -158,7 +159,8 @@ export const generateTransactionReportHTML = (
         </style>
     </head>
     <body>
-        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px;">
+        <div class="receipt-container" style="padding: 5mm 8mm; box-sizing: border-box; min-height: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 2px solid #000; margin-bottom: 6px;">
             <div style="width: 25%; text-align: left;">
                 ${hospital.logo ? `<img src="${hospital.logo}" style="max-height: 80px; max-width: 100%;" />` : ''}
             </div>
@@ -377,15 +379,22 @@ export const generateTransactionReportHTML = (
     if (cfg.receipts && reportData.payments && reportData.payments.length > 0) {
         html += `
             <div class="receipt-section">
-                <div style="border-bottom: 1px solid #000; font-weight: bold; margin-bottom: 5px;">Receipt Details :</div>
-                <table class="data-table" style="margin-top: 0; border: none;">
+                <div style="border-bottom: 1px solid #000; font-weight: bold; margin-bottom: 6px; padding-bottom: 3px; font-size: 12px;">Receipt Details :</div>
+                <table style="width:100%; border-collapse: collapse; font-size: 11px;">
+                    <colgroup>
+                        <col style="width: 6%;">
+                        <col style="width: 18%;">
+                        <col style="width: 30%;">
+                        <col style="width: 22%; text-align: right;">
+                        <col style="width: 12%;">
+                    </colgroup>
                     <thead>
-                        <tr style="border:none; border-bottom: 1px solid #000;">
-                            <th style="border:none;">S.No</th>
-                            <th style="border:none;">Record Date</th>
-                            <th style="border:none;">Receipt No</th>
-                            <th style="border:none;" class="right">Amount Payment</th>
-                            <th style="border:none;">Type</th>
+                        <tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; background-color: #fafafa;">
+                            <th style="padding: 5px 4px; font-weight: bold; text-align: left;">S.No</th>
+                            <th style="padding: 5px 4px; font-weight: bold; text-align: left;">Record Date</th>
+                            <th style="padding: 5px 4px; font-weight: bold; text-align: left;">Receipt No</th>
+                            <th style="padding: 5px 4px; font-weight: bold; text-align: right;">Amount Payment</th>
+                            <th style="padding: 5px 4px; font-weight: bold; text-align: left;">Type</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -410,26 +419,27 @@ export const generateTransactionReportHTML = (
 
                 html += `
                     <tr>
-                        <td class="center">${idx + 1}</td>
-                        <td>${p.date || formatDate(new Date())}</td>
-                        <td>${p.receiptNo || p.receiptNumber || '-'}</td>
-                        <td class="right">${fmt(Number(p.amount || 0))}</td>
-                        <td>${modeText}</td>
+                        <td style="padding: 4px 4px; text-align: center;">${idx + 1}</td>
+                        <td style="padding: 4px 4px;">${p.date || formatDate(new Date())}</td>
+                        <td style="padding: 4px 4px;">${p.receiptNo || p.receiptNumber || '-'}</td>
+                        <td style="padding: 4px 4px; text-align: right;">${fmt(Number(p.amount || 0))}</td>
+                        <td style="padding: 4px 4px;">${modeText}</td>
                     </tr>
                 `;
             }
         });
         
         html += `
-                    <tr class="subtotal-row">
-                        <td colspan="3" class="right" style="border:none; border-top:1px solid #000; border-bottom:1px solid #000;">Total :</td>
-                        <td class="right" style="border:none; border-top:1px solid #000; border-bottom:1px solid #000;">${fmt(receiptTotal)}</td>
-                        <td style="border:none; border-top:1px solid #000; border-bottom:1px solid #000;"></td>
+                    <tr style="border-top: 1px solid #000; border-bottom: 1px solid #000; font-weight: bold; background-color: #f9f9f9;">
+                        <td colspan="3" style="padding: 4px 4px; text-align: right;">Total :</td>
+                        <td style="padding: 4px 4px; text-align: right;">${fmt(receiptTotal)}</td>
+                        <td style="padding: 4px 4px;"></td>
                     </tr>
                 </tbody>
             </table>
         </div>
         `;
+
     }
 
     html += `
@@ -445,6 +455,7 @@ export const generateTransactionReportHTML = (
         
         <div class="footer-bottom">
             <div>Printed Dt & Time : ${formatDate(new Date())}</div>
+        </div>
         </div>
     </body>
     </html>

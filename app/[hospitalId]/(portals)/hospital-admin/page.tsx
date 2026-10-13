@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useCallback } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { hospitalAdminService } from "@/lib/integrations/services/hospitalAdmin.service";
+import { formatPatientNameWithPrefix } from "@/lib/utils/name-utils";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 
@@ -742,7 +743,7 @@ function HospitalAdminDashboard() {
                             </span>
                           </div>
                           <div className="col-span-5 truncate text-[10px] font-black text-slate-900 group-hover:text-blue-600 transition-colors">
-                            {item.patientName?.toUpperCase()}
+                            {(formatPatientNameWithPrefix(item.patientName, item.honorific || item.patientHonorific, true) || item.patientName || '').toUpperCase()}
                           </div>
                           <div className="col-span-4 text-right truncate text-[9px] font-bold text-slate-500">
                             {item.doctorName}

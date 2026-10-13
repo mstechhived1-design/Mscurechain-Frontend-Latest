@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { subscribeToSocket, unsubscribeFromSocket } from '@/lib/integrations/api/socket';
 import { Card } from '@/components/admin';
 import { MessageSquare, Star } from 'lucide-react';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 import toast from 'react-hot-toast';
 
 export default function LiveFeedbackWidget() {
@@ -27,7 +28,7 @@ export default function LiveFeedbackWidget() {
                                     "{data.comment}"
                                 </p>
                                 <p className="mt-1 text-xs text-blue-500 font-bold">
-                                    - {data.patientName}
+                                    - {formatPatientNameWithPrefix(data.patientName, data.honorific || data.patientHonorific, true) || data.patientName}
                                 </p>
                             </div>
                         </div>
@@ -86,7 +87,7 @@ export default function LiveFeedbackWidget() {
                             </div>
                             <p className="text-sm text-slate-700 font-medium italic mb-2">"{fb.comment}"</p>
                             <div className="flex items-center justify-between pt-2 border-t border-slate-200/50">
-                                <span className="text-[10px] font-black text-slate-500 uppercase">{fb.patientName}</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase">{formatPatientNameWithPrefix(fb.patientName, fb.honorific || fb.patientHonorific, true) || fb.patientName}</span>
                                 <span className="text-[10px] text-slate-300">Just now</span>
                             </div>
                         </div>

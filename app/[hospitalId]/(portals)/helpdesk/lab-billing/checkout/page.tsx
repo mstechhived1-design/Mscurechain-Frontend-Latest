@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useRef, useTransition, useCallback, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { Save, Printer, CheckCircle, X, Check, Search, User, ChevronLeft, Receipt } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { LabBillingService } from '@/lib/integrations/services/labBilling.service';
 import { BillItem, PatientDetails, BillPayload } from '@/lib/integrations/types/labBilling';
 import BillPrintView from '@/components/lab/BillPrintView';
 import { useReactToPrint } from 'react-to-print';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import { toast } from 'react-hot-toast';
 import { LabTestService } from '@/lib/integrations/services/labTest.service';
 import { LabTest } from '@/lib/integrations/types/labTest';
@@ -20,7 +21,24 @@ function HelpdeskLabBillingCheckoutPage() {
     const router = useRouter();
     const { getPath } = useTenantLink();
     const { user } = useAuthStore();
+    const params = useParams() as any;
+    const hospitalId = params?.hospitalId as string;
     const [loading, setLoading] = useState(false);
+
+    // ── WhatsApp State ────────────────────────────────────────
+    const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
+    const [autoWhatsApp, setAutoWhatsApp] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('msc_auto_whatsapp_lab') === 'true';
+        }
+        return false;
+    });
+    const handleToggleAutoWhatsApp = (val: boolean) => {
+        setAutoWhatsApp(val);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp_lab', String(val));
+        }
+    };
     const [testsLoading, setTestsLoading] = useState(true);
     const [availableTests, setAvailableTests] = useState<LabTest[]>([]);
     const [generatedBill, setGeneratedBill] = useState<(BillPayload & { invoiceId: string; createdAt: string }) | null>(null);
@@ -312,6 +330,14 @@ function HelpdeskLabBillingCheckoutPage() {
             }
 
             if (shouldPrint) setTimeout(() => handlePrint(), 500);
+
+            // Auto-send WhatsApp if toggle is active
+            if (autoWhatsApp) {
+                setTimeout(() => {
+                    setTriggerWhatsApp(true);
+                    setTimeout(() => setTriggerWhatsApp(false), 500);
+                }, 800);
+            }
 
             // Refresh data everywhere
             window.dispatchEvent(new Event('refresh-lab-data'));
@@ -731,6 +757,23 @@ function HelpdeskLabBillingCheckoutPage() {
                                     }
                                     {loading ? 'Processing...' : generatedBill ? 'Invoice Generated' : 'Generate Invoice'}
                                 </button>
+
+                                {/* WhatsApp Send — enabled only after invoice is generated */}
+                                <WhatsAppSendButton
+                                    hospitalId={hospitalId}
+                                    targetRef={printRef}
+                                    phoneNumber={patient.mobile || ''}
+                                    documentName={`Lab_Invoice_${patient.name || 'Patient'}.pdf`}
+                                    caption={`${WA_DIVIDER}\n*LAB INVOICE*\n${WA_DIVIDER}\n*Patient:* ${patient.name || 'N/A'}\n*Tests:* ${(generatedBill?.items || []).map((t: any) => t.testName).join(', ') || 'N/A'}\n*Amount:* ₹${generatedBill?.finalAmount ?? finalAmount}\n*Invoice ID:* ${generatedBill?.invoiceId || 'Pending'}\n${WA_DIVIDER}\n${READ_MORE}\nPlease collect your report from the lab counter.`}
+                                    layout="stacked"
+                                    showCheckbox={true}
+                                    autoSend={autoWhatsApp}
+                                    onAutoSendChange={handleToggleAutoWhatsApp}
+                                    triggerSend={triggerWhatsApp}
+                                    className={`w-full ${!generatedBill ? '!opacity-40 !cursor-not-allowed !bg-slate-400 hover:!bg-slate-400' : ''}`}
+                                    containerClassName="w-full"
+                                />
+
                                 {generatedBill && (
                                     <button
                                         onClick={handleClose}

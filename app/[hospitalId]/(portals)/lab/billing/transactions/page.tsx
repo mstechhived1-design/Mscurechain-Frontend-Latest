@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useParams } from 'next/navigation';
 import { LabBillingService } from '@/lib/integrations/services/labBilling.service';
 import { BillResponse } from '@/lib/integrations/types/labBilling';
 import ExcelJS from 'exceljs';
@@ -9,6 +10,8 @@ import { Download, Eye, Printer, Filter, Calendar, IndianRupee, ChevronLeft, Che
 import { useReactToPrint } from 'react-to-print';
 import BillPrintView from '@/components/lab/BillPrintView';
 import { toast } from 'react-hot-toast';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
+import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
 
 function TransactionsPage() {
     const [bills, setBills] = useState<BillResponse[]>([]);
@@ -25,7 +28,7 @@ function TransactionsPage() {
 
     // Auto-refresh state
     const [isAutoRefreshed, setIsAutoRefreshed] = useState(false);
-    
+
     // Billing Type filter state
     const [typeFilter, setTypeFilter] = useState<'all' | 'opd' | 'ipd' | 'lab'>('all');
 
@@ -34,7 +37,7 @@ function TransactionsPage() {
         if (bill.patientType) return bill.patientType as any;
         if ((bill.patientDetails as any).patientType) return (bill.patientDetails as any).patientType;
         if ((bill.patientDetails as any).bedInfo) return 'ipd';
-        
+
         const nameLower = (bill.patientDetails?.name || '').toLowerCase();
         if (nameLower.includes('lab') || nameLower.includes('diagnostic') || nameLower.includes('center') || nameLower.includes('hospital')) {
             return 'lab';
@@ -56,25 +59,78 @@ function TransactionsPage() {
     };
 
 
+    const params = useParams() as any;
+    const hospitalId = params?.hospitalId || '';
+
     const printRef = useRef<HTMLDivElement>(null);
+    const modalPrintRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = useReactToPrint({
-        contentRef: printRef,
+        contentRef: modalPrintRef,
         documentTitle: selectedBill ? `Invoice_${selectedBill.invoiceId}` : 'Invoice',
         onAfterPrint: () => setShowPreview(false)
     });
 
     const triggerPrint = (bill: BillResponse) => {
         setSelectedBill(bill);
-        setTimeout(() => {
-            handlePrint();
-        }, 100);
+        setShowPreview(true);
     };
 
     const openPreview = (bill: BillResponse) => {
         setSelectedBill(bill);
         setShowPreview(true);
     };
+
+    const selectedPatientPhone = useMemo(() => {
+        if (!selectedBill) return '';
+        const pd = selectedBill.patientDetails as any;
+        return (
+            pd?.mobile ||
+            pd?.phone ||
+            (selectedBill as any)?.labClient?.mobile ||
+            (selectedBill as any)?.mobile ||
+            (selectedBill as any)?.phone ||
+            ''
+        );
+    }, [selectedBill]);
+
+    const labInvoiceCaption = useMemo(() => {
+        if (!selectedBill) return '';
+        const pd = selectedBill.patientDetails as any;
+        const pName = formatPatientDisplayName(pd, selectedBill, true);
+        const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+        const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+        const mrn = getValidMrn(pd?.mrn) || getValidMrn(pd?.patientId) || 'N/A';
+        const docName = pd?.refDoctor ? (pd.refDoctor.startsWith('Dr.') ? pd.refDoctor : `Dr. ${pd.refDoctor}`) : 'Consulting Specialist';
+        const invId = selectedBill.invoiceId || 'LAB-INVOICE';
+        const dateStr = new Date(selectedBill.createdAt).toLocaleDateString('en-GB');
+        const totalAmt = selectedBill.finalAmount ?? selectedBill.totalAmount ?? 0;
+        const pMode = selectedBill.paymentMode || 'UPI';
+        const itemsCount = selectedBill.items?.length || 0;
+        const hospName = 'MEDI LAB LABORATORY';
+
+        return `*${hospName.toUpperCase()}*
+${WA_DIVIDER}
+*DIAGNOSTIC LAB INVOICE & RECEIPT*
+
+*Patient Name:* ${pName}
+*MRN / Token ID:* ${mrn}
+*Ref. Doctor:* ${docName}
+*Invoice No:* ${invId}
+*Invoice Date:* ${dateStr}
+*Tests Included:* ${itemsCount} Test(s)
+*Payment Mode:* ${String(pMode).toUpperCase()}
+*Total Amount:* ₹${totalAmt} (PAID)
+${WA_DIVIDER}
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your official diagnostic laboratory tax invoice PDF attached above.
+• Present this receipt at the Sample Collection Desk.
+• You will receive your official test report once analysis is complete.
+• Contact ${hospName} Helpdesk for any queries.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+    }, [selectedBill]);
 
     const fetchBills = useCallback(async (pageNum = 1, skipCache = false, isPolling = false) => {
         if (!isPolling) setLoading(true);
@@ -223,7 +279,7 @@ function TransactionsPage() {
                     index + 1,
                     `${formattedDate} ${formattedTime}`,
                     formattedInvoiceId,
-                    bill.patientDetails.name,
+                    formatPatientDisplayName(bill.patientDetails, bill, true),
                     bill.patientDetails.mobile,
                     bill.paymentMode?.toUpperCase() || 'CASH',
                     bill.finalAmount || 0,
@@ -537,17 +593,16 @@ function TransactionsPage() {
                             <button
                                 key={t}
                                 onClick={() => setTypeFilter(t)}
-                                className={`px-2 py-1 rounded-md text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-all ${
-                                    typeFilter === t
+                                className={`px-2 py-1 rounded-md text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-all ${typeFilter === t
                                         ? t === 'opd'
                                             ? 'bg-emerald-500 text-white shadow-sm'
                                             : t === 'ipd'
-                                            ? 'bg-blue-500 text-white shadow-sm'
-                                            : t === 'lab'
-                                            ? 'bg-purple-500 text-white shadow-sm'
-                                            : 'bg-gray-800 dark:bg-gray-600 text-white shadow-sm'
+                                                ? 'bg-blue-500 text-white shadow-sm'
+                                                : t === 'lab'
+                                                    ? 'bg-purple-500 text-white shadow-sm'
+                                                    : 'bg-gray-800 dark:bg-gray-600 text-white shadow-sm'
                                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}
+                                    }`}
                             >
                                 {t === 'all' ? 'All' : t === 'opd' ? 'OPD' : t === 'ipd' ? 'IPD' : 'Lab-to-Lab'}
                             </button>
@@ -639,24 +694,23 @@ function TransactionsPage() {
                                         return (
                                             <tr key={bill._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group">
                                                 <td className="px-6 py-4">
-                                                    <span className={`font-semibold text-sm ${
-                                                        bType === 'ipd'
+                                                    <span className={`font-semibold text-sm ${bType === 'ipd'
                                                             ? 'text-blue-600 dark:text-blue-400'
                                                             : bType === 'lab'
-                                                            ? 'text-purple-600 dark:text-purple-400'
-                                                            : 'text-emerald-600 dark:text-emerald-400'
-                                                    }`}>
+                                                                ? 'text-purple-600 dark:text-purple-400'
+                                                                : 'text-emerald-600 dark:text-emerald-400'
+                                                        }`}>
                                                         {formattedId}
                                                     </span>
-                                                     <div className="text-xs text-gray-400 mt-0.5">
-                                                         {bill.paymentMode === 'Mixed' && bill.paymentDetails ? (
-                                                             <span className="text-[10px] text-gray-500 font-medium bg-slate-50 dark:bg-gray-800 px-1 py-0.5 rounded border border-gray-100 dark:border-gray-700">
-                                                                 Mixed (Cash: ₹{bill.paymentDetails.cash || 0}, Card: ₹{bill.paymentDetails.card || 0}, UPI: ₹{bill.paymentDetails.upi || 0})
-                                                             </span>
-                                                         ) : (
-                                                             bill.paymentMode
-                                                         )}
-                                                     </div>
+                                                    <div className="text-xs text-gray-400 mt-0.5">
+                                                        {bill.paymentMode === 'Mixed' && bill.paymentDetails ? (
+                                                            <span className="text-[10px] text-gray-500 font-medium bg-slate-50 dark:bg-gray-800 px-1 py-0.5 rounded border border-gray-100 dark:border-gray-700">
+                                                                Mixed (Cash: ₹{bill.paymentDetails.cash || 0}, Card: ₹{bill.paymentDetails.card || 0}, UPI: ₹{bill.paymentDetails.upi || 0})
+                                                            </span>
+                                                        ) : (
+                                                            bill.paymentMode
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -670,8 +724,8 @@ function TransactionsPage() {
                                                     <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
                                                         {bType === 'lab' ? (
                                                             <>
-                                                                <span className="font-bold text-gray-900 dark:text-white">
-                                                                    {bill.patientDetails.name}
+                                                                <span className="font-bold text-gray-900 dark:text-white uppercase">
+                                                                    {formatPatientDisplayName(bill.patientDetails, bill, true)}
                                                                 </span>
                                                                 <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded">
                                                                     {bill.patientDetails.refDoctor || 'Lab'}
@@ -679,18 +733,20 @@ function TransactionsPage() {
                                                             </>
                                                         ) : (bill.patientDetails as any).originalPatientName ? (
                                                             <>
-                                                                <span className="font-bold text-gray-900 dark:text-white">
-                                                                    {(bill.patientDetails as any).originalPatientName}
+                                                                <span className="font-bold text-gray-900 dark:text-white uppercase">
+                                                                    {formatPatientNameWithPrefix((bill.patientDetails as any).originalPatientName, (bill.patientDetails as any).honorific, true)}
                                                                 </span>
-                                                                <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded">
-                                                                    {bill.patientDetails.name}
+                                                                <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded font-semibold uppercase">
+                                                                    {formatPatientDisplayName(bill.patientDetails, bill, true)}
                                                                 </span>
                                                             </>
                                                         ) : (
-                                                            bill.patientDetails.name
+                                                            <span className="font-bold text-gray-900 dark:text-white uppercase">
+                                                                {formatPatientDisplayName(bill.patientDetails, bill, true)}
+                                                            </span>
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-gray-505 mt-0.5">
+                                                    <div className="text-xs text-gray-500 mt-0.5">
                                                         {bill.patientDetails.mobile}
                                                     </div>
                                                 </td>
@@ -754,18 +810,31 @@ function TransactionsPage() {
                         </div>
                         <div className="flex-1 overflow-y-auto p-8 bg-gray-100/50 dark:bg-black/20">
                             <div className="bg-white shadow-lg mx-auto" style={{ width: '210mm', minHeight: '297mm', padding: '20mm' }}>
-                                <BillPrintView
-                                    billData={selectedBill}
-                                    invoiceId={selectedBill.invoiceId}
-                                    date={new Date(selectedBill.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                />
+                                <div ref={modalPrintRef}>
+                                    <BillPrintView
+                                        billData={selectedBill}
+                                        invoiceId={selectedBill.invoiceId}
+                                        date={new Date(selectedBill.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 bg-white dark:bg-gray-800">
+                        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
                             <button onClick={() => setShowPreview(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Close</button>
-                            <button onClick={handlePrint} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-200 dark:shadow-none transition-all">
-                                Print Invoice
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <WhatsAppSendButton
+                                    hospitalId={hospitalId}
+                                    targetRef={modalPrintRef}
+                                    phoneNumber={selectedPatientPhone}
+                                    documentName={`Invoice_${selectedBill.invoiceId || 'Lab'}.pdf`}
+                                    caption={labInvoiceCaption}
+                                    showCheckbox={false}
+                                    className="px-4 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-all active:scale-95"
+                                />
+                                <button onClick={handlePrint} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-200 dark:shadow-none transition-all flex items-center gap-2">
+                                    <Printer className="w-4 h-4" /> Print Invoice
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -18,6 +18,7 @@ import {
 import { useReactToPrint } from 'react-to-print';
 import ResultPrintView from '@/components/lab/ResultPrintView';
 import { toast } from 'react-hot-toast';
+import { formatPatientDisplayName } from '@/lib/utils/name-utils';
 
 function HospitalAdminLabSamplesPage() {
     const [samples, setSamples] = useState<LabSample[]>([]);
@@ -182,8 +183,16 @@ function HospitalAdminLabSamplesPage() {
                                             <span className="text-[10px] font-black italic bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-xl uppercase">#{sample.sampleId}</span>
                                         </td>
                                         <td className="px-2 md:px-8 py-6">
-                                            <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tighter underline underline-offset-4 decoration-gray-100 dark:decoration-gray-800">{sample.patientDetails.name}</p>
-                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{sample.patientDetails.age}Y • {sample.patientDetails.gender}</p>
+                                            <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tighter underline underline-offset-4 decoration-gray-100 dark:decoration-gray-800">{formatPatientDisplayName(sample.patientDetails, sample, true)}</p>
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">
+                                                {(() => {
+                                                    const rawAge: any = sample.patientDetails.age;
+                                                    const unit = (sample.patientDetails as any).ageUnit || '';
+                                                    if (!rawAge || rawAge === '-' || rawAge === 'N/A') return '-';
+                                                    if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                                    return unit ? `${rawAge} ${unit}` : `${rawAge}Y`;
+                                                })()} • {sample.patientDetails.gender || '-'}
+                                            </p>
                                         </td>
                                         <td className="px-2 md:px-8 py-6">
                                             <span className="px-3 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-xl text-[9px] uppercase font-black tracking-widest border border-purple-100 dark:border-purple-800/30">

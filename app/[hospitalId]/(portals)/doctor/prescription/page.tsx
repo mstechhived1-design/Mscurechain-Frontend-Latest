@@ -66,8 +66,11 @@
     import { DentistryModule } from './create/modules/DentistryModule';
     import { UrologyModule } from './create/modules/UrologyModule';
     import { RadiologyModule } from './create/modules/RadiologyModule';
-    import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+    import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
     import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
+    import ClockTimePicker from '@/components/ui/ClockTimePicker';
+    import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
+    import { computeAgeFromDob } from '@/lib/print-utils';
 
     // --- Types ---
     interface Medicine {
@@ -103,6 +106,7 @@
         suggestedTests: string[];
         followUp: string;
         followUpDate: string;
+        followUpTime?: string;
         avoid: string[];
         doctorName: string;
         doctorSpecialization: string;
@@ -401,6 +405,7 @@
         suggestedTests: [],
         followUp: '',
         followUpDate: '',
+        followUpTime: '',
         avoid: [],
         doctorName: '',
         doctorSpecialization: '',
@@ -830,6 +835,19 @@
         const [selectedPatientId, setSelectedPatientId] = useState<string | null>(patientId);
         const [activeSpecialty, setActiveSpecialty] = useState<string>('General');
         const [availableSpecialties, setAvailableSpecialties] = useState<string[]>([]);
+        const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+
+        const parseTimeTo24 = (timeStr?: string) => {
+            if (!timeStr) return { hour: 10, minute: 0 };
+            const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+            if (!match) return { hour: 10, minute: 0 };
+            let h = parseInt(match[1]);
+            const m = parseInt(match[2]);
+            const period = match[3]?.toUpperCase();
+            if (period === 'PM' && h < 12) h += 12;
+            if (period === 'AM' && h === 12) h = 0;
+            return { hour: h, minute: m };
+        };
 
         useEffect(() => {
             if (patientId) setSelectedPatientId(patientId);
@@ -882,6 +900,7 @@
                     suggestedTests:saved.suggestedTests?? prev.suggestedTests,
                     followUp:      saved.followUp      ?? prev.followUp,
                     followUpDate:  saved.followUpDate  ?? prev.followUpDate,
+                    followUpTime:  saved.followUpTime  ?? prev.followUpTime,
                     avoid:         saved.avoid         ?? prev.avoid,
                     cardiologyData: saved.cardiologyData ?? prev.cardiologyData,
                     orthopedicData: saved.orthopedicData ?? prev.orthopedicData,
@@ -1083,6 +1102,20 @@
 
     // ── WhatsApp & Print Ref Setup ─────────────────────────────────────────
     const printIframeRef = useRef<HTMLIFrameElement>(null);
+    const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
+    const [autoWhatsApp, setAutoWhatsApp] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('msc_auto_whatsapp') === 'true';
+        }
+        return false;
+    });
+
+    const handleToggleAutoWhatsApp = (val: boolean) => {
+        setAutoWhatsApp(val);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp', String(val));
+        }
+    };
 
     const patientMobile = useMemo(() => {
         return (
@@ -1114,7 +1147,7 @@
         const medsCount = formData.medicines?.length || 0;
 
         return `*${hospName.toUpperCase()}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 *E-PRESCRIPTION & CLINICAL SUMMARY*
 
 *Patient Name:* ${pName}
@@ -1124,7 +1157,7 @@
 *Consultation Date:* ${dateStr}
 *Prescribed Medications:* ${medsCount} Item(s)
 *Diagnosis:* ${diag}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${formData.followUpDate ? `*Follow-Up Review:* ${new Date(formData.followUpDate).toLocaleDateString('en-GB')}${formData.followUpTime ? ` at ${formData.followUpTime}` : ''}\n` : ''}${WA_DIVIDER}
 ${READ_MORE}
 *Important Patient Instructions:*
 • Find your detailed official digital prescription PDF attached above.
@@ -1153,8 +1186,26 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     useEffect(() => {
         if (appointmentData) {
             const apt = appointmentData;
-            const patientName = apt.patient?.name || apt.patientDetails?.name || '';
-            const age = apt.patient?.age || apt.patientDetails?.age || '';
+            const rawName = apt.patient?.name || apt.patientDetails?.name || '';
+            const rawHonorific = apt.appointmentHonorific || apt.honorific || apt.patientDetails?.honorific || apt.patient?.honorific || apt.patient?.profile?.honorific;
+            const patientName = formatPatientNameWithPrefix(rawName, rawHonorific, false);
+
+            const rawAge = (apt.patient?.age !== undefined && apt.patient?.age !== null && apt.patient?.age !== '' && apt.patient?.age !== 'N/A')
+                ? apt.patient.age
+                : (apt.patientDetails?.age !== undefined && apt.patientDetails?.age !== null && apt.patientDetails?.age !== '' && apt.patientDetails?.age !== 'N/A')
+                ? apt.patientDetails.age
+                : '';
+            const rawUnit = apt.patient?.ageUnit || apt.patientDetails?.ageUnit || apt.patient?.profile?.ageUnit || '';
+            const rawDob = apt.patient?.dob || apt.patient?.dateOfBirth || apt.patientDetails?.dob || apt.patientDetails?.dateOfBirth;
+
+            let formattedAge = '';
+            if (rawDob && rawDob !== 'N/A') {
+                const computed = computeAgeFromDob(rawDob, rawAge, rawUnit);
+                formattedAge = computed !== 'N/A' ? computed : (rawAge !== '' ? (rawUnit ? `${rawAge} ${rawUnit}` : String(rawAge)) : '');
+            } else if (rawAge !== '') {
+                formattedAge = /[a-zA-Z]/.test(String(rawAge)) ? String(rawAge) : (rawUnit ? `${rawAge} ${rawUnit}` : String(rawAge));
+            }
+
             const gender = apt.patient?.gender || apt.patientDetails?.gender || 'Male';
             const mrn = apt.patient?.mrn || apt.mrn || '';
             const apiSymptoms = Array.isArray(apt.symptoms) ? apt.symptoms.join(', ') : (apt.symptoms || '');
@@ -1172,8 +1223,8 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
 
             setFormData(prev => ({
                 ...prev,
-                patientName,
-                age: String(age),
+                patientName: patientName || prev.patientName,
+                age: formattedAge || prev.age || 'N/A',
                 gender: gender,
                 mrn,
                 // Only set symptoms/diagnosis from API if draft hasn't already been restored
@@ -1193,12 +1244,17 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     // Pre-fill form when patient data loads
     useEffect(() => {
         if (patientData && !appointmentData) {
+            const rawName = patientData.user?.name || patientData.name || '';
+            const rawHonorific = patientData.profile?.honorific || patientData.honorific || patientData.user?.honorific;
+            const pName = formatPatientNameWithPrefix(rawName, rawHonorific, false);
+            const pAge = computeAgeFromDob(patientData.profile?.dob || patientData.dob, patientData.profile?.age || patientData.age, patientData.profile?.ageUnit || patientData.ageUnit);
+
             setFormData(prev => ({
                 ...prev,
-                patientName: patientData.user?.name || '',
+                patientName: pName || rawName,
                 mrn: patientData.profile?.mrn || '',
-                age: patientData.profile?.age || '',
-                gender: patientData.profile?.gender || 'Male'
+                age: pAge !== 'N/A' ? pAge : String(patientData.profile?.age || patientData.age || ''),
+                gender: patientData.profile?.gender || patientData.gender || 'Male'
             }));
             if (!selectedPatientId && patientData.user?._id) {
                 setSelectedPatientId(patientData.user._id);
@@ -1226,11 +1282,14 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
 
     const selectPatient = (patient: any) => {
         setSelectedPatientId(patient._id || patient.id);
+        const pName = formatPatientNameWithPrefix(patient.name, patient.honorific || patient.profile?.honorific, false);
+        const pAge = computeAgeFromDob(patient.profile?.dob || patient.dob, patient.profile?.age || patient.age, patient.profile?.ageUnit || patient.ageUnit);
+
         setFormData(prev => ({
             ...prev,
-            patientName: patient.name || '',
+            patientName: pName || patient.name || '',
             mrn: patient.profile?.mrn || patient.mrn || '',
-            age: patient.profile?.age || patient.age || '',
+            age: pAge !== 'N/A' ? pAge : String(patient.profile?.age || patient.age || ''),
             gender: patient.profile?.gender || patient.gender || 'Male'
         }));
         setPatientSuggestions([]);
@@ -1691,6 +1750,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 })),
                 advice: formData.followUp,
                 followUpDate: formData.followUpDate,
+                followUpTime: formData.followUpTime,
                 dietAdvice: formData.dietAdvice,
                 suggestedTests: formData.suggestedTests,
                 avoid: formData.avoid,
@@ -1759,6 +1819,12 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
             });
 
             setIsSubmitted(true);
+
+            // Auto-send WhatsApp if toggle is active
+            if (autoWhatsApp) {
+                setTriggerWhatsApp(true);
+                setTimeout(() => setTriggerWhatsApp(false), 500);
+            }
 
             // Clear local draft on successful save
             if (draftKey) localStorage.removeItem(draftKey);
@@ -1848,7 +1914,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                     @media print {
                         @page { size: A4; margin: 0; }
                         body { print-color-adjust: exact; -webkit-print-color-adjust: exact; margin: 0; padding: 0; }
-                        .container { min-height: 280mm !important; height: auto !important; }
+                        .container { min-height: 100% !important; height: auto !important; }
                     }
 
                     body { 
@@ -1862,10 +1928,11 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                     }
 
                     .container {
-                        width: 210mm;
-                        min-height: 296mm;
+                        width: 100%;
+                        max-width: 210mm;
+                        min-height: 100%;
                         margin: 0 auto;
-                        padding: 10mm 15mm 10mm 25mm;
+                        padding: 8mm 12mm;
                         position: relative;
                         box-sizing: border-box;
                         display: flex;
@@ -2816,7 +2883,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                 ${((formData.advice ? formData.advice + (formData.followUp ? '\n' + formData.followUp : '') : formData.followUp) || 'N/A').split(/[\n,]+/).map(s => s.trim()).filter(Boolean).map(s => '<li style="margin-bottom: 3px;">' + s + '</li>').join('')}
                             </ul>
                         </div>
-                        ${formData.followUpDate ? `<div><strong>Next Review:</strong> <span class="follow-up-date">${new Date(formData.followUpDate).toLocaleDateString()}</span></div>` : ''}
+                        ${formData.followUpDate ? `<div><strong>Next Review:</strong> <span class="follow-up-date">${new Date(formData.followUpDate).toLocaleDateString()}${formData.followUpTime ? ` at ${formData.followUpTime}` : ''}</span></div>` : ''}
                     </div>
                     ` : ''}
 
@@ -2875,15 +2942,16 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                         @media print {
                             @page { size: A4; margin: 0; }
                             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; }
-                            .container { min-height: 280mm !important; height: auto !important; }
+                            .container { min-height: 100% !important; height: auto !important; }
                         }
 
                         body { font-family: 'Inter', sans-serif; padding: 0; margin: 0; background: white; color: #1e293b; }
                         .container { 
-                            width: 210mm; 
-                            height: 296mm; 
+                            width: 100%; 
+                            max-width: 210mm; 
+                            min-height: 100%; 
                             margin: 0 auto; 
-                            padding: 10mm 15mm 10mm 25mm; 
+                            padding: 8mm 12mm; 
                             box-sizing: border-box; 
                             position: relative; 
                             display: flex;
@@ -3057,7 +3125,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             </div>
                             <div className="flex items-center gap-2 flex-wrap mt-1">
                                 <span className="text-[9px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                    Patient: {formData.patientName || appointmentData?.patient?.name || 'New Case'}
+                                    Patient: {formData.patientName || formatPatientDisplayName(appointmentData?.patient, appointmentData, true) || 'New Case'}
                                 </span>
                                 {(appointmentData?.patient?.mrn || appointmentData?.mrn) && (
                                     <>
@@ -3710,15 +3778,30 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                 <h2 className="text-[10px] sm:text-xs font-bold text-foreground uppercase tracking-widest">Follow Up</h2>
                             </div>
                             <div className="space-y-3 sm:space-y-4">
-                                <div>
-                                    <label className="block text-[9px] sm:text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Follow Up Date</label>
-                                    <input
-                                        type="date"
-                                        name="followUpDate"
-                                        value={formData.followUpDate}
-                                        onChange={handleInputChange}
-                                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-secondary-theme border border-border-theme rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                                    />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[9px] sm:text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Follow Up Date</label>
+                                        <input
+                                            type="date"
+                                            name="followUpDate"
+                                            value={formData.followUpDate}
+                                            onChange={handleInputChange}
+                                            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-secondary-theme border border-border-theme rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] sm:text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Follow Up Time</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsTimePickerOpen(true)}
+                                            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-secondary-theme border border-border-theme rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-between hover:bg-card transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                                        >
+                                            <span className={formData.followUpTime ? "text-foreground font-bold" : "text-muted"}>
+                                                {formData.followUpTime || 'Select Time'}
+                                            </span>
+                                            <Clock size={15} className="text-teal-600" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <textarea
                                     name="followUp"
@@ -3792,6 +3875,9 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             phoneNumber={patientMobile}
                             documentName={`Prescription_${formData.patientName || 'Patient'}.pdf`}
                             caption={rxCaption}
+                            autoSend={autoWhatsApp}
+                            onAutoSendChange={handleToggleAutoWhatsApp}
+                            triggerSend={triggerWhatsApp}
                             className="px-4 sm:px-8 py-2 sm:py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-[#25D366]/20 active:scale-95 transition-all text-[8px] sm:text-xs uppercase tracking-widest disabled:opacity-50 h-full min-h-[38px] sm:min-h-[48px]"
                         />
 
@@ -3828,6 +3914,8 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                 phoneNumber={patientMobile}
                                 documentName={`Prescription_${formData.patientName || 'Patient'}.pdf`}
                                 caption={rxCaption}
+                                autoSend={autoWhatsApp}
+                                onAutoSendChange={handleToggleAutoWhatsApp}
                                 className="px-5 py-3.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl font-bold flex items-center gap-2 shadow-md active:scale-95 transition-all text-xs uppercase tracking-wider disabled:opacity-50"
                             />
                             <button
@@ -4108,7 +4196,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                                         <span className="text-[10px] font-bold text-muted-foreground shrink-0">{(rep.createdAt || rep.date) ? new Date(rep.createdAt || rep.date).toLocaleDateString('en-GB') : 'N/A'}</span>
                                                     </div>
                                                     <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mt-0 flex flex-wrap items-center gap-1 mb-2">
-                                                        <Stethoscope size={10} /> {(() => {
+                                                                       <Stethoscope size={10} /> {(() => {
                                                             const dName = rep.suggestedPrimaryDoctor || rep.doctor?.user?.name || rep.doctor?.name || rep.doctorName || 'Unknown';
                                                             if (dName === 'N/A' || dName === 'Unknown') return 'Dr. Unknown';
                                                             return dName.toLowerCase().startsWith('dr') ? dName : `Dr. ${dName}`;
@@ -4214,6 +4302,21 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                     </div>
                 </div>
             )}
+
+            {/* Interactive Clock Time Picker Modal */}
+            <ClockTimePicker
+                isOpen={isTimePickerOpen}
+                initialHour24={parseTimeTo24(formData.followUpTime).hour}
+                initialMinute={parseTimeTo24(formData.followUpTime).minute}
+                onSave={(h24, m) => {
+                    const period = h24 >= 12 ? 'PM' : 'AM';
+                    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+                    const timeStr = `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+                    setFormData(prev => ({ ...prev, followUpTime: timeStr }));
+                    setIsTimePickerOpen(false);
+                }}
+                onClose={() => setIsTimePickerOpen(false)}
+            />
         </>
     );
 }

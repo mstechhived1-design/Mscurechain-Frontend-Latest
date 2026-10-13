@@ -15,6 +15,7 @@ import {
     User2
 } from 'lucide-react';
 import { NurseService } from '@/lib/integrations/services/nurse.service';
+import { formatPatientDisplayName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 import toast from 'react-hot-toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -118,7 +119,9 @@ export default function DailyTasksPage() {
             if (!map.has(key)) {
                 map.set(key, {
                     admissionId: key,
-                    patientName: task.patient?.name || 'Unknown Patient',
+                    patientName: formatPatientDisplayName(task.patient, task.admission, true) ||
+                        formatPatientNameWithPrefix(task.patient?.name, task.patient?.honorific || task.admission?.honorific, true) ||
+                        task.patient?.name || 'Unknown Patient',
                     admissionRef: task.admission?.admissionId || '',
                     tasks: [],
                 });

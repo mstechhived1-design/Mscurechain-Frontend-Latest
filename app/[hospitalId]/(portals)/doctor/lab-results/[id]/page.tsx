@@ -8,7 +8,7 @@ import jsPDF from 'jspdf';
 import { Download, ArrowLeft, FileText, Clock} from 'lucide-react';
 import { apiClient } from '@/lib/integrations/api/apiClient';
 import LabReportTemplate from '@/components/lab/LabReportTemplate';
-import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 export default function DoctorLabResultDetailPage() {
@@ -44,7 +44,7 @@ export default function DoctorLabResultDetailPage() {
         const testList = (order.tests || []).map((t: any) => t.testName).join(', ') || 'Diagnostic Report';
 
         return `*${hospName.toUpperCase()}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 *OFFICIAL LABORATORY TEST REPORT*
 
 *Patient Name:* ${pName}
@@ -53,7 +53,7 @@ export default function DoctorLabResultDetailPage() {
 *Sample / Report ID:* ${sampId}
 *Report Date:* ${dateStr}
 *Tests Performed:* ${testList}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 ${READ_MORE}
 *Important Patient Instructions:*
 • Find your official diagnostic laboratory test report PDF attached above.

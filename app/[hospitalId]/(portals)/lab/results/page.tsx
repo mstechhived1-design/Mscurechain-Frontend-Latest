@@ -7,6 +7,7 @@ import { LabSample } from '@/lib/integrations/types/labSample';
 import { toast } from 'react-hot-toast';
 import { Search, Clock, ChevronRight, FileText, Download, CheckCircle2, ChevronLeft, Edit3, Filter, RefreshCw } from 'lucide-react';
 import { clearApiCache } from '@/lib/integrations/api/apiClient';
+import { formatPatientDisplayName, formatPatientNameWithPrefix, cleanPatientName } from '@/lib/utils/name-utils';
 
 type TabType = 'pending' | 'submitted';
 
@@ -266,31 +267,31 @@ export default function LabResultsEntryPage() {
                                         <tr key={sample._id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors">
                                             <td className="px-4 md:px-6 py-3 md:py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full bg-primary-theme flex items-center justify-center text-white font-bold text-xs">
-                                                        {sample.patientDetails.name.charAt(0)}
+                                                    <div className="w-9 h-9 rounded-full bg-primary-theme flex items-center justify-center text-white font-bold text-xs uppercase">
+                                                        {(cleanPatientName(sample.patientDetails?.name) || 'P').charAt(0)}
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                                        <div className="font-bold text-xs md:text-sm text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
                                                             {getSamplePatientType(sample) === 'lab' ? (
                                                                 <>
-                                                                    <span className="font-bold text-gray-900 dark:text-white">
-                                                                        {sample.patientDetails.name}
+                                                                    <span>
+                                                                        {formatPatientDisplayName(sample.patientDetails, sample, true)}
                                                                     </span>
-                                                                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase">
+                                                                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase font-semibold">
                                                                         {sample.patientDetails.refDoctor || 'Lab'}
                                                                     </span>
                                                                 </>
                                                             ) : sample.patientDetails.originalPatientName ? (
                                                                 <>
-                                                                    <span className="font-bold text-gray-900 dark:text-white">
-                                                                        {sample.patientDetails.originalPatientName}
+                                                                    <span>
+                                                                        {formatPatientNameWithPrefix(sample.patientDetails.originalPatientName, (sample.patientDetails as any).honorific, true)}
                                                                     </span>
-                                                                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase">
-                                                                        {sample.patientDetails.name}
+                                                                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase font-semibold">
+                                                                        {formatPatientDisplayName(sample.patientDetails, sample, true)}
                                                                     </span>
                                                                 </>
                                                             ) : (
-                                                                sample.patientDetails.name
+                                                                formatPatientDisplayName(sample.patientDetails, sample, true)
                                                             )}
                                                             {sample.priority && sample.priority !== 'routine' && (
                                                                 <span className="bg-red-500 text-white font-black text-[9px] px-1.5 py-0.5 rounded uppercase animate-pulse">
@@ -298,8 +299,14 @@ export default function LabResultsEntryPage() {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            {sample.patientDetails.age}Y • {sample.patientDetails.gender}
+                                                        <div className="text-[10px] md:text-xs text-gray-500 font-medium">
+                                                            {(() => {
+                                                                const rawAge: any = sample.patientDetails.age;
+                                                                const unit = (sample.patientDetails as any).ageUnit || '';
+                                                                if (!rawAge || rawAge === '-' || rawAge === 'N/A') return '-';
+                                                                if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                                                return unit ? `${rawAge} ${unit}` : `${rawAge}Y`;
+                                                            })()} • {sample.patientDetails.gender || '-'}
                                                             {sample.patientDetails.mobile && ` • ${sample.patientDetails.mobile}`}
                                                         </div>
                                                     </div>
@@ -423,31 +430,31 @@ export default function LabResultsEntryPage() {
                                         <tr key={sample._id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors">
                                             <td className="px-4 md:px-6 py-3 md:py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-xs">
-                                                        {sample.patientDetails.name.charAt(0)}
+                                                    <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-xs uppercase">
+                                                        {(cleanPatientName(sample.patientDetails?.name) || 'P').charAt(0)}
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                                        <div className="font-bold text-xs md:text-sm text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
                                                             {getSamplePatientType(sample) === 'lab' ? (
                                                                 <>
-                                                                    <span className="font-bold text-gray-900 dark:text-white">
-                                                                        {sample.patientDetails.name}
+                                                                    <span>
+                                                                        {formatPatientDisplayName(sample.patientDetails, sample, true)}
                                                                     </span>
-                                                                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase">
+                                                                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase font-semibold">
                                                                         {sample.patientDetails.refDoctor || 'Lab'}
                                                                     </span>
                                                                 </>
                                                             ) : sample.patientDetails.originalPatientName ? (
                                                                 <>
-                                                                    <span className="font-bold text-gray-900 dark:text-white">
-                                                                        {sample.patientDetails.originalPatientName}
+                                                                    <span>
+                                                                        {formatPatientNameWithPrefix(sample.patientDetails.originalPatientName, (sample.patientDetails as any).honorific, true)}
                                                                     </span>
-                                                                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase">
-                                                                        {sample.patientDetails.name}
+                                                                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase font-semibold">
+                                                                        {formatPatientDisplayName(sample.patientDetails, sample, true)}
                                                                     </span>
                                                                 </>
                                                             ) : (
-                                                                sample.patientDetails.name
+                                                                formatPatientDisplayName(sample.patientDetails, sample, true)
                                                             )}
                                                             {sample.priority && sample.priority !== 'routine' && (
                                                                 <span className="bg-red-500 text-white font-black text-[9px] px-1.5 py-0.5 rounded uppercase animate-pulse">
@@ -455,7 +462,15 @@ export default function LabResultsEntryPage() {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <div className="text-xs text-gray-500">{sample.patientDetails.age}Y • {sample.patientDetails.gender}</div>
+                                                        <div className="text-[10px] md:text-xs text-gray-500 font-medium">
+                                                            {(() => {
+                                                                const rawAge: any = sample.patientDetails.age;
+                                                                const unit = (sample.patientDetails as any).ageUnit || '';
+                                                                if (!rawAge || rawAge === '-' || rawAge === 'N/A') return '-';
+                                                                if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                                                return unit ? `${rawAge} ${unit}` : `${rawAge}Y`;
+                                                            })()} • {sample.patientDetails.gender || '-'}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>

@@ -266,10 +266,17 @@ export default function MasterPatientRegistration() {
                 allergies: formData.allergies ? [formData.allergies] : []
             } as any);
             console.log("DEBUG: MASTER PORTAL PATIENT REGISTRATION SUCCESS - PATIENT DETAILS", res.patient);
-            toast.success(`Successfully Registered: ${res.patient.mrn}`);
+            if (res?.whatsapp?.success) {
+                toast.success(`Registered: ${res.patient.mrn} • 💬 Welcome WhatsApp sent to ${formData.mobile}!`, { duration: 5000 });
+            } else if (res?.whatsapp?.error) {
+                toast.success(`Successfully Registered: ${res.patient.mrn}`);
+                toast.error(`⚠️ WhatsApp Notice: ${res.whatsapp.error}`, { duration: 6000 });
+            } else {
+                toast.success(`Successfully Registered: ${res.patient.mrn}`);
+            }
             setTimeout(() => {
                 router.push(`/${hospitalId}/masterhelpdesk/appointment-booking?patientId=${res.patient.id}&type=${formData.registrationType}`);
-            }, 1000);
+            }, 1800);
         } catch (error: any) {
             toast.error(error.message || "Registration failed");
         } finally {

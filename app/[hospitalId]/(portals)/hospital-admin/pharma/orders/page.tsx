@@ -6,6 +6,7 @@ import { PharmacyBillingService } from '@/lib/integrations/services/pharmacyBill
 import { Pill, Activity, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
+import { formatPatientDisplayName } from '@/lib/utils/name-utils';
 
 interface PharmacyOrder {
     _id: string;
@@ -128,9 +129,16 @@ function HospitalAdminActiveOrdersPage() {
                                             </span>
                                         </td>
                                         <td className="p-3 md:p-8">
-                                            <div className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-sm">{order.patient?.name || 'Unknown Entity'}</div>
+                                            <div className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-sm">
+                                                {formatPatientDisplayName(order.patient, order, true) || 'Unknown Entity'}
+                                            </div>
                                             <div className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1">
-                                                {order.patient?.age || '-'}Y • {order.patient?.gender || '-'} • {order.patient?.mobile || '-'}
+                                                {(() => {
+                                                    const rawAge = (order.patient as any)?.age;
+                                                    const unit = (order.patient as any)?.ageUnit || '';
+                                                    const ageStr = (!rawAge || rawAge === '-') ? '-' : (/[a-zA-Z]/.test(String(rawAge)) ? String(rawAge) : (unit ? `${rawAge} ${unit}` : `${rawAge}Y`));
+                                                    return `${ageStr} • ${order.patient?.gender || '-'} • ${order.patient?.mobile || '-'}`;
+                                                })()}
                                             </div>
                                         </td>
                                         <td className="p-3 md:p-8 text-gray-600 dark:text-gray-300 font-bold uppercase text-[11px] tracking-tight">

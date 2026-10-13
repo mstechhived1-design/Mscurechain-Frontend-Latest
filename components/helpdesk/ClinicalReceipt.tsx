@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from "react";
 import { X, Printer } from "lucide-react";
-import { generateClinicalReceiptHtml, generateOPDRegistrationSlipHtml } from "@/lib/print-utils";
+import { generateClinicalReceiptHtml, generateOPDRegistrationSlipHtml, generateLabReceiptHtml } from "@/lib/print-utils";
 import { renderToStaticMarkup } from "react-dom/server";
 import MainHeader from "../printers/MainHeader";
 import MainFooter from "../printers/MainFooter";
 import { hospitalAdminService } from "@/lib/integrations/services/hospitalAdmin.service";
-import { sanitizePatientName } from "@/lib/utils/name-utils";
+import { sanitizePatientName, formatPatientNameWithPrefix } from "@/lib/utils/name-utils";
 import { usePrintStore } from "@/stores/printStore";
-import { WhatsAppSendButton } from "../WhatsApp/WhatsAppSendButton";
+import { WhatsAppSendButton, WhatsAppSendButtonHandle } from "../WhatsApp/WhatsAppSendButton";
 import { useParams } from "next/navigation";
 
 interface ReceiptProps {
@@ -85,6 +85,8 @@ interface ReceiptProps {
     doctorReference?: string;
     stayDuration?: string;
     notes?: string;
+    tests?: any[];
+    testName?: string;
   };
   payment: {
     amount: number;
@@ -108,11 +110,13 @@ interface ReceiptProps {
     date?: string;
     paymentDetails?: any;
   };
+  isLab?: boolean;
+  labTests?: any[];
   onClose: () => void;
   onConfirm?: () => Promise<void>;
 }
 
-function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment, onClose, onConfirm }: ReceiptProps) {
+function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment, isLab: propIsLab, labTests: propLabTests, onClose, onConfirm }: ReceiptProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [hospital, setHospital] = React.useState(propHospital);
   const [dataLoaded, setDataLoaded] = React.useState(false);
@@ -120,12 +124,23 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
   const params = useParams();
   const hospitalId = (params?.hospitalId as string) || '';
 
-  const isOPDOrReg = !((patient.dischargeType && patient.dischargeType.toUpperCase() !== 'NONE') ||
+  const isLab = Boolean(
+    propIsLab ||
+    appointment.type?.toLowerCase() === 'lab' ||
+    appointment.type?.toLowerCase() === 'lab_test' ||
+    appointment.type?.toLowerCase().includes('lab') ||
+    appointment.specialization?.toLowerCase().includes('lab') ||
+    patient.dischargeType === 'LAB'
+  );
+
+  const isOPDOrReg = !isLab && !((patient.dischargeType && patient.dischargeType.toUpperCase() !== 'NONE') ||
     (appointment.type && (appointment.type.toUpperCase().includes('DISCHARGE') || appointment.type.toUpperCase().includes('SETTLEMENT'))) ||
     (appointment.specialization && appointment.specialization.toUpperCase().includes('DISCHARGE')) ||
     (appointment.specialization?.toUpperCase().includes('IPD') || appointment.type?.toUpperCase().includes('IPD') || appointment.stayDuration));
 
-  const [receiptFormat, setReceiptFormat] = React.useState<'opd_slip' | 'detailed_bill'>(isOPDOrReg ? 'opd_slip' : 'detailed_bill');
+  const [receiptFormat, setReceiptFormat] = React.useState<'opd_slip' | 'detailed_bill' | 'lab_receipt'>(
+    isLab ? 'lab_receipt' : isOPDOrReg ? 'opd_slip' : 'detailed_bill'
+  );
   const [shouldPrintAfterUpdate, setShouldPrintAfterUpdate] = React.useState(false);
   const [showGuardianDetails, setShowGuardianDetails] = React.useState(true);
 
@@ -211,7 +226,19 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
           }} />
         );
 
-        const rawHtml = receiptFormat === 'opd_slip'
+        const rawHtml = isLab || receiptFormat === 'lab_receipt'
+          ? generateLabReceiptHtml({
+              hospital,
+              patient: mappedPatient,
+              appointment,
+              payment,
+              headerHtml,
+              footerHtml,
+              labTests: propLabTests || appointment.tests || [],
+              showGuardianDetails,
+              printWithHeader
+            })
+          : receiptFormat === 'opd_slip'
           ? generateOPDRegistrationSlipHtml({
               hospital,
               patient: mappedPatient,
@@ -219,7 +246,8 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
               payment,
               headerHtml,
               footerHtml,
-              showGuardianDetails
+              showGuardianDetails,
+              printWithHeader
             })
           : generateClinicalReceiptHtml({
               forceDetailed: true,
@@ -234,7 +262,8 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
               headerHtml,
               footerHtml,
               returnUrl: '#',
-              showGuardianDetails
+              showGuardianDetails,
+              printWithHeader
             });
 
         // 2. Sanitize for iframe preview - thorough removal of navigation and print triggers
@@ -328,12 +357,35 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
     }
   }, [hospital, patient, appointment, payment, dataLoaded, receiptFormat, printWithHeader, shouldPrintAfterUpdate, isOPDOrReg, showGuardianDetails]);
 
+  const whatsAppButtonRef = React.useRef<WhatsAppSendButtonHandle>(null);
   const [isConfirming, setIsConfirming] = React.useState(false);
+  const [triggerWhatsApp, setTriggerWhatsApp] = React.useState(false);
+  const [isWhatsAppSending, setIsWhatsAppSending] = React.useState(false);
+  const [autoWhatsApp, setAutoWhatsApp] = React.useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('msc_auto_whatsapp') === 'true';
+    }
+    return false;
+  });
+
+  const handleToggleAutoWhatsApp = (val: boolean) => {
+    setAutoWhatsApp(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('msc_auto_whatsapp', String(val));
+    }
+  };
 
   const handlePrint = async () => {
     if (onConfirm) {
       try {
         setIsConfirming(true);
+        if (autoWhatsApp && whatsAppButtonRef.current && patient.mobile) {
+          try {
+            await whatsAppButtonRef.current.send();
+          } catch (e) {
+            console.warn("[Auto WhatsApp] Receipt send error:", e);
+          }
+        }
         await onConfirm();
         setShouldPrintAfterUpdate(true);
       } catch (err) {
@@ -342,6 +394,13 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
         setIsConfirming(false);
       }
     } else {
+      if (autoWhatsApp && whatsAppButtonRef.current && patient.mobile) {
+        try {
+          await whatsAppButtonRef.current.send();
+        } catch (e) {
+          console.warn("[Auto WhatsApp] Receipt send error:", e);
+        }
+      }
       if (iframeRef.current && iframeRef.current.contentWindow) {
         iframeRef.current.contentWindow.print();
       }
@@ -363,18 +422,37 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
                 <span className="hidden sm:inline text-sm font-bold text-slate-500 uppercase tracking-widest">Print Manager</span>
               </div>
               <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-                <button
-                  onClick={() => setReceiptFormat('opd_slip')}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'opd_slip' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  📜 Old Receipt
-                </button>
-                <button
-                  onClick={() => setReceiptFormat('detailed_bill')}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'detailed_bill' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  📑 Detailed Bill
-                </button>
+                {isLab ? (
+                  <>
+                    <button
+                      onClick={() => setReceiptFormat('lab_receipt')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'lab_receipt' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      🔬 Lab Receipt
+                    </button>
+                    <button
+                      onClick={() => setReceiptFormat('detailed_bill')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'detailed_bill' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      📑 Detailed Bill
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setReceiptFormat('opd_slip')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'opd_slip' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      📜 Old Receipt
+                    </button>
+                    <button
+                      onClick={() => setReceiptFormat('detailed_bill')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'detailed_bill' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      📑 Detailed Bill
+                    </button>
+                  </>
+                )}
               </div>
               <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 transition-all select-none">
                 <input
@@ -385,6 +463,18 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
                 />
                 <span>Header & Footer</span>
               </label>
+
+              {/* Auto WhatsApp Toggle in Toolbar */}
+              <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 transition-all select-none">
+                <input
+                  type="checkbox"
+                  checked={autoWhatsApp}
+                  onChange={(e) => handleToggleAutoWhatsApp(e.target.checked)}
+                  className="cursor-pointer w-3.5 h-3.5 accent-[#25D366]"
+                />
+                <span className={autoWhatsApp ? 'text-teal-700 font-black' : ''}>Auto WhatsApp</span>
+              </label>
+
               {hasGuardianData && (
                 <button
                   onClick={() => setShowGuardianDetails(prev => !prev)}
@@ -407,28 +497,70 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <WhatsAppSendButton
-                  hospitalId={hospitalId}
-                  targetRef={iframeRef}
-                  phoneNumber={patient.mobile}
-                  documentName={`Appointment_Receipt_${patient.name}.pdf`}
-                  appointmentDetails={{
-                    patientName: patient.name,
-                    mrn: patient.mrn,
-                    appointmentId: appointment.appointmentId,
-                    doctorName: appointment.doctorName,
-                    specialty: appointment.specialization,
-                    date: appointment.date,
-                    timeSlot: appointment.time,
-                    hospitalName: hospital.name,
-                    fee: payment.amount,
-                    paymentStatus: payment.status
-                  }}
-                  className="px-4 sm:px-5 py-2 sm:py-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-all text-[11px] sm:text-xs uppercase tracking-wider disabled:opacity-50 h-full"
-                />
+                {(() => {
+                  const testsSummary = ((propLabTests && propLabTests.length > 0)
+                    ? propLabTests.map((t: any) => t.name || t.testName || t.investigationName).filter(Boolean).join(', ')
+                    : (appointment.notes || (appointment.specialization?.toLowerCase() !== 'lab' && appointment.specialization?.toLowerCase() !== 'lab_test' ? appointment.specialization : '') || 'Lab Diagnostics')) || 'Lab Diagnostics';
+
+                  const fullPatientName = formatPatientNameWithPrefix(
+                    patient.name,
+                    appointment.appointmentHonorific || appointment.honorific || (appointment as any).patientDetails?.honorific || patient.honorific || (patient as any).profile?.honorific,
+                    false
+                  );
+
+                  const labWhatsAppCaption = `*${(hospital.name || 'HOSPITAL').toUpperCase()}*
+───────────────────────────
+*LAB BILL & RECEIPT*
+
+*Patient Name:* ${fullPatientName}
+*MRN / Sample ID:* ${patient.mrn || appointment.appointmentId || 'N/A'}
+*Referred Doctor:* ${appointment.doctorName ? (appointment.doctorName.startsWith('Dr.') ? appointment.doctorName : `Dr. ${appointment.doctorName}`) : 'Dr. Attending Specialist'}
+*Service Type:* Lab Diagnostic
+*Investigation(s):* ${testsSummary}
+*Invoice / Ref No:* ${payment.receiptNumber || appointment.appointmentId || 'N/A'}
+*Receipt Date:* ${appointment.date}
+*Paid Amount:* ₹${Math.round(payment.amount || 0).toLocaleString('en-IN')} (${(payment.status || 'PAID').toUpperCase()})
+*Payment Mode:* ${(payment.mode || payment.method || 'CASH').toUpperCase()}
+───────────────────────────
+*Important Instructions:*
+• Present this receipt at the laboratory to collect test reports.
+• Reports will be verified by the pathologist before release.
+• Contact ${hospital.name} helpdesk for any assistance.
+
+Thank you for choosing ${hospital.name}. Stay Healthy.`;
+
+                  return (
+                    <WhatsAppSendButton
+                      ref={whatsAppButtonRef}
+                      hospitalId={hospitalId}
+                      targetRef={iframeRef}
+                      phoneNumber={patient.mobile}
+                      documentName={isLab ? `Lab_Receipt_${fullPatientName.replace(/\s+/g, '_')}.pdf` : `Appointment_Receipt_${fullPatientName.replace(/\s+/g, '_')}.pdf`}
+                      showCheckbox={false}
+                      autoSend={autoWhatsApp}
+                      onAutoSendChange={handleToggleAutoWhatsApp}
+                      triggerSend={triggerWhatsApp}
+                      onSendingChange={setIsWhatsAppSending}
+                      caption={isLab ? labWhatsAppCaption : undefined}
+                      appointmentDetails={isLab ? undefined : {
+                        patientName: fullPatientName,
+                        mrn: patient.mrn,
+                        appointmentId: appointment.appointmentId,
+                        doctorName: appointment.doctorName,
+                        specialty: appointment.specialization,
+                        date: appointment.date,
+                        timeSlot: appointment.time,
+                        hospitalName: hospital.name,
+                        fee: payment.amount,
+                        paymentStatus: payment.status
+                      }}
+                      className="px-4 sm:px-5 py-2 sm:py-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-all text-[11px] sm:text-xs uppercase tracking-wider disabled:opacity-50 h-full"
+                    />
+                  );
+                })()}
               <button
                 onClick={handlePrint}
-                disabled={isConfirming}
+                disabled={isConfirming || isWhatsAppSending}
                 className="px-4 sm:px-5 py-2 sm:py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-all text-[11px] sm:text-xs uppercase tracking-wider disabled:opacity-50"
               >
                 <Printer size={14} className="sm:size-[16px]" />
@@ -436,7 +568,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
               </button>
               <button
                 onClick={onClose}
-                disabled={isConfirming}
+                disabled={isConfirming || isWhatsAppSending}
                 className="p-2 sm:p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg active:scale-95 transition-all disabled:opacity-50"
               >
                 <X size={20} />

@@ -14,6 +14,7 @@ type TabType = 'appointments' | 'prescriptions' | 'lab-records' | 'discharge' | 
 import { useSearchParams } from 'next/navigation';
 import { emergencyService } from '@/lib/integrations/services/emergency.service';
 import { toast } from 'react-hot-toast';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 interface DashboardData {
     profile: any;
@@ -256,7 +257,7 @@ function PatientDashboard({ initialData }: PatientDashboardProps) {
                     <div className="sm:hidden flex items-center gap-2 bg-gray-50 dark:bg-white/5 px-2 py-1 rounded-lg border border-gray-100 dark:border-white/5">
                         <UserCircle className="w-3.5 h-3.5 text-blue-600" />
                         <span className="font-black text-gray-900 dark:text-white uppercase tracking-tight italic text-[10px]">
-                            {dashboardData?.profile?.user?.name?.split(' ')[0] || 'Member'}
+                            {formatPatientNameWithPrefix(dashboardData?.profile?.user?.name || dashboardData?.profile?.name, dashboardData?.profile?.honorific || dashboardData?.profile?.user?.honorific, true) || dashboardData?.profile?.user?.name || 'Member'}
                         </span>
                     </div>
                 </div>
@@ -268,7 +269,7 @@ function PatientDashboard({ initialData }: PatientDashboardProps) {
                     <div>
                         <p className="text-[7px] sm:text-[9px] font-black uppercase text-gray-400 tracking-widest">Signed In</p>
                         <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight italic text-xs sm:text-sm">
-                            {dashboardData?.profile?.user?.name || 'Member'}
+                            {formatPatientNameWithPrefix(dashboardData?.profile?.user?.name || dashboardData?.profile?.name, dashboardData?.profile?.honorific || dashboardData?.profile?.user?.honorific, true) || dashboardData?.profile?.user?.name || 'Member'}
                         </p>
                     </div>
                 </div>
@@ -449,14 +450,14 @@ function PatientDashboard({ initialData }: PatientDashboardProps) {
                 {activeTab === 'prescriptions' && (
                     <PrescriptionsSection
                         prescriptions={dashboardData?.prescriptions?.data || []}
-                        patientName={dashboardData?.profile?.user?.name}
+                        patientName={formatPatientNameWithPrefix(dashboardData?.profile?.user?.name || dashboardData?.profile?.name, dashboardData?.profile?.honorific || dashboardData?.profile?.user?.honorific, true) || dashboardData?.profile?.user?.name}
                         patientEmail={dashboardData?.profile?.user?.email || dashboardData?.profile?.email}
                     />
                 )}
                 {activeTab === 'lab-records' && (
                     <LabRecordsSection
                         labRecords={dashboardData?.labRecords?.data || []}
-                        patientName={dashboardData?.profile?.user?.name}
+                        patientName={formatPatientNameWithPrefix(dashboardData?.profile?.user?.name || dashboardData?.profile?.name, dashboardData?.profile?.honorific || dashboardData?.profile?.user?.honorific, true) || dashboardData?.profile?.user?.name}
                         patientEmail={dashboardData?.profile?.user?.email || dashboardData?.profile?.email}
                     />
                 )}

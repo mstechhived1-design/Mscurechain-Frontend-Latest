@@ -21,6 +21,7 @@ import VitalsEntryModal from '../components/VitalsEntryModal';
 import ClinicalNotesModal from '../components/ClinicalNotesModal';
 import MedicationAdministrationModal from '../components/MedicationAdministrationModal';
 import AddClinicalChargeModal from '@/components/ipd/AddClinicalChargeModal';
+import { formatPatientDisplayName, cleanPatientName } from '@/lib/utils/name-utils';
 
 // Helper to calculate age from DOB
 const calculateAge = (dob: any) => {
@@ -179,7 +180,7 @@ export default function PatientMonitoringPage() {
                                                 </div>
                                                 <div className="min-w-0">
                                                     <h3 className="text-[10px] sm:text-sm font-black text-slate-900 uppercase tracking-tight truncate max-w-[120px] sm:max-w-none">
-                                                        {patient.name || 'Unknown'}
+                                                        {formatPatientDisplayName(patient, adm, true)}
                                                     </h3>
                                                     <div className="flex items-center gap-1 sm:gap-2 mt-0.5">
                                                         <span className={`text-[7px] sm:text-[8px] font-black px-1 py-0.5 rounded uppercase tracking-widest ${genderDisplay === 'Male' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'}`}>
@@ -262,11 +263,11 @@ export default function PatientMonitoringPage() {
                         <div key={adm._id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-300 transition-all flex flex-col gap-4">
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black shadow-sm">
-                                        {patient.name?.charAt(0) || '?'}
+                                    <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black shadow-sm uppercase">
+                                        {(cleanPatientName(patient.name) || 'P').charAt(0)}
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight">{patient.name || 'Unknown'}</h3>
+                                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight">{formatPatientDisplayName(patient, adm, true)}</h3>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{ageDisplay} • {genderDisplay}</p>
                                     </div>
                                 </div>

@@ -23,6 +23,7 @@ import { toast } from "react-hot-toast";
 import { PharmacyBillingService } from "@/lib/integrations/services/pharmacyBilling.service";
 import { ProductService } from "@/lib/integrations/services/product.service";
 import { hospitalAdminService } from "@/lib/integrations";
+import { formatPatientDisplayName } from "@/lib/utils/name-utils";
 import { apiClient } from "@/lib/integrations/api/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 import { useTenantLink } from "@/hooks/useTenantLink";
@@ -250,7 +251,7 @@ const IPDBillingPage = () => {
                         _id: null,
                         tokenNumber: "Direct IPD Billing",
                         patient: {
-                            name: admissionRes.patientName || admissionRes.patient?.name, // Fallbacks just in case
+                            name: formatPatientDisplayName(admissionRes.patient, admissionRes, false) || admissionRes.patientName || admissionRes.patient?.name, // Fallbacks just in case
                             age: admissionRes.age,
                             gender: admissionRes.gender,
                         },
@@ -542,9 +543,9 @@ const IPDBillingPage = () => {
                                 <User size={24} className="md:w-8 md:h-8" />
                             </div>
                             <div className="min-w-0">
-                                <h3 className="text-xs md:text-lg font-black text-slate-900 uppercase tracking-tight">{order?.patient?.name || "Unknown Patient"}</h3>
+                                <h3 className="text-xs md:text-lg font-black text-slate-900 uppercase tracking-tight">{formatPatientDisplayName(order?.patient, order, true) || "Unknown Patient"}</h3>
                                 <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 leading-relaxed">
-                                    {order?.patient?.age && `${order.patient.age}Y • `} {order?.patient?.gender && `${order.patient.gender} • `}
+                                    {order?.patient?.age && `${(/[a-zA-Z]/.test(String(order.patient.age)) ? order.patient.age : `${order.patient.age}Y`)} • `} {order?.patient?.gender && `${order.patient.gender} • `}
                                     <span className="hidden sm:inline">ADMISSION: </span>{order?.admission?.admissionId || "N/A"}
                                     <br className="sm:hidden" />
                                     <span className="hidden sm:inline"> • </span>WARD: {order?.admission?.bedDetails?.wardType || order?.admission?.wardType || "N/A"} {order?.admission?.bedDetails?.bedId && `[BED: ${order.admission.bedDetails.bedId}]`}

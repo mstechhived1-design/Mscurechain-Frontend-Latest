@@ -16,14 +16,14 @@ export const LabSampleService = {
         return response.data || [];
     },
 
-    // ✅ Lightweight count-only fetcher — always bypasses cache for accurate real-time counts
+    // ✅ Ultra-lightweight count-only fetcher — queries index count directly
     getPendingCount: async (): Promise<number> => {
         const response: any = await apiClient(
-            `${LAB_ENDPOINTS.SAMPLES.BASE}?status=Pending&page=1&limit=500`,
+            `${LAB_ENDPOINTS.SAMPLES.BASE}?status=Pending&countOnly=true&limit=1`,
             { skipCache: true }
         );
-        // Use server's total field if available, else count the returned array
         if (typeof response?.total === 'number') return response.total;
+        if (typeof response?.count === 'number') return response.count;
         return Array.isArray(response?.data) ? response.data.length : 0;
     },
 

@@ -6,6 +6,7 @@ import { Play, Clock, User, AlertCircle, Loader2, Timer, Pause, Activity, ArrowL
 import { toast } from 'react-hot-toast';
 import { doctorService } from '@/lib/integrations/services/doctor.service';
 import { useTenantLink } from '@/hooks/useTenantLink';
+import { formatPatientDisplayName } from '@/lib/utils/name-utils';
 
 export default function PausedAppointmentsPage() {
   const router = useRouter();
@@ -101,7 +102,7 @@ export default function PausedAppointmentsPage() {
 
   // Filter Logic
   const filteredAppointments = pausedAppointments.filter(apt => {
-    const pName = (apt.patient?.name || '').toLowerCase();
+    const pName = (formatPatientDisplayName(apt.patient, apt, false) || apt.patient?.name || '').toLowerCase();
     const pMrn = (apt.patient?.mrn || apt.mrn || '').toLowerCase();
     const search = debouncedSearch.toLowerCase();
     return pName.includes(search) || pMrn.includes(search);
@@ -228,7 +229,7 @@ export default function PausedAppointmentsPage() {
                           </div>
                           <div>
                             <p className="font-bold text-foreground uppercase tracking-tight group-hover:text-primary-theme">
-                              {appointment.patient?.name || 'Unknown'}
+                              {formatPatientDisplayName(appointment.patient, appointment, true)}
                             </p>
                             <p className="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mt-0.5 opacity-60">
                               MRN: {appointment.patient?.mrn || appointment.mrn || 'N/A'}

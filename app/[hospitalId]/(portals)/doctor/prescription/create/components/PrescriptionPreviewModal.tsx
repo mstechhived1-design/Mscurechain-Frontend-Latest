@@ -8,7 +8,7 @@ import {
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { Frequency, formatFrequency } from '@/lib/frequencyUtils';
-import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 import { useParams } from 'next/navigation';
 
@@ -71,7 +71,7 @@ const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> = ({
     const medsCount = formData.medicines?.length || 0;
 
     const rxCaption = `*${hospName.toUpperCase()}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 *E-PRESCRIPTION & CLINICAL SUMMARY*
 
 *Patient Name:* ${pName}
@@ -81,7 +81,7 @@ const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> = ({
 *Consultation Date:* ${dateStr}
 *Prescribed Medications:* ${medsCount} Item(s)
 *Diagnosis:* ${diag}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${formData.followUpDate ? `*Follow-Up Review:* ${new Date(formData.followUpDate).toLocaleDateString('en-GB')}${formData.followUpTime ? ` at ${formData.followUpTime}` : ''}\n` : ''}${WA_DIVIDER}
 ${READ_MORE}
 *Important Patient Instructions:*
 • Find your detailed official digital prescription PDF attached above.
@@ -114,7 +114,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
         <div className="fixed inset-0 lg:left-64 z-[60] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-8 lg:p-10 animate-in fade-in duration-300">
             <div className="bg-slate-50 w-full max-w-6xl h-full max-h-[98vh] flex flex-col rounded-2xl md:rounded-[32px] shadow-2xl border border-white/20 overflow-hidden relative">
                 <style jsx>{`
-                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
                 .preview-paper {
                     font-family: 'Inter', Arial, sans-serif;
                     width: 100%;
@@ -1449,8 +1449,8 @@ return (
                                         </div>
                                         {formData.followUpDate && (
                                             <div className="text-right sm:text-right w-full sm:w-auto">
-                                                <span className="text-[9px] font-[800] text-amber-600 uppercase tracking-widest block mb-1">Scheduled Date</span>
-                                                <div className="text-sm font-black text-amber-900">{new Date(formData.followUpDate).toLocaleDateString('en-GB')}</div>
+                                                <span className="text-[9px] font-[800] text-amber-600 uppercase tracking-widest block mb-1">Scheduled Review</span>
+                                                <div className="text-sm font-black text-amber-900">{new Date(formData.followUpDate).toLocaleDateString('en-GB')}{formData.followUpTime ? ` • ${formData.followUpTime}` : ''}</div>
                                             </div>
                                         )}
                                     </div>

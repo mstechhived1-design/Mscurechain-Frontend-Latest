@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { LabSample } from '@/lib/integrations/types/labSample';
 import HeaderPrint from './HeaderPrint';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 
 interface LabReportTemplateProps {
@@ -324,8 +325,14 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                                         <div className="lab-patient-grid" style={{ position: 'relative', zIndex: 1 }}>
                                             <div>
                                                 <div className="info-row"><span className="info-label">Reg No</span><span>:</span><span>{sample.sampleId}</span></div>
-                                                <div className="info-row"><span className="info-label">Patient Name</span><span>:</span><span>{sample.patientDetails.name?.toUpperCase()}</span></div>
-                                                <div className="info-row"><span className="info-label">Age</span><span>:</span><span>{String(sample.patientDetails.age || '').match(/(Y|Mos|Days|Month|Day|Yr|Yrs|Months|Years)$/i) ? sample.patientDetails.age : `${sample.patientDetails.age || 'N/A'} Y`}</span></div>
+                                                <div className="info-row"><span className="info-label">Patient Name</span><span>:</span><span>{formatPatientNameWithPrefix(sample.patientDetails.originalPatientName || sample.patientDetails.name, (sample.patientDetails as any).honorific, true)}</span></div>
+                                                <div className="info-row"><span className="info-label">Age</span><span>:</span><span>{(() => {
+                                                    const rawAge: any = sample.patientDetails.age;
+                                                    const unit = (sample.patientDetails as any).ageUnit || '';
+                                                    if (rawAge === undefined || rawAge === null || rawAge === '' || rawAge === '-' || rawAge === 'N/A') return '-';
+                                                    if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                                    return unit ? `${rawAge} ${unit}` : `${rawAge} Y`;
+                                                })()}</span></div>
                                                 <div className="info-row"><span className="info-label">Gender</span><span>:</span><span>{sample.patientDetails.gender?.charAt(0).toUpperCase()}</span></div>
                                                 <div className="info-row"><span className="info-label">Ref By</span><span>:</span><span>{sample.patientDetails.refDoctor || sample.referredBy || ''}</span></div>
                                                 <div className="info-row"><span className="info-label">Ref By Client</span><span>:</span><span>_</span></div>

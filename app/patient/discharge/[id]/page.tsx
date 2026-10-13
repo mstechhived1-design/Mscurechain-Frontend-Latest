@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/integrations/api';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 // Minimal types matching schema
 interface DischargeRecord {
@@ -143,7 +144,7 @@ export default function PatientDischargeView() {
                     <div className="grid grid-cols-2 gap-y-4 gap-x-8 mb-8 text-xs">
                         <div className="col-span-2 md:col-span-1">
                             <Label>Patient Name</Label>
-                            <Value>{record.patientTitle} {record.patientName}</Value>
+                            <Value>{formatPatientNameWithPrefix(record.patientName, record.patientTitle || record.honorific, true) || record.patientName}</Value>
                         </div>
                         <div className="col-span-1">
                             <Label>MRN</Label>

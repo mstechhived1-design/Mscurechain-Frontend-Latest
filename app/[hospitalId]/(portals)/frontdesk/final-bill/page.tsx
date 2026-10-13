@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Search, Printer, FileText, User, ArrowLeft, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
 import { helpdeskService } from '@/lib/integrations/services/helpdesk.service';
@@ -11,6 +11,7 @@ import { calculateAge } from "@/lib/utils/date-utils";
 import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import toast from 'react-hot-toast';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -61,6 +62,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 export default function FinalBillPage() {
     const router = useRouter();
     const params = useParams() as any;
+    const hospitalId = params?.hospitalId as string;
 
     // Search & Pagination State for Table
     const [searchTerm, setSearchTerm] = useState('');
@@ -96,6 +98,22 @@ export default function FinalBillPage() {
     const [admission, setAdmission] = useState<any>(null);
     const [latestReport, setLatestReport] = useState<any>(null);
     const [loadingReport, setLoadingReport] = useState(false);
+
+    // ── WhatsApp State ────────────────────────────────────────
+    const waBillRef = useRef<HTMLDivElement>(null);
+    const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
+    const [autoWhatsApp, setAutoWhatsApp] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('msc_auto_whatsapp_finalbill') === 'true';
+        }
+        return false;
+    });
+    const handleToggleAutoWhatsApp = (val: boolean) => {
+        setAutoWhatsApp(val);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp_finalbill', String(val));
+        }
+    };
 
     useEffect(() => {
         hospitalAdminService.getHospital().then(res => setHospital(res?.hospital)).catch(() => { });
@@ -177,20 +195,11 @@ export default function FinalBillPage() {
         }
     };
 
-    const handlePrint = () => {
-        if (!latestReport) {
-            toast.error("No bill data to print.");
-            return;
-        }
-
-        const win = window.open('', '_blank');
-        if (!win) {
-            alert('Please allow popups to print');
-            return;
-        }
+    const generateFullBillMarkup = (isWindowPrint = false) => {
+        if (!latestReport) return '';
 
         const h = hospital || { name: 'Hospital Name', address: 'Hospital Address', contact: 'Contact Info' };
-        const data = latestReport.reportData;
+        const data = latestReport.reportData || {};
         const pt = latestReport.patientInfo || selectedPatient;
         const adm = latestReport.admissionInfo || admission;
         const hInfo = latestReport.hospitalInfo || {};
@@ -240,73 +249,108 @@ export default function FinalBillPage() {
             day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
         }) : '';
 
-        let html = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>IP Interim Bill - ${pt.name}</title>
-                <style>
-                    * { box-sizing: border-box; }
-                    body { font-family: Arial, sans-serif; padding: 20px; color: #000; font-size: 10px; line-height: 1.3; background: #fff; margin: 0; }
-                    .header-custom { text-align: center; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 5px; }
-                    .header-custom h1 { margin: 0; font-size: 18px; text-transform: uppercase; }
-                    .header-custom p { margin: 2px 0; font-size: 10px; }
-                    .bill-title { text-align: center; font-weight: bold; font-size: 12px; margin: 0; padding: 4px 0; border: 1px solid #000; border-bottom: none; }
-                    .invoice-no { text-align: center; font-weight: bold; font-size: 11px; margin: 0 0 10px 0; padding: 4px 0; border: 1px solid #000; }
-                    
-                    .patient-details-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; border: 1px solid #000; }
-                    .patient-details-table td { padding: 3px 5px; vertical-align: top; font-size: 9px; }
-                    .patient-details-table .lbl { width: 105px; font-weight: bold; }
-                    .patient-details-table .val { width: auto; }
-                    
-                    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; border: 1px solid #000; border-top: none; }
-                    .items-table th { background: #fff; border: 1px solid #000; border-bottom: 2px solid #000; border-top: 2px solid #000; padding: 4px 5px; text-align: left; font-size: 9px; font-weight: bold; }
-                    .items-table td { border-left: none; border-right: none; padding: 3px 5px; font-size: 9px; }
-                    .items-table .category-row td { background: #fff; font-weight: bold; text-align: left; color: #000080; padding-top: 8px; padding-bottom: 4px; text-transform: uppercase; font-size: 10px; }
-                    .items-table .subtotal-row td { background: #fff; font-weight: bold; text-align: right; color: #000; border-top: 1px solid #000; border-bottom: 1px solid #000; }
-                    .items-table .subtotal-amount { color: #000080; }
-                    .items-table .total-amount-cell { text-align: right; }
-                    .items-table .right-align { text-align: right; }
-                    .items-table .center-align { text-align: center; }
+        const cssStyles = `
+            * { box-sizing: border-box; }
+            .bill-page-body { font-family: Arial, sans-serif; padding: 20px; color: #000; font-size: 10px; line-height: 1.3; background: #fff; margin: 0; width: 794px; }
+            .header-custom { text-align: center; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+            .header-custom h1 { margin: 0; font-size: 18px; text-transform: uppercase; }
+            .header-custom p { margin: 2px 0; font-size: 10px; }
+            .bill-title { text-align: center; font-weight: bold; font-size: 12px; margin: 0; padding: 4px 0; border: 1px solid #000; border-bottom: none; }
+            .invoice-no { text-align: center; font-weight: bold; font-size: 11px; margin: 0 0 10px 0; padding: 4px 0; border: 1px solid #000; }
+            
+            .patient-details-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; border: 1px solid #000; }
+            .patient-details-table td { padding: 3px 5px; vertical-align: top; font-size: 9px; }
+            .patient-details-table .lbl { width: 105px; font-weight: bold; }
+            .patient-details-table .val { width: auto; }
+            
+            .items-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; border: 1px solid #000; border-top: none; }
+            .items-table th { background: #fff; border: 1px solid #000; border-bottom: 2px solid #000; border-top: 2px solid #000; padding: 4px 5px; text-align: left; font-size: 9px; font-weight: bold; }
+            .items-table td { border-left: none; border-right: none; padding: 3px 5px; font-size: 9px; }
+            .items-table .category-row td { background: #fff; font-weight: bold; text-align: left; color: #000080; padding-top: 8px; padding-bottom: 4px; text-transform: uppercase; font-size: 10px; }
+            .items-table .subtotal-row td { background: #fff; font-weight: bold; text-align: right; color: #000; border-top: 1px solid #000; border-bottom: 1px solid #000; }
+            .items-table .subtotal-amount { color: #000080; }
+            .items-table .total-amount-cell { text-align: right; }
+            .items-table .right-align { text-align: right; }
+            .items-table .center-align { text-align: center; }
 
-                    .summary-section { width: 100%; display: table; margin-top: 5px; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0; }
-                    .amount-words { display: table-cell; width: 60%; vertical-align: top; font-weight: bold; font-size: 10px; padding: 5px; }
-                    .amount-words .reason { font-weight: normal; margin-top: 5px; }
-                    .totals-box { display: table-cell; width: 40%; vertical-align: top; }
-                    .totals-table { width: 100%; border-collapse: collapse; }
-                    .totals-table td { padding: 3px; font-size: 10px; }
-                    .totals-table .lbl { font-weight: bold; text-align: right; width: 60%; }
-                    .totals-table .val { text-align: right; font-weight: bold; }
-                    .totals-table .grand-row td { border-top: 1px solid #000; font-size: 11px; }
-                    .totals-table .balance-row td { border-top: 1px solid #000; border-bottom: 2px solid #000; font-size: 11px; color: #c00; }
+            .summary-section { width: 100%; display: table; margin-top: 5px; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0; }
+            .amount-words { display: table-cell; width: 60%; vertical-align: top; font-weight: bold; font-size: 10px; padding: 5px; }
+            .amount-words .reason { font-weight: normal; margin-top: 5px; }
+            .totals-box { display: table-cell; width: 40%; vertical-align: top; }
+            .totals-table { width: 100%; border-collapse: collapse; }
+            .totals-table td { padding: 3px; font-size: 10px; }
+            .totals-table .lbl { font-weight: bold; text-align: right; width: 60%; }
+            .totals-table .val { text-align: right; font-weight: bold; }
+            .totals-table .grand-row td { border-top: 1px solid #000; font-size: 11px; }
+            .totals-table .balance-row td { border-top: 1px solid #000; border-bottom: 2px solid #000; font-size: 11px; color: #c00; }
 
-                    .receipts-title { font-weight: bold; margin: 10px 0 5px; font-size: 11px; border-bottom: 1px solid #000; padding-bottom: 3px; background: #e8e8ff; }
-                    .receipts-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                    .receipts-table th, .receipts-table td { padding: 4px; font-size: 9px; text-align: left; }
-                    .receipts-table th { border-top: 1px solid #000; border-bottom: 1px solid #000; font-weight: bold; }
-                    .receipts-table .total-row td { border-top: 1px solid #000; border-bottom: 1px solid #000; font-weight: bold; }
-                    .receipts-table .right-align { text-align: right; }
+            .receipts-title { font-weight: bold; margin: 10px 0 5px; font-size: 11px; border-bottom: 1px solid #000; padding-bottom: 3px; background: #e8e8ff; }
+            .receipts-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            .receipts-table th, .receipts-table td { padding: 4px; font-size: 9px; text-align: left; }
+            .receipts-table th { border-top: 1px solid #000; border-bottom: 1px solid #000; font-weight: bold; }
+            .receipts-table .total-row td { border-top: 1px solid #000; border-bottom: 1px solid #000; font-weight: bold; }
+            .receipts-table .right-align { text-align: right; }
 
-                    .footer-signatures { width: 100%; display: table; margin-top: 50px; font-size: 11px; }
-                    .footer-signatures > div { display: table-cell; width: 50%; }
-                    .footer-signatures .left-sig { text-align: left; padding-left: 10%; font-weight: bold; }
-                    .footer-signatures .right-sig { text-align: right; padding-right: 10%; font-weight: bold; }
-                    .sig-line { border-top: 1px solid #000; width: 200px; margin-bottom: 5px; display: inline-block; }
-                    
-                    .printed-time { border-top: 1px solid #000; padding-top: 5px; margin-top: 20px; font-weight: bold; font-size: 9px; }
+            .footer-signatures { width: 100%; display: table; margin-top: 50px; font-size: 11px; }
+            .footer-signatures > div { display: table-cell; width: 50%; }
+            .footer-signatures .left-sig { text-align: left; padding-left: 10%; font-weight: bold; }
+            .footer-signatures .right-sig { text-align: right; padding-right: 10%; font-weight: bold; }
+            .sig-line { border-top: 1px solid #000; width: 200px; margin-bottom: 5px; display: inline-block; }
+            
+            .printed-time { border-top: 1px solid #000; padding-top: 5px; margin-top: 20px; font-weight: bold; font-size: 9px; }
 
-                    .page-header { display: none; }
+            @media print { 
+                body { padding: 0; } 
+                @page { margin: 10mm; }
+                .items-table { page-break-inside: auto; }
+                .items-table tr { page-break-inside: avoid; page-break-after: auto; }
+            }
+        `;
 
-                    @media print { 
-                        body { padding: 0; } 
-                        @page { margin: 10mm; }
-                        .items-table { page-break-inside: auto; }
-                        .items-table tr { page-break-inside: avoid; page-break-after: auto; }
-                        .page-header { display: block; position: running(pageHeader); font-size: 9px; font-weight: bold; padding: 5px 0; border-bottom: 1px solid #000; margin-bottom: 5px; }
-                    }
-                </style>
-            </head>
-            <body>
+        // Helper to render a category section
+        const renderCategory = (title: string, items: any[], nameKey: string, rateKey: string, qtyKey: string) => {
+            if (!items || items.length === 0) return '';
+            let catHtml = `<tr class="category-row"><td colspan="6">${title}</td></tr>`;
+            let subtotal = 0;
+            let sno = 1;
+            items.forEach(item => {
+                const amount = (item.amount !== undefined && item.amount !== null) ? item.amount : (item[rateKey] * item[qtyKey]);
+                subtotal += amount;
+                const rawName = item[nameKey];
+                const displayName = typeof rawName === 'object'
+                    ? (rawName?.testName || rawName?.name || rawName?.title || rawName?.description || item.description || '-')
+                    : (String(rawName || '').trim() === '[object Object]' ? (item.description || '-') : (rawName || '-'));
+                let itemCode = item.code || item.serviceCode || item.testCode || item.itemCode || '';
+                if (!itemCode || itemCode === '-') {
+                    const prefix = title.toLowerCase().includes('consultation') ? 'SVC'
+                        : title.toLowerCase().includes('investigation') ? 'LAB'
+                            : title.toLowerCase().includes('ward') ? 'BED'
+                                : title.toLowerCase().includes('radiology') ? 'RAD'
+                                    : title.toLowerCase().includes('pharmacy') ? 'MED'
+                                        : 'SVC';
+                    const idSuffix = item._id ? item._id.toString().slice(-6).toUpperCase()
+                        : (item.id && typeof item.id === 'string' && item.id.length >= 4) ? item.id.slice(-6).toUpperCase()
+                            : `${sno}`;
+                    itemCode = prefix === 'BED' ? `BED${sno}` : `${prefix}${idSuffix}`;
+                }
+
+                catHtml += `
+                    <tr>
+                        <td class="center-align">${sno++}</td>
+                        <td>${itemCode}</td>
+                        <td>${displayName}</td>
+                        <td class="right-align">${fmt(item[rateKey] || 0)}</td>
+                        <td class="center-align">${parseFloat(item[qtyKey] || 0).toFixed(2)}</td>
+                        <td class="right-align">${fmt(amount || 0)}</td>
+                    </tr>
+                `;
+            });
+            catHtml += `<tr class="subtotal-row"><td colspan="5">Sub Total :</td><td class="right-align subtotal-amount">${fmt(subtotal)}</td></tr>`;
+            return catHtml;
+        };
+
+        let bodyHtml = `
+            <div class="bill-page-body">
                 <div class="header-custom">
                     ${headerHtml}
                 </div>
@@ -380,73 +424,31 @@ export default function FinalBillPage() {
                     <tbody>
         `;
 
-        // Helper to render a category section
-        const renderCategory = (title: string, items: any[], nameKey: string, rateKey: string, qtyKey: string) => {
-            if (!items || items.length === 0) return '';
-            let catHtml = `<tr class="category-row"><td colspan="6">${title}</td></tr>`;
-            let subtotal = 0;
-            let sno = 1;
-            items.forEach(item => {
-                const amount = (item.amount !== undefined && item.amount !== null) ? item.amount : (item[rateKey] * item[qtyKey]);
-                subtotal += amount;
-                const rawName = item[nameKey];
-                const displayName = typeof rawName === 'object'
-                    ? (rawName?.testName || rawName?.name || rawName?.title || rawName?.description || item.description || '-')
-                    : (String(rawName || '').trim() === '[object Object]' ? (item.description || '-') : (rawName || '-'));
-                let itemCode = item.code || item.serviceCode || item.testCode || item.itemCode || '';
-                if (!itemCode || itemCode === '-') {
-                    const prefix = title.toLowerCase().includes('consultation') ? 'SVC'
-                        : title.toLowerCase().includes('investigation') ? 'LAB'
-                            : title.toLowerCase().includes('ward') ? 'BED'
-                                : title.toLowerCase().includes('radiology') ? 'RAD'
-                                    : title.toLowerCase().includes('pharmacy') ? 'MED'
-                                        : 'SVC';
-                    const idSuffix = item._id ? item._id.toString().slice(-6).toUpperCase()
-                        : (item.id && typeof item.id === 'string' && item.id.length >= 4) ? item.id.slice(-6).toUpperCase()
-                            : `${sno}`;
-                    itemCode = prefix === 'BED' ? `BED${sno}` : `${prefix}${idSuffix}`;
-                }
-
-                catHtml += `
-                    <tr>
-                        <td class="center-align">${sno++}</td>
-                        <td>${itemCode}</td>
-                        <td>${displayName}</td>
-                        <td class="right-align">${fmt(item[rateKey])}</td>
-                        <td class="center-align">${parseFloat(item[qtyKey]).toFixed(2)}</td>
-                        <td class="right-align">${fmt(amount)}</td>
-                    </tr>
-                `;
-            });
-            catHtml += `<tr class="subtotal-row"><td colspan="5">Sub Total :</td><td class="right-align subtotal-amount">${fmt(subtotal)}</td></tr>`;
-            return catHtml;
-        };
-
         // Render exactly matching image order: Consultation -> Investigation -> Ward -> Radiology -> Service -> Pharmacy
-        html += renderCategory('Consultation Charges', data.doctors, 'doctorName', 'rate', 'visits');
-        html += renderCategory('Investigation Charges', data.diags, 'testName', 'rate', 'quantity');
-        html += renderCategory('Ward Charges', data.admissions, 'chargeType', 'rate', 'days');
-        html += renderCategory('Radiology Charges', data.rads || [], 'testName', 'rate', 'quantity');
-        html += renderCategory('Service Charges', data.services, 'serviceName', 'rate', 'quantity');
-        html += renderCategory('Pharmacy Charges', data.meds, 'medicineName', 'rate', 'quantity');
+        bodyHtml += renderCategory('Consultation Charges', data.doctors || [], 'doctorName', 'rate', 'visits');
+        bodyHtml += renderCategory('Investigation Charges', data.diags || [], 'testName', 'rate', 'quantity');
+        bodyHtml += renderCategory('Ward Charges', data.admissions || [], 'chargeType', 'rate', 'days');
+        bodyHtml += renderCategory('Radiology Charges', data.rads || [], 'testName', 'rate', 'quantity');
+        bodyHtml += renderCategory('Service Charges', data.services || [], 'serviceName', 'rate', 'quantity');
+        bodyHtml += renderCategory('Pharmacy Charges', data.meds || [], 'medicineName', 'rate', 'quantity');
 
-        html += `
+        bodyHtml += `
                     </tbody>
                 </table>
 
                 <div class="summary-section">
                     <div class="amount-words">
-                        Rupees In : ${numberToWords(latestReport.totals.netAmount || latestReport.totals.grandTotal)}
+                        Rupees In : ${numberToWords(latestReport.totals?.netAmount || latestReport.totals?.grandTotal || 0)}
                         <div class="reason">Reason : ${latestReport.notes || adm?.reason || '-'}</div>
                     </div>
                     <div class="totals-box">
                         <table class="totals-table">
-                            <tr class="grand-row"><td class="lbl">Total Charges :</td><td class="val">${fmt(latestReport.totals.grandTotal)}</td></tr>
-                            ${latestReport.totals.returnCredits ? `<tr><td class="lbl" style="color: #c00;">(-) Returns :</td><td class="val" style="color: #c00;">${fmt(latestReport.totals.returnCredits)}</td></tr>` : ''}
-                            ${latestReport.totals.discount ? `<tr><td class="lbl" style="color: #0f766e;">(-) Discount :</td><td class="val" style="color: #0f766e;">${fmt(latestReport.totals.discount)}</td></tr>` : ''}
-                            <tr><td class="lbl">Net Bill Amt :</td><td class="val">${fmt(latestReport.totals.netAmount || latestReport.totals.grandTotal)}</td></tr>
-                            <tr><td class="lbl">Paid Amt :</td><td class="val">${fmt(latestReport.totals.totalPaid)}</td></tr>
-                            <tr class="balance-row"><td class="lbl">Balance Amt :</td><td class="val">${fmt(latestReport.totals.balance)}</td></tr>
+                            <tr class="grand-row"><td class="lbl">Total Charges :</td><td class="val">${fmt(latestReport.totals?.grandTotal || 0)}</td></tr>
+                            ${latestReport.totals?.returnCredits ? `<tr><td class="lbl" style="color: #c00;">(-) Returns :</td><td class="val" style="color: #c00;">${fmt(latestReport.totals.returnCredits)}</td></tr>` : ''}
+                            ${latestReport.totals?.discount ? `<tr><td class="lbl" style="color: #0f766e;">(-) Discount :</td><td class="val" style="color: #0f766e;">${fmt(latestReport.totals.discount)}</td></tr>` : ''}
+                            <tr><td class="lbl">Net Bill Amt :</td><td class="val">${fmt(latestReport.totals?.netAmount || latestReport.totals?.grandTotal || 0)}</td></tr>
+                            <tr><td class="lbl">Paid Amt :</td><td class="val">${fmt(latestReport.totals?.totalPaid || 0)}</td></tr>
+                            <tr class="balance-row"><td class="lbl">Balance Amt :</td><td class="val">${fmt(latestReport.totals?.balance || 0)}</td></tr>
                         </table>
                     </div>
                 </div>
@@ -454,7 +456,7 @@ export default function FinalBillPage() {
 
         const receiptsToPrint = latestReport.receipts || (latestReport.reportData && latestReport.reportData.payments) || [];
         if (receiptsToPrint && receiptsToPrint.length > 0) {
-            html += `
+            bodyHtml += `
                 <div class="receipts-title">Receipt Details :</div>
                 <table class="receipts-table">
                     <thead>
@@ -470,27 +472,26 @@ export default function FinalBillPage() {
             `;
             let rSno = 1;
             receiptsToPrint.forEach((r: any) => {
-                // Ignore failed or pending payments if status exists
                 if (r.status && r.status !== 'Paid' && r.status !== 'Completed') return;
 
                 const rDate = new Date(r.date || r.createdAt || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
                 const rMode = r.paymentMode || r.mode || 'Cash';
                 const receiptNum = r.receiptNumber || r.receiptNo || r.transactionId || '-';
                 const rType = r.type || r.transactionType || 'Advance';
-                html += `
+                bodyHtml += `
                     <tr>
                         <td>${rSno++}</td>
                         <td>${rDate}</td>
                         <td>${receiptNum}</td>
-                        <td>${fmt(r.amount)} ${rMode}</td>
+                        <td>${fmt(r.amount || 0)} ${rMode}</td>
                         <td>${rType}</td>
                     </tr>
                 `;
             });
-            html += `
+            bodyHtml += `
                         <tr class="total-row">
                             <td colspan="3" class="right-align">Total :</td>
-                            <td>${fmt(latestReport.totals.totalPaid)}</td>
+                            <td>${fmt(latestReport.totals?.totalPaid || 0)}</td>
                             <td></td>
                         </tr>
                     </tbody>
@@ -498,7 +499,7 @@ export default function FinalBillPage() {
             `;
         }
 
-        html += `
+        bodyHtml += `
                 <div class="footer-signatures">
                     <div class="left-sig">
                         <div class="sig-line"></div><br/>
@@ -513,18 +514,48 @@ export default function FinalBillPage() {
                 <div class="printed-time">
                     Printed Dt & Time : ${new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
                 </div>
-                <script>
-                    window.onload = function() { 
-                        setTimeout(() => {
-                            window.print(); 
-                            window.onafterprint = function() { window.close(); }
-                        }, 500);
-                    }
-                </script>
-            </body>
-            </html>
+            </div>
         `;
 
+        if (isWindowPrint) {
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>IP Interim Bill - ${pt.name}</title>
+                    <style>${cssStyles}</style>
+                </head>
+                <body>
+                    ${bodyHtml}
+                    <script>
+                        window.onload = function() { 
+                            setTimeout(() => {
+                                window.print(); 
+                                window.onafterprint = function() { window.close(); }
+                            }, 500);
+                        }
+                    </script>
+                </body>
+                </html>
+            `;
+        }
+
+        return `<style>${cssStyles}</style>${bodyHtml}`;
+    };
+
+    const handlePrint = () => {
+        if (!latestReport) {
+            toast.error("No bill data to print.");
+            return;
+        }
+
+        const win = window.open('', '_blank');
+        if (!win) {
+            alert('Please allow popups to print');
+            return;
+        }
+
+        const html = generateFullBillMarkup(true);
         win.document.write(html);
         win.document.close();
     };
@@ -574,7 +605,7 @@ export default function FinalBillPage() {
                                 Found latest transaction report for <b>{selectedPatient.name}</b>.
                             </p>
 
-                            <div className="flex justify-center gap-4">
+                            <div className="flex flex-col sm:flex-row justify-center gap-4">
                                 <button
                                     onClick={() => { setSelectedPatient(null); setLatestReport(null); }}
                                     className="px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors"
@@ -588,6 +619,19 @@ export default function FinalBillPage() {
                                     <Printer size={18} />
                                     Print IP Interim Bill - Detailed
                                 </button>
+                                {/* WhatsApp Button for Final Bill */}
+                                <WhatsAppSendButton
+                                    hospitalId={hospitalId}
+                                    targetRef={waBillRef}
+                                    phoneNumber={selectedPatient?.mobile || selectedPatient?.user?.mobile || ''}
+                                    documentName={`FinalBill_${selectedPatient?.name || 'Patient'}.pdf`}
+                                    caption={`${WA_DIVIDER}\n*${(hospital?.name || 'HOSPITAL').toUpperCase()}*\n*IP INTERIM BILL*\n${WA_DIVIDER}\n*Patient:* ${selectedPatient?.name || 'N/A'}\n*MRN:* ${selectedPatient?.mrn || selectedPatient?.profile?.mrn || 'N/A'}\n*Total Bill:* ${fmt(latestReport?.totals?.netAmount || latestReport?.totals?.grandTotal || 0)}\n*Total Paid:* ${fmt(latestReport?.totals?.totalPaid || 0)}\n*Balance:* ${fmt(latestReport?.totals?.balance || 0)}\n${WA_DIVIDER}\n${READ_MORE}\nPlease contact the hospital billing desk for any queries.`}
+                                    showCheckbox={true}
+                                    autoSend={autoWhatsApp}
+                                    onAutoSendChange={handleToggleAutoWhatsApp}
+                                    triggerSend={triggerWhatsApp}
+                                    className="px-6 py-3"
+                                />
                             </div>
                         </div>
                     ) : (
@@ -759,6 +803,17 @@ export default function FinalBillPage() {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Hidden WhatsApp Bill Full Detailed Capture Ref */}
+            {latestReport && selectedPatient && (
+                <div style={{ position: 'fixed', left: '-9999px', top: '0', width: '794px', background: '#ffffff', zIndex: -9999, pointerEvents: 'none' }}>
+                    <div
+                        ref={waBillRef}
+                        style={{ width: '794px', background: '#ffffff', boxSizing: 'border-box' }}
+                        dangerouslySetInnerHTML={{ __html: generateFullBillMarkup(false) }}
+                    />
                 </div>
             )}
         </div>

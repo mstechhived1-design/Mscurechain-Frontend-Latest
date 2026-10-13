@@ -4,6 +4,7 @@ import { formatFrequency } from '@/lib/frequencyUtils';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { usePrintStore } from '@/stores/printStore';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 export interface ShopDetails {
     name: string;
@@ -350,7 +351,7 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
                 <div style={{ ...styles.billToBox, marginBottom: 0 }}>
                     <div style={styles.billToHeader}>BILL TO</div>
                     <div style={styles.billToContent}>
-                        <h3 style={styles.patientName}>{billData.patientName}</h3>
+                        <h3 style={styles.patientName}>{formatPatientNameWithPrefix(billData.patientName, (billData as any).honorific || (billData as any).patient?.honorific, true)}</h3>
                         <div style={styles.patientMeta}>
                             <span>📞 +91 {billData.customerPhone}</span>
                             {billData.patientAddress ? (

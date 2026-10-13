@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { clearApiCache } from '@/lib/integrations/api/apiClient';
 import { PharmacyTableSkeleton } from '@/components/ui/skeletons';
 import { useTenantLink } from '@/hooks/useTenantLink';
+import { formatPatientDisplayName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 interface PharmacyOrder {
     _id: string;
@@ -123,7 +124,7 @@ function ActiveOrdersPage() {
             if (searchTerm.trim() !== '') {
                 const term = searchTerm.toLowerCase();
                 const tokenMatch = order.tokenNumber?.toLowerCase().includes(term);
-                const nameMatch = order.patient?.name?.toLowerCase().includes(term);
+                const nameMatch = (formatPatientDisplayName(order.patient, order, false) || order.patient?.name || '').toLowerCase().includes(term);
                 const doctorMatch = ((order.doctor as any)?.user?.name || order.doctor?.name || '').toLowerCase().includes(term);
                 const mrnMatch = ((order as any).mrn || '').toLowerCase().includes(term);
                 const mobileMatch = (order.patient?.mobile || '').toLowerCase().includes(term);
@@ -232,6 +233,13 @@ function ActiveOrdersPage() {
                                 <span className="text-[9px] md:text-[10px] font-bold text-teal-600 uppercase tracking-wider">Live</span>
                             </div>
 
+                            {/* Total Filtered Count Badge */}
+                            <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 shrink-0">
+                                <Activity className="w-3 h-3 text-teal-500" />
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Orders:</span>
+                                <span className="text-[11px] font-black text-gray-800 dark:text-white">{filteredOrders.length}</span>
+                            </div>
+
                             {/* ‹ Page X/Y › */}
                             {!loading && totalPages > 1 && (
                                 <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm px-1 py-1 shrink-0">
@@ -272,6 +280,16 @@ function ActiveOrdersPage() {
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-2xl md:rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                {/* Count bar */}
+                <div className="px-4 md:px-6 py-2.5 border-b border-gray-50 dark:border-gray-700 flex items-center justify-between bg-gray-50/30 dark:bg-gray-800/30">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Queue Management</span>
+                    </div>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        <span className="text-teal-600">{filteredOrders.length}</span> Active{patientTypeFilter !== 'all' ? ` (${patientTypeFilter.toUpperCase()})` : ''} Orders
+                    </span>
+                </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[800px]">
                         <thead className="bg-gray-50/50 dark:bg-gray-900/50 text-[10px] md:text-xs uppercase text-gray-400 font-bold tracking-wider">
@@ -324,9 +342,17 @@ function ActiveOrdersPage() {
                                             </span>
                                         </td>
                                         <td className="p-4 md:p-6">
-                                            <div className="font-bold text-xs md:text-sm text-gray-900 dark:text-white uppercase tracking-tight">{order.patient?.name || 'Unknown'}</div>
+                                            <div className="font-bold text-xs md:text-sm text-gray-900 dark:text-white uppercase tracking-tight">
+                                                {formatPatientDisplayName(order.patient, order, true)}
+                                            </div>
                                             <div className="text-[10px] md:text-xs text-gray-400 uppercase font-semibold tracking-wider mt-0.5">
-                                                {order.patientAge || order.patient?.age || '-'}Y • {order.patientGender || order.patient?.gender || '-'}
+                                                {(() => {
+                                                    const rawAge = order.patientAge || order.patient?.age;
+                                                    const unit = (order as any).patientAgeUnit || (order.patient as any)?.ageUnit || '';
+                                                    if (!rawAge || rawAge === '-') return '-';
+                                                    if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                                    return unit ? `${rawAge} ${unit}` : `${rawAge}Y`;
+                                                })()} • {order.patientGender || order.patient?.gender || '-'}
                                             </div>
                                             <div className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold mt-1">
                                                 MRN: <span className="text-teal-600 dark:text-teal-400">{(order as any).mrn || 'N/A'}</span>

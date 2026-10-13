@@ -60,6 +60,8 @@ export interface HospitalAdminPatient {
   mobile?: string;
   lastAppointment: Date;
   totalAppointments: number;
+  honorific?: string;
+  profile?: any;
 }
 
 export interface AttendanceRecord {

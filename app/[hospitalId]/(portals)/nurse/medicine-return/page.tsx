@@ -19,6 +19,7 @@ import {
     ClipboardList,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { formatPatientDisplayName, cleanPatientName, formatDoctorName } from "@/lib/utils/name-utils";
 
 export default function NurseMedicineReturnPage() {
     const { user } = useAuthStore();
@@ -348,7 +349,7 @@ export default function NurseMedicineReturnPage() {
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="font-black text-slate-900 text-[11px] sm:text-base tracking-tight truncate pb-0.5 uppercase">
-                                                        {adm.patient?.name || "Unknown"}
+                                                        {formatPatientDisplayName(adm.patient, adm, true) || adm.patient?.name || "Unknown"}
                                                     </p>
                                                     <div className="flex items-center gap-1 sm:gap-2">
                                                         <span className="text-[7px] sm:text-[10px] font-black tracking-widest uppercase text-blue-600 bg-blue-50 px-1.5 sm:px-2 py-0.5 rounded">
@@ -442,10 +443,10 @@ export default function NurseMedicineReturnPage() {
                                             <td className="px-3 sm:px-6 py-2 sm:py-4">
                                                 <div className="flex items-center gap-2 sm:gap-3">
                                                     <div className="w-7 h-7 sm:w-10 sm:h-10 bg-blue-50 text-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center font-bold text-[10px] sm:text-sm">
-                                                        {adm.patient?.name?.charAt(0) || "P"}
+                                                        {cleanPatientName(formatPatientDisplayName(adm.patient, adm, true) || adm.patient?.name || "P").charAt(0) || "P"}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] sm:text-sm font-black text-slate-900 uppercase tracking-tight">{adm.patient?.name || "Unknown"}</p>
+                                                        <p className="text-[10px] sm:text-sm font-black text-slate-900 uppercase tracking-tight">{formatPatientDisplayName(adm.patient, adm, true) || adm.patient?.name || "Unknown"}</p>
                                                         <p className="text-[7px] sm:text-[10px] font-black text-blue-600 uppercase tracking-widest">{adm.admissionId}</p>
                                                     </div>
                                                 </div>
@@ -453,7 +454,7 @@ export default function NurseMedicineReturnPage() {
                                             <td className="px-3 sm:px-6 py-2 sm:py-4 text-[9px] sm:text-xs">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-bold text-slate-600 uppercase">
-                                                        {adm.primaryDoctor?.user?.name || adm.primaryDoctor?.name || <span className="text-slate-300 italic">Not assigned</span>}
+                                                        {adm.primaryDoctor?.user?.name || adm.primaryDoctor?.name ? formatDoctorName(adm.primaryDoctor?.user?.name || adm.primaryDoctor?.name) : <span className="text-slate-300 italic">Not assigned</span>}
                                                     </span>
                                                 </div>
                                             </td>
@@ -504,7 +505,7 @@ export default function NurseMedicineReturnPage() {
                         <div className="px-3 sm:px-6 py-2 sm:py-5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                             <div>
                                 <h2 className="text-[11px] sm:text-lg font-black text-slate-900 uppercase tracking-tight leading-none">
-                                    {selectedAdmission.patient?.name}
+                                    {formatPatientDisplayName(selectedAdmission.patient, selectedAdmission, true) || selectedAdmission.patient?.name}
                                 </h2>
                                 <p className="text-[7px] sm:text-sm text-slate-400 font-bold mt-0.5 sm:mt-1 flex items-center gap-1.5 sm:gap-3 uppercase tracking-widest">
                                     <span>{selectedAdmission.admissionId}</span>

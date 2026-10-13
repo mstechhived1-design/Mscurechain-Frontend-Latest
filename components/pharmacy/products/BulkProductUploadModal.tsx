@@ -165,6 +165,17 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
 
             if (!sku || !brandName || !genericName) return;
 
+            // Ignore summary rows from audit exports or template instructions
+            const upperBrand = brandName.toUpperCase();
+            if (
+                upperBrand.includes("INVENTORY SUMMARY") ||
+                upperBrand.includes("GENERIC NAME") ||
+                upperBrand.includes("TOTAL SKU") ||
+                upperBrand.includes("TOTAL CURRENT")
+            ) {
+                return;
+            }
+
             products.push({
                 sku,
                 brandName,
@@ -201,13 +212,29 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
             const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''));
             if (cols.length < 3) continue;
 
+            const sku = cols[0];
+            const brandName = cols[1];
+            const genericName = cols[2];
+
+            if (!sku || !brandName || !genericName) continue;
+
+            const upperBrand = brandName.toUpperCase();
+            if (
+                upperBrand.includes("INVENTORY SUMMARY") ||
+                upperBrand.includes("GENERIC NAME") ||
+                upperBrand.includes("TOTAL SKU") ||
+                upperBrand.includes("TOTAL CURRENT")
+            ) {
+                continue;
+            }
+
             // Columns: sku, brand, generic, name, form, strength, schedule,
             //          mrp, unitCost, gstPercent, hsnCode, batchNumber, expiryDate,
             //          stock, minStock, unitsPerPack, supplier(ignored)
             products.push({
-                sku: cols[0],
-                brandName: cols[1],
-                genericName: cols[2],
+                sku: sku,
+                brandName: brandName,
+                genericName: genericName,
                 name: cols[3] || undefined,
                 form: normalizeForm(cols[4]),
                 strength: cols[5] || '',

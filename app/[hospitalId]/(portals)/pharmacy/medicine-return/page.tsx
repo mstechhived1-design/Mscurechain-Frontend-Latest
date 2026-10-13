@@ -9,6 +9,7 @@ import {
     Search, RotateCcw, Fingerprint, Layers, ArrowRight
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { formatPatientDisplayName } from "@/lib/utils/name-utils";
 
 export default function PharmaMedicineReturnPage() {
     const router = useRouter();
@@ -99,7 +100,7 @@ export default function PharmaMedicineReturnPage() {
         if (!search.trim()) return grouped;
         const q = search.toLowerCase();
         return grouped.filter((ret: any) =>
-            ret.patient?.name?.toLowerCase().includes(q) ||
+            (formatPatientDisplayName(ret.patient, ret, false) || ret.patient?.name || '')?.toLowerCase().includes(q) ||
             ret.patient?.mrn?.toLowerCase().includes(q) ||
             ret.admissionId?.toLowerCase().includes(q)
         );
@@ -249,7 +250,7 @@ export default function PharmaMedicineReturnPage() {
                                                     {ret.patient?.name?.[0]}
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] md:text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-tight">{ret.patient?.name}</p>
+                                                    <p className="text-[10px] md:text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-tight">{formatPatientDisplayName(ret.patient, ret, true)}</p>
                                                     <div className="flex items-center gap-1.5 mt-0.5">
                                                         <Fingerprint size={10} className="text-gray-400" />
                                                         <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
@@ -295,7 +296,7 @@ export default function PharmaMedicineReturnPage() {
                                         </td>
                                         <td className="px-4 md:px-6 py-3 md:py-4 text-right">
                                             <button
-                                                onClick={() => router.push(getPath(`/pharmacy/ipd-issuance?admissionId=${ret.admissionId}&patientName=${encodeURIComponent(ret.patient?.name || "")}`))}
+                                                onClick={() => router.push(getPath(`/pharmacy/ipd-issuance?admissionId=${ret.admissionId}&patientName=${encodeURIComponent(formatPatientDisplayName(ret.patient, ret, false) || ret.patient?.name || "")}`))}
                                                 className="px-3 md:px-4 py-1.5 md:py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-orange-600 hover:text-white dark:hover:bg-orange-600 transition-all rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 md:gap-2 ml-auto border border-gray-200 dark:border-gray-700 hover:border-orange-500 shadow-sm"
                                             >
                                                 <span>Manage</span>

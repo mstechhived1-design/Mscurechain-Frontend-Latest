@@ -31,6 +31,7 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
 import { generatePatientHourlyRecordHtml } from '@/lib/utils/print-patient-vitals';
+import { formatPatientDisplayName } from '@/lib/utils/name-utils';
 
 export default function HourlyRecordClient() {
     const [selectedAdmissionId, setSelectedAdmissionId] = useState<string>('');
@@ -78,6 +79,7 @@ export default function HourlyRecordClient() {
     const filteredAdmissions = useMemo(() => {
         if (!admissions) return [];
         return admissions.filter((adm: any) =>
+            formatPatientDisplayName(adm.patient, adm, false).toLowerCase().includes(searchTerm.toLowerCase()) ||
             adm.patient?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             adm.admissionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             adm.patient?.mrn?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -169,7 +171,7 @@ export default function HourlyRecordClient() {
         };
 
         const metadata = [
-            { l1: 'Patient Name', v1: admission.patientName, l2: 'Admission ID', v2: admission.admissionId },
+            { l1: 'Patient Name', v1: formatPatientDisplayName(admission.patient, admission, true) || admission.patientName, l2: 'Admission ID', v2: admission.admissionId },
             { l1: 'Department', v1: admission.wardName || 'ICU-D', l2: 'Status', v2: admission.status },
             { l1: 'Adm Date', v1: format(new Date(admission.admissionDate), 'dd MMM yyyy, HH:mm'), l2: 'Length of Stay', v2: `${Math.max(0, differenceInCalendarDays(new Date(), new Date(admission.admissionDate)))} Days` },
             { l1: 'Primary Dr.', v1: admission.doctorName, l2: 'Ward Details', v2: `${admission.wardName} / ${admission.roomName || 'N/A'}` }
@@ -495,7 +497,10 @@ export default function HourlyRecordClient() {
                                 <Search size={14} className="text-gray-400 shrink-0" />
                                 <span className="truncate">
                                     {selectedAdmissionId ?
-                                        admissions?.find((a: any) => a.admissionId === selectedAdmissionId)?.patient?.name || 'Selected'
+                                        (() => {
+                                            const sel = admissions?.find((a: any) => a.admissionId === selectedAdmissionId);
+                                            return sel ? (formatPatientDisplayName(sel.patient, sel, true) || sel.patient?.name) : 'Selected';
+                                        })()
                                         : 'Search Patient...'}
                                 </span>
                             </div>
@@ -530,7 +535,7 @@ export default function HourlyRecordClient() {
                                             >
                                                 <div className="flex justify-between items-start gap-2">
                                                     <div className="truncate">
-                                                        <p className="text-[11px] font-black text-gray-900 uppercase tracking-tight truncate">{adm.patient?.name}</p>
+                                                        <p className="text-[11px] font-black text-gray-900 uppercase tracking-tight truncate">{formatPatientDisplayName(adm.patient, adm, true)}</p>
                                                         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest truncate">{adm.patient?.mrn}</p>
                                                     </div>
                                                     <span className="text-[8px] font-black text-blue-600 bg-blue-100/50 px-1.5 py-0.5 rounded uppercase shrink-0">{adm.admissionId}</span>
@@ -596,7 +601,7 @@ export default function HourlyRecordClient() {
                                                 <User size={28} />
                                             </div>
                                             <div>
-                                                <h2 className="text-md sm:text-lg font-black text-slate-900 tracking-tight">{hourlyData.data.admission.patientName}</h2>
+                                                <h2 className="text-md sm:text-lg font-black text-slate-900 tracking-tight">{formatPatientDisplayName(hourlyData.data.admission.patient, hourlyData.data.admission, true) || hourlyData.data.admission.patientName}</h2>
                                                 <div className="flex flex-wrap items-center gap-2 text-[9px] sm:text-xs font-bold text-slate-500 uppercase">
                                                     <span className="bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">ID: {hourlyData.data.admission.admissionId}</span>
                                                     <span className="hidden sm:inline w-1 h-1 bg-slate-300 rounded-full"></span>

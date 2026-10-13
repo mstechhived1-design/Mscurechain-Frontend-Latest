@@ -38,6 +38,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { generateClinicalReceiptHtml, computeAgeFromDob } from "@/lib/print-utils";
+import ClinicalReceipt from '@/components/helpdesk/ClinicalReceipt';
 import { formatDoctorName, formatPatientNameWithPrefix } from "@/lib/utils/name-utils";
 import { getSocket, joinSocketRoom } from "@/lib/integrations/api/socket";
 
@@ -54,6 +55,7 @@ export default function MasterAppointmentBooking() {
     const [hospitalBranding, setHospitalBranding] = useState<any>(null);
     const [doctors, setDoctors] = useState<HelpdeskDoctor[]>([]);
     const [departments, setDepartments] = useState<string[]>([]);
+    const [previewReceiptData, setPreviewReceiptData] = useState<any>(null);
 
     // Selection State
     const [selectedPatient, setSelectedPatient] = useState<any>(null);
@@ -208,7 +210,8 @@ export default function MasterAppointmentBooking() {
                             mobile: getSafeMobile(patientData),
                             mrn: patientData.mrn || profileData.mrn || 'CC-' + (patientData.user?._id || patientData._id).slice(-6).toUpperCase(),
                             gender: profileData.gender || patientData.gender || 'N/A',
-                            age: profileData.age || patientData.age || 'N/A',
+                            age: (profileData.age !== undefined && profileData.age !== null && profileData.age !== '') ? profileData.age : (patientData.age !== undefined && patientData.age !== null && patientData.age !== '') ? patientData.age : 'N/A',
+                            ageUnit: profileData.ageUnit || patientData.ageUnit || patientData.user?.ageUnit || 'Years',
                             dob: profileData.dob || patientData.dob || 'N/A',
                             address: profileData.address || patientData.address || 'N/A',
                             email: patientData.user?.email || profileData.emergencyContactEmail || profileData.email || 'N/A',
@@ -753,25 +756,13 @@ export default function MasterAppointmentBooking() {
             };
 
             if (printWindow) {
-                console.log("Generating receipt HTML...");
-                try {
-                    const html = generateClinicalReceiptHtml(receiptData);
-                    printWindow.document.open();
-                    printWindow.document.write(html);
-                    printWindow.document.close();
-                } catch (printErr) {
-                    console.error("Error generating/writing receipt:", printErr);
-                    printWindow.close();
-                    toast.error("Receipt generation failed, but booking was successful.");
-                }
+                printWindow.close();
             }
 
             toast.success("Booking Recorded Successfully.");
             fetchSlots();
             setSelectedSlot(null);
-            setTimeout(() => {
-                router.push(`/${hospitalId}/masterhelpdesk/queue`);
-            }, 1000);
+            setPreviewReceiptData(receiptData);
         } catch (error: any) {
             console.error("Booking error:", error);
             if (printWindow) printWindow.close();
@@ -1163,6 +1154,20 @@ export default function MasterAppointmentBooking() {
                     </div>
                 </div>
             </div>
+
+            {previewReceiptData && (
+                <ClinicalReceipt
+                    hospital={previewReceiptData.hospital}
+                    patient={previewReceiptData.patient}
+                    appointment={previewReceiptData.appointment}
+                    payment={previewReceiptData.payment}
+                    onClose={() => {
+                        setPreviewReceiptData(null);
+                        router.push(`/${hospitalId}/masterhelpdesk/queue`);
+                    }}
+                />
+            )}
+
             <style jsx global>{` @keyframes shimmer { 100% { transform: translateX(100%); } } `}</style>
         </div>
     );

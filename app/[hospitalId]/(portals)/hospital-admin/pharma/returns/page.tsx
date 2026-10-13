@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { PackageX, Search, Stethoscope, FileText, Undo2, RefreshCw } from 'lucide-react';
 import { apiClient } from '@/lib/integrations/api/apiClient';
 import { getSocket } from '@/lib/integrations/api/socket';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 import toast from 'react-hot-toast';
 
 export default function ReturnedStockPage() {
@@ -69,9 +70,12 @@ export default function ReturnedStockPage() {
 
     const filteredReturns = returns.filter((ret) => {
         const matchesSource = sourceFilter === 'ALL' || ret.source === sourceFilter;
+        const q = searchQuery.toLowerCase();
+        const formatted = formatPatientNameWithPrefix(ret.patientName, ret.patientHonorific || ret.honorific, false).toLowerCase();
         const matchesSearch = 
-            ret.patientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            ret.referenceId?.toLowerCase().includes(searchQuery.toLowerCase());
+            formatted.includes(q) ||
+            ret.patientName?.toLowerCase().includes(q) ||
+            ret.referenceId?.toLowerCase().includes(q);
         return matchesSource && matchesSearch;
     });
 
@@ -219,7 +223,7 @@ export default function ReturnedStockPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-bold text-gray-900">{ret.patientName}</div>
+                                            <div className="text-sm font-bold text-gray-900">{formatPatientNameWithPrefix(ret.patientName, ret.patientHonorific || ret.honorific, true) || ret.patientName}</div>
                                             <div className="text-xs text-gray-500 mt-0.5">{ret.referenceId}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center">

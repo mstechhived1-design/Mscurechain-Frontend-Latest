@@ -4,6 +4,7 @@ import { Card } from '@/components/admin';
 import { format } from 'date-fns';
 import ProfileHeroCard from '@/components/shared/ProfileHeroCard';
 import toast from 'react-hot-toast';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 interface ProfileSectionProps {
     profile: any;
@@ -44,7 +45,11 @@ function ProfileSection({ profile, appointments }: ProfileSectionProps) {
         bloodGroup: profile.bloodGroup
     };
 
-
+    const patientDisplayName = formatPatientNameWithPrefix(
+        profile.user?.name || profile.name,
+        profile.honorific || profile.user?.honorific,
+        true
+    ) || profile.user?.name || profile.name || 'Member';
 
     return (
         <div className="space-y-3 sm:space-y-4">
@@ -59,38 +64,38 @@ function ProfileSection({ profile, appointments }: ProfileSectionProps) {
 
             <div id="profile-content" className="space-y-3 sm:space-y-4">
                 <ProfileHeroCard
-                    name={profile.user?.name || profile.name}
+                    name={patientDisplayName}
                     role="Patient Account"
                     roleBadge={`MRN: ${profile.mrn}`}
                     roleColor="bg-blue-100 text-blue-700"
-                    imageUrl={profile.user?.image || profile.user?.avatar}
-                    bio={profile.bio || profile.user?.bio}
-                    onBioSave={async (newBio: string) => {
-                        try {
-                            const { patientService } = await import('@/lib/integrations/services/patient.service');
-                            await patientService.updateProfile({ bio: newBio });
-                            // Force update local UI state if necessary
-                            profile.bio = newBio;
-                            toast.success("Bio updated successfully");
-                        } catch (error: any) {
-                            toast.error(error.message || "Failed to update bio");
-                            throw error;
-                        }
-                    }}
-                />
+                                imageUrl={profile.user?.image || profile.user?.avatar}
+                                bio={profile.bio || profile.user?.bio}
+                                onBioSave={async (newBio: string) => {
+                                    try {
+                                        const { patientService } = await import('@/lib/integrations/services/patient.service');
+                                        await patientService.updateProfile({ bio: newBio });
+                                        // Force update local UI state if necessary
+                                        profile.bio = newBio;
+                                        toast.success("Bio updated successfully");
+                                    } catch (error: any) {
+                                        toast.error(error.message || "Failed to update bio");
+                                        throw error;
+                                    }
+                                }}
+                            />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-                    {/* Identity Card */}
-                    <div className="bg-white dark:bg-gray-900 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm space-y-2 sm:space-y-3">
-                        <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 sm:w-7 sm:h-7 bg-blue-50 dark:bg-blue-900/20 rounded-lg sm:rounded-xl flex items-center justify-center text-blue-600">
-                                <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                            </div>
-                            <h3 className="font-black uppercase text-[8px] sm:text-[9px] tracking-widest text-gray-400">Identity</h3>
-                        </div>
-                        <div className="space-y-1.5 sm:space-y-2">
-                            {[
-                                { label: 'Name', value: profile.user?.name || profile.name },
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+                                {/* Identity Card */}
+                                <div className="bg-white dark:bg-gray-900 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm space-y-2 sm:space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 sm:w-7 sm:h-7 bg-blue-50 dark:bg-blue-900/20 rounded-lg sm:rounded-xl flex items-center justify-center text-blue-600">
+                                            <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                        </div>
+                                        <h3 className="font-black uppercase text-[8px] sm:text-[9px] tracking-widest text-gray-400">Identity</h3>
+                                    </div>
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        {[
+                                            { label: 'Name', value: patientDisplayName },
                                 { label: 'ID', value: profile.mrn, mono: true, color: 'text-blue-600' },
                                 { label: 'Gender', value: profile.gender || '---' },
                                 {

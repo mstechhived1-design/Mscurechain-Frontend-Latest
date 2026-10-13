@@ -15,7 +15,7 @@ import LabReportTemplate from '@/components/lab/LabReportTemplate';
 import toast from 'react-hot-toast';
 import { useVitalsSocket } from '@/lib/hooks/useVitalsSocket';
 import { useTenantLink } from '@/hooks/useTenantLink';
-import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
 
 const MonitoringTimer = ({ lastRecorded, nextDue, status }: { lastRecorded?: string | Date; nextDue?: string | Date; status?: string }): any => {
@@ -116,7 +116,7 @@ function PatientDetailsPage() {
         const medsCount = selectedPrescription.medicines?.length || 0;
 
         return `*${hospName.toUpperCase()}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 *E-PRESCRIPTION & CLINICAL SUMMARY*
 
 *Patient Name:* ${pName}
@@ -126,7 +126,7 @@ function PatientDetailsPage() {
 *Consultation Date:* ${dateStr}
 *Prescribed Medications:* ${medsCount} Item(s)
 *Diagnosis:* ${diag}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 ${READ_MORE}
 *Important Patient Instructions:*
 • Find your detailed official digital prescription PDF attached above.

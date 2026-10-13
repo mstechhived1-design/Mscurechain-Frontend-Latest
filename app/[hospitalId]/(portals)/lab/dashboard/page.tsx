@@ -29,6 +29,7 @@ import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
 import { clearApiCache } from "@/lib/integrations/api/apiClient";
 import { toast } from "react-hot-toast";
+import { formatPatientDisplayName, formatPatientNameWithPrefix } from "@/lib/utils/name-utils";
 
 // Clean Skeleton
 const StatCardSkeleton = () => (
@@ -376,23 +377,25 @@ function LabDashboard() {
                             {getSamplePatientType(test) === 'lab' ? (
                               <>
                                 <span className="font-black text-gray-900 dark:text-white">
-                                  {test.patientDetails.name}
+                                  {formatPatientDisplayName(test.patientDetails, test, true)}
                                 </span>
                                 <span className="px-2 py-0.5 text-[9px] font-black bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-md uppercase tracking-wider">
-                                  {test.patientDetails.refDoctor || 'Lab'}
+                                  {test.patientDetails?.refDoctor || 'Lab'}
                                 </span>
                               </>
-                            ) : test.patientDetails.originalPatientName ? (
+                            ) : test.patientDetails?.originalPatientName ? (
                               <>
                                 <span className="font-black text-gray-900 dark:text-white">
-                                  {test.patientDetails.originalPatientName}
+                                  {formatPatientNameWithPrefix(test.patientDetails.originalPatientName, (test.patientDetails as any)?.honorific, true)}
                                 </span>
                                 <span className="px-2 py-0.5 text-[9px] font-black bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-md uppercase tracking-wider">
-                                  {test.patientDetails.name}
+                                  {formatPatientDisplayName(test.patientDetails, test, true)}
                                 </span>
                               </>
                             ) : (
-                              test.patientDetails.name
+                              <span className="font-black text-gray-900 dark:text-white">
+                                {formatPatientDisplayName(test.patientDetails, test, true)}
+                              </span>
                             )}
                             {test.priority && test.priority !== 'routine' && (
                               <span className="bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 font-black text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider animate-pulse flex items-center gap-1">
@@ -402,8 +405,14 @@ function LabDashboard() {
                             )}
                           </div>
                           <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">
-                            {test.patientDetails.age}Y •{" "}
-                            {test.patientDetails.gender}
+                            {(() => {
+                              const rawAge: any = test.patientDetails?.age;
+                              const unit = (test.patientDetails as any)?.ageUnit || '';
+                              if (!rawAge || rawAge === '-' || rawAge === 'N/A') return '-';
+                              if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                              return unit ? `${rawAge} ${unit}` : `${rawAge}Y`;
+                            })()} •{" "}
+                            {test.patientDetails?.gender || '-'}
                           </div>
                           {test.clinicalAnnotations && (
                             <div className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 px-2 py-1.5 rounded-lg mt-2 font-bold line-clamp-1 border border-amber-100 dark:border-amber-900/50">

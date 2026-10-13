@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Card, Button, FormInput, FormSelect, FormTextarea } from '@/components/admin';
 import { ArrowLeft, Save, FileCheck, Receipt, FileText } from 'lucide-react';
 import { dischargeService } from '@/lib/integrations/services/discharge.service';
@@ -10,11 +10,15 @@ import toast from 'react-hot-toast';
 import { Tag, AlertCircle, Info, Lock, Wallet, Plus, X, IndianRupee } from 'lucide-react';
 import ClinicalReceipt from '@/components/helpdesk/ClinicalReceipt';
 import { format } from 'date-fns';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 export function DischargeBillingProcess() {
     const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams() as any;
     const admissionId = ((searchParams?.get('admissionId') ?? null) ?? null);
+    // Extract hospitalId from URL path (e.g. /69a7b003c84f8f6e66180872/helpdesk/...)
+    const hospitalId = pathname?.split('/')?.[1] || '';
     const [loading, setLoading] = useState(false);
     const [recordData, setRecordData] = useState<any>(null);
     const [billSummary, setBillSummary] = useState<any>(null);
@@ -255,79 +259,17 @@ export function DischargeBillingProcess() {
 
             toast.success("Payment recorded successfully");
 
-            const startTime = recordData.admissionDate ? new Date(recordData.admissionDate).getTime() : 0;
-            const endTime = recordData.dischargeDate ? new Date(recordData.dischargeDate).getTime() : new Date().getTime();
-            const diffInMs = Math.max(0, endTime - startTime);
-            const hours = Math.floor(diffInMs / (1000 * 60 * 60));
-            const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
-            const stayDurationStr = startTime ? (hours >= 24 ? `${Math.floor(hours / 24)} Day${Math.floor(hours / 24) !== 1 ? 's' : ''}${hours % 24 > 0 ? ` ${hours % 24} Hrs` : ''}` : `${hours} Hrs, ${minutes} Mins`) : '';
-
-            // Set receipt data and refresh
-            setReceiptData({
-                hospital: recordData.hospital || {},
-                patient: {
-                    name: recordData.patientName,
-                    mrn: recordData.mrn,
-                    age: recordData.age,
-                    gender: recordData.gender,
-                    mobile: recordData.phone,
-                    email: recordData.email,
-                    address: recordData.address,
-                    emergencyContact: recordData.attendantName ? `${recordData.attendantName} (${recordData.attendantPhone})` : '',
-                    bloodGroup: recordData.bloodGroup,
-                    dateOfBirth: recordData.dob,
-                    allergies: recordData.allergyHistory,
-                    medicalHistory: recordData.pastMedicalHistory,
-                    symptoms: recordData.reasonForAdmission,
-                    diagnosis: recordData.diagnosis,
-                    provisionalDiagnosis: recordData.provisionalDiagnosis,
-                    treatmentGiven: recordData.treatmentGiven,
-                    surgicalProcedures: recordData.surgicalProcedures,
-                    investigationsPerformed: recordData.investigationsPerformed,
-                    hospitalCourse: recordData.hospitalCourse,
-                    conditionAtDischarge: recordData.conditionAtDischarge,
-                    medicationsPrescribed: recordData.medicationsPrescribed,
-                    adviceAtDischarge: recordData.adviceAtDischarge,
-                    activityRestrictions: recordData.activityRestrictions,
-                    dietInstructions: recordData.dietInstructions,
-                    warningSigns: recordData.warningSigns,
-                    followUpDate: recordData.followUpDate,
-                    dischargeType: recordData.dischargeType || 'FINAL DISCHARGE',
-                    vitals: recordData.vitals
-                },
-                appointment: {
-                    type: recordData.dischargeType || 'FINAL DISCHARGE',
-                    doctorName: recordData.consultants?.[0] || recordData.primaryDoctor || recordData.suggestedDoctorName || 'Assigned Physician',
-                    appointmentId: recordData._id || `SET-${Date.now()}`,
-                    date: recordData.admissionDate ? new Date(recordData.admissionDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
-                    time: recordData.admissionDate ? new Date(recordData.admissionDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString(),
-                    specialization: recordData.specialistType || 'IPD',
-                    stayDuration: stayDurationStr
-                },
-                payment: {
-                    receiptNo: response._id || `REC-${Date.now()}`,
-                    date: new Date().toISOString(),
-                    amount: Math.round(Number(paymentData.amount) || 0),
-                    advanceAmount: Math.round(billingData.advanceAmount),
-                    remainingPaid: Math.round(Number(paymentData.amount) || 0),
-                    totalPaidAmount: Math.round(billingData.advanceAmount + billingData.settlementPaid + (Number(paymentData.amount) || 0)),
-                    totalBillAmount: Math.round(billingData.totalBillAmount),
-                    mode: paymentData.mode,
-                    reference: paymentData.reference,
-                    paymentDetails: paymentData.mode === 'Mixed' ? {
-                        cash: Number(mixedPaymentDetails.cash) || 0,
-                        upi: Number(mixedPaymentDetails.upi) || 0,
-                        card: Number(mixedPaymentDetails.card) || 0,
-                        bankTransfer: Number(mixedPaymentDetails.bankTransfer) || 0
-                    } : undefined,
-                    status: 'PAID' // Required for receipt generator
-                }
-            });
-
             setPaymentData({ amount: 0, mode: 'Cash', reference: '' });
             setMixedPaymentDetails({ cash: 0, upi: 0, card: 0, bankTransfer: 0 });
             setShowPaymentModal(false);
-            fetchAdmissionDetails(admissionId);
+
+            // Navigate to transaction-reports with patient auto-selected
+            const patId = recordData.patientId || recordData.patient?._id || recordData._patientId;
+            if (patId && hospitalId) {
+                router.push(`/${hospitalId}/frontdesk/transaction-reports?patientId=${patId}`);
+            } else {
+                fetchAdmissionDetails(admissionId);
+            }
         } catch (error: any) {
             toast.error(error.message || "Failed to record payment");
         } finally {
@@ -421,7 +363,7 @@ export function DischargeBillingProcess() {
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-x-6 gap-y-3">
                     <div>
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Patient Name</p>
-                        <p className="font-black text-slate-900 text-[12px] uppercase tracking-tight leading-none">{recordData.patientName}</p>
+                        <p className="font-black text-slate-900 text-[12px] uppercase tracking-tight leading-none">{formatPatientNameWithPrefix(recordData.patientName, recordData.patientTitle || recordData.honorific || recordData.patientHonorific, true) || recordData.patientName}</p>
                         <p className="text-[9px] font-bold text-blue-600 mt-1">{recordData.mrn || 'MRN-N/A'}</p>
                     </div>
                     <div>

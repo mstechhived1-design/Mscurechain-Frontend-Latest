@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { incidentService } from '@/lib/integrations/services/incident.service';
 import { ipdService } from '@/lib/integrations/services/ipd.service';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 import {
     AlertTriangle,
     Search,
@@ -704,7 +705,7 @@ export default function HospitalAdminIncidentPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <p className="text-[8px] font-black text-emerald-600/60 uppercase">Patient Name</p>
-                                                <p className="text-xs font-bold">{selectedIncident.patientFallDetails.patientName}</p>
+                                                <p className="text-xs font-bold">{formatPatientNameWithPrefix(selectedIncident.patientFallDetails.patientName, selectedIncident.patientFallDetails.honorific, true) || selectedIncident.patientFallDetails.patientName}</p>
                                             </div>
                                             <div>
                                                 <p className="text-[8px] font-black text-emerald-600/60 uppercase">MRN Number</p>

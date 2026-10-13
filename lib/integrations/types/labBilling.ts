@@ -14,6 +14,8 @@ export interface PatientDetails {
     refDoctor: string; // ✅ REQUIRED
     originalPatientName?: string; // Optional field for lab-to-lab original patient name
     patientType?: 'opd' | 'ipd' | 'lab'; // Explicit billing type
+    mrn?: string;
+    honorific?: string;
 }
 
 

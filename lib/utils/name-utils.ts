@@ -99,7 +99,7 @@ export const normalizeHonorific = (honorific: string | null | undefined): string
   if (up === "MISS") return "Miss";
   if (up === "MASTER") return "Master";
   if (up === "BABY") return "Baby";
-  if (up === "BABY OF" || up === "BABY OF (B/O)" || up === "B/O") return "Baby of (B/o)";
+  if (up === "BABY OF" || up === "BABY OF (B/O)" || up === "B/O") return "Baby of";
   if (up === "LATE") return "Late";
 
   return trimmed;
@@ -115,15 +115,22 @@ export const formatPatientNameWithPrefix = (
   honorific: string | null | undefined,
   uppercase: boolean = true
 ): string => {
+  let normHonorific = normalizeHonorific(honorific);
+
+  // If honorific was not explicitly passed, check if name already has an embedded honorific
+  if (!normHonorific && name) {
+    const trimmedName = name.trim();
+    const match = trimmedName.match(/^(baby\s+of(\s*\(b\/o\))?|baby|b\/o|mr|mrs|ms|miss|master|dr|prof)\.?\s+/i);
+    if (match) {
+      normHonorific = normalizeHonorific(match[1]);
+    }
+  }
+
   const cleaned = cleanPatientName(name, "Unnamed Patient");
-  const normHonorific = normalizeHonorific(honorific);
 
   if (normHonorific) {
     if (uppercase) {
-      let upHonorific = normHonorific.toUpperCase();
-      if (["MR.", "MRS.", "MS.", "DR."].includes(upHonorific)) {
-        return `${upHonorific} ${cleaned.toUpperCase()}`.trim();
-      }
+      const upHonorific = normHonorific.toUpperCase();
       return `${upHonorific} ${cleaned.toUpperCase()}`.trim();
     }
     return `${normHonorific} ${cleaned}`.trim();

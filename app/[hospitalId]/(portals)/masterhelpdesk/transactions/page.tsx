@@ -779,14 +779,14 @@ export default function TransactionsPage() {
                                                     {tx.transactionId || tx.receiptNumber || tx.invoiceNumber || tx.referenceId?.appointmentId || tx.referenceId?.transactionId || tx.referenceId?.admissionId || (tx.patientMRN && tx.patientMRN !== 'Resolving...' ? `#${tx.patientMRN}` : "—")}
                                                 </p>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="space-y-1">
+                                            <td className="px-6 py-4 whitespace-nowrap min-w-max">
+                                                <div className="space-y-1 whitespace-nowrap min-w-max">
                                                     {resolvedDoctorName ? (
-                                                        <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest">
+                                                        <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest whitespace-nowrap inline-block">
                                                             {resolvedDoctorName}
                                                         </p>
                                                     ) : (
-                                                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">N/A</p>
+                                                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest whitespace-nowrap inline-block">N/A</p>
                                                     )}
                                                 </div>
                                             </td>

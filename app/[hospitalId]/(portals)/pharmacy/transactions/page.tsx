@@ -21,6 +21,8 @@ import { clearApiCache } from '@/lib/integrations/api/apiClient';
 import { PharmacyBillingService } from '@/lib/integrations/services/pharmacyBilling.service';
 import { PharmacyBill } from '@/lib/integrations/types/pharmacyBilling';
 import PharmacyBillPrint, { ShopDetails } from '@/components/pharmacy/billing/PharmacyBillPrint';
+import { useParams } from 'next/navigation';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import { useReactToPrint } from 'react-to-print';
 import { toast } from 'react-hot-toast';
 import ExcelJS from 'exceljs';
@@ -30,6 +32,7 @@ import { useAuthStore } from '@/stores/authStore';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PharmacyDashboardService, PharmacyDashboardStats } from '@/lib/integrations/services/pharmacyDashboard.service';
+import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
 
 const TransactionsPage = () => {
     const { user } = useAuthStore();
@@ -64,6 +67,53 @@ const TransactionsPage = () => {
         logo: (user as any)?.image || (user as any)?.logo || (user as any)?.avatar || (user as any)?.profilePic,
         pharmacyTerms: user?.pharmacyTerms || []
     };
+
+    const params = useParams();
+    const hospitalId = (params?.hospitalId as string) || (user as any)?.hospital || '';
+
+    const pharmaInvoiceCaption = React.useMemo(() => {
+        if (!selectedBill) return '';
+        const pName = formatPatientNameWithPrefix(selectedBill.patientName || 'Valued Patient', (selectedBill as any).honorific || (selectedBill as any).patient?.honorific, true);
+        const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+        const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
+
+        const mrn =
+            getValidMrn((selectedBill as any).mrn) ||
+            getValidMrn((selectedBill as any).patientMrn) ||
+            getValidMrn((selectedBill as any).patient?.mrn) ||
+            getValidMrn((selectedBill as any).user?.mrn) ||
+            'N/A';
+        const docName = selectedBill.doctorName ? (selectedBill.doctorName.startsWith('Dr.') ? selectedBill.doctorName : `Dr. ${selectedBill.doctorName}`) : 'Attending Specialist';
+        const hospName = shopDetails.name || 'HORIZON HOSPITAL PHARMACY';
+        const invId = selectedBill.invoiceId || 'INV';
+        const dateStr = selectedBill.createdAt ? new Date(selectedBill.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+        const totalAmt = selectedBill.paymentSummary?.grandTotal ?? 0;
+        const statusStr = selectedBill.paymentSummary?.status || 'PAID';
+        const pMode = selectedBill.paymentSummary?.paymentMode || 'CASH';
+        const itemsCount = selectedBill.items?.length || 0;
+
+        return `*${hospName.toUpperCase()}*
+${WA_DIVIDER}
+*PHARMACY MEDICINE INVOICE & RECEIPT*
+
+*Patient Name:* ${pName}
+*MRN / Token ID:* ${mrn}
+*Prescribed Doctor:* ${docName}
+*Invoice No:* ${invId}
+*Invoice Date:* ${dateStr}
+*Medicines Dispensed:* ${itemsCount} Item(s)
+*Payment Mode:* ${String(pMode).toUpperCase()}
+*Total Amount:* ₹${totalAmt} (${String(statusStr).toUpperCase()})
+${WA_DIVIDER}
+${READ_MORE}
+*Important Patient Instructions:*
+• Find your official pharmacy tax invoice PDF attached above.
+• Check your medicines and dosage schedule carefully.
+• Keep medicines in a cool, dry place away from direct sunlight.
+• Contact ${hospName} Pharmacy for any queries or refilling.
+
+Thank you for choosing ${hospName}. Stay Healthy.`;
+    }, [selectedBill, shopDetails]);
 
     const handlePrint = useReactToPrint({
         contentRef: printRef,
@@ -273,7 +323,7 @@ const TransactionsPage = () => {
                     index + 1,
                     `${formattedDate} ${formattedTime}`,
                     bill.invoiceId,
-                    bill.patientName || 'Walk-in',
+                    formatPatientDisplayName({ name: bill.patientName, honorific: (bill as any).honorific }, bill, true) || 'Walk-in',
                     bill.customerPhone || '-',
                     bill.paymentSummary.paymentMode?.toUpperCase() || 'CASH',
                     originalAmount,
@@ -476,6 +526,12 @@ const TransactionsPage = () => {
                         <span className="hidden sm:inline">{showFilters ? 'Hide Filters' : 'Filters'}</span>
                     </button>
 
+                    {/* Filtered Total Count Badge */}
+                    <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 shrink-0">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Total:</span>
+                        <span className="text-[11px] md:text-xs font-black text-teal-600 dark:text-teal-400">{totalBills}</span>
+                    </div>
+
                     {/* Pagination */}
                     <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-1 py-1 shrink-0">
                         <button
@@ -631,7 +687,16 @@ const TransactionsPage = () => {
                                             </td>
                                             <td className="px-6 md:px-8 py-5">
                                                 <div>
-                                                    <p className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-tight">{bill.patientName || 'Walk-in'}</p>
+                                                    <p className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-tight">
+                                                        {formatPatientDisplayName(
+                                                            {
+                                                                name: bill.patientName || bill.patientDetails?.name || (typeof bill.patient === 'object' ? bill.patient?.name : undefined),
+                                                                honorific: (bill as any).honorific || (bill as any).patientHonorific || bill.patientDetails?.honorific || (typeof bill.patient === 'object' ? bill.patient?.honorific : undefined)
+                                                            },
+                                                            bill,
+                                                            true
+                                                        )}
+                                                    </p>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{bill.customerPhone || '-'}</p>
                                                 </div>
                                             </td>
@@ -725,6 +790,19 @@ const TransactionsPage = () => {
                                             printWithHeader ? 'bg-indigo-200 text-indigo-700' : 'bg-gray-200 text-gray-500'
                                         }`}>{printWithHeader ? 'ON' : 'OFF'}</span>
                                     </button>
+
+                                    {/* Manual WhatsApp Button */}
+                                    {selectedBill && (
+                                        <WhatsAppSendButton
+                                            hospitalId={hospitalId}
+                                            targetRef={modalPrintRef}
+                                            phoneNumber={selectedBill.customerPhone || (selectedBill as any).phone || (selectedBill as any).mobile || ''}
+                                            documentName={`Invoice_${selectedBill.invoiceId || 'Pharmacy'}.pdf`}
+                                            caption={pharmaInvoiceCaption}
+                                            showCheckbox={false}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-xs"
+                                        />
+                                    )}
 
                                     {/* Print Now Button */}
                                     <button

@@ -14,7 +14,8 @@ import { useTenantLink } from '@/hooks/useTenantLink';
 import { patientService } from '@/lib/integrations/services/patient.service';
 import { pharmacyService } from '@/lib/integrations/services/pharmacy.service';
 import { usePrintStore } from '@/stores/printStore';
-import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
+import { formatPatientDisplayName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 const BillingPage = () => {
     const router = useRouter();
@@ -139,7 +140,8 @@ const BillingPage = () => {
                         // Force update state from API
                         localStorage.removeItem('pharmacy_billing_draft'); // Clear stale draft
 
-                        setPatientName(order.patient?.name || '');
+                        const resolvedPatientName = formatPatientDisplayName(order.patient, order, true) || order.patient?.name || '';
+                        setPatientName(resolvedPatientName);
                         setMobileNumber(order.patient?.mobile || '');
                         setDoctorName(order.doctor?.user?.name || '');
                         setPatientMrn(order.patient?.mrn || order.mrn || '');
@@ -551,7 +553,7 @@ const BillingPage = () => {
         const itemsCount = cart.length;
 
         return `*${hospName.toUpperCase()}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 *PHARMACY MEDICINE INVOICE & RECEIPT*
 
 *Patient Name:* ${pName}
@@ -562,7 +564,7 @@ const BillingPage = () => {
 *Medicines Dispensed:* ${itemsCount} Item(s)
 *Payment Mode:* ${String(pMode).toUpperCase()}
 *Total Amount:* ₹${totalAmt} (${String(statusStr).toUpperCase()})
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 ${READ_MORE}
 *Important Patient Instructions:*
 • Find your official pharmacy tax invoice PDF attached above.
@@ -714,7 +716,8 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                             // Deduplicate suggestions by mobile number
                                             const combined: Array<{ name: string; phone: string; source: string; mrn?: string; patientType?: string; doctorName?: string; address?: string }> = [];
                                             hospitalPatients.forEach(p => {
-                                                combined.push({ name: p.name, phone: p.mobile, source: 'Hospital', mrn: p.mrn, patientType: p.patientType, doctorName: p.doctorName, address: p.address });
+                                                const formattedName = formatPatientDisplayName(p, p, true) || p.name;
+                                                combined.push({ name: formattedName, phone: p.mobile, source: 'Hospital', mrn: p.mrn, patientType: p.patientType, doctorName: p.doctorName, address: p.address });
                                             });
                                             filteredPatients.forEach(p => {
                                                 if (!combined.some(c => c.phone === p.phone)) {

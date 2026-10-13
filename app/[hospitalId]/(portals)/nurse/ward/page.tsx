@@ -29,6 +29,7 @@ import LabReportsViewModal from '../components/LabReportsViewModal';
 import ClinicalNotesViewModal from '../components/ClinicalNotesViewModal';
 import VitalsEntryModal from '../components/VitalsEntryModal';
 import { Pill, Beaker } from 'lucide-react';
+import { formatPatientDisplayName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 const MonitoringTimer = ({ lastRecorded, status }: { lastRecorded?: string | Date; status?: string }) => {
     const [timeLeft, setTimeLeft] = useState<string>("");
@@ -150,7 +151,7 @@ const BedBlock = ({ bed, selectedBedId, handleBedClick, getStatusColor }: any) =
                     <h3 className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-tight">{bed.bedId}</h3>
                     <div className="flex items-center gap-1 mt-0.5">
                         <span className="text-[9px] font-bold text-slate-400 capitalize">
-                            {bed.status === 'Occupied' ? (bed.currentOccupancy?.patientName || 'Loading...') : bed.type}
+                            {bed.status === 'Occupied' ? (formatPatientNameWithPrefix(bed.currentOccupancy?.patientName, bed.currentOccupancy?.honorific || bed.currentOccupancy?.patientDetails?.honorific, true) || 'Loading...') : bed.type}
                         </span>
                     </div>
                     {bed.status === 'Occupied' && bed.currentOccupancy && (() => {
@@ -445,7 +446,7 @@ export default function WardStatus() {
                                 <td className="px-4 py-3">
                                     {bed.currentOccupancy ? (
                                         <div>
-                                            <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{bed.currentOccupancy.patientName}</p>
+                                            <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{formatPatientNameWithPrefix(bed.currentOccupancy.patientName, bed.currentOccupancy.honorific || bed.currentOccupancy.patientDetails?.honorific, true)}</p>
                                             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">ID: {bed.currentOccupancy.admissionId}</p>
                                         </div>
                                     ) : (
@@ -756,7 +757,7 @@ export default function WardStatus() {
                                                         <p className="text-[7px] font-black uppercase tracking-widest">Current Patient</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-none">{bedDetails.occupancyDetails.patient.name}</p>
+                                                        <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-none">{formatPatientDisplayName(bedDetails.occupancyDetails.patient, bedDetails.occupancyDetails, true)}</p>
                                                         <p className="text-[7px] font-bold text-slate-500 uppercase mt-0.5 tracking-widest leading-none">ID: {bedDetails.occupancyDetails.admissionId}</p>
                                                     </div>
                                                 </section>
@@ -881,7 +882,7 @@ export default function WardStatus() {
                         isOpen={isVitalsOpen}
                         onClose={() => setIsVitalsOpen(false)}
                         admissionId={bedDetails.occupancyDetails.admissionId}
-                        patientName={bedDetails.occupancyDetails.patient.name}
+                        patientName={formatPatientDisplayName(bedDetails.occupancyDetails.patient, bedDetails.occupancyDetails, true)}
                         onSuccess={() => fetchBedDetails(selectedBedId!, true)}
                         readOnly={true}
                         initialData={bedDetails.occupancyDetails.vitals}
@@ -890,7 +891,7 @@ export default function WardStatus() {
                         isOpen={isMedsOpen}
                         onClose={() => setIsMedsOpen(false)}
                         admissionId={bedDetails.occupancyDetails.admissionId}
-                        patientName={bedDetails.occupancyDetails.patient?.name || 'Unknown Patient'}
+                        patientName={formatPatientDisplayName(bedDetails.occupancyDetails.patient, bedDetails.occupancyDetails, true)}
                         onSuccess={() => fetchBedDetails(selectedBedId!, true)}
                     />
 
@@ -898,14 +899,14 @@ export default function WardStatus() {
                         isOpen={isLabModalOpen}
                         onClose={() => setIsLabModalOpen(false)}
                         admissionId={bedDetails.occupancyDetails.admissionId}
-                        patientName={bedDetails.occupancyDetails.patient?.name || 'Unknown Patient'}
+                        patientName={formatPatientDisplayName(bedDetails.occupancyDetails.patient, bedDetails.occupancyDetails, true)}
                     />
 
                     <ClinicalNotesViewModal
                         isOpen={isNotesOpen}
                         onClose={() => setIsNotesOpen(false)}
                         admissionId={bedDetails.occupancyDetails.admissionId}
-                        patientName={bedDetails.occupancyDetails.patient.name}
+                        patientName={formatPatientDisplayName(bedDetails.occupancyDetails.patient, bedDetails.occupancyDetails, true)}
                     />
                 </>
             )}

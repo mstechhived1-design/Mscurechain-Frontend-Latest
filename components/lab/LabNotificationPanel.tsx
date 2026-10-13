@@ -21,6 +21,16 @@ interface LabNotification {
     clinicalAnnotations?: string;
 }
 
+const formatDateDMY = (dateInput: string | Date | undefined | null): string => {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
 const LabNotificationPanel = () => {
     const [notifications, setNotifications] = useState<LabNotification[]>([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -262,7 +272,7 @@ const LabNotificationPanel = () => {
                                                     <Clock size={10} />
                                                     {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     <span className="mx-1">•</span>
-                                                    {new Date(notif.createdAt).toLocaleDateString()}
+                                                    {formatDateDMY(notif.createdAt)}
                                                 </div>
                                             </div>
                                         </div>

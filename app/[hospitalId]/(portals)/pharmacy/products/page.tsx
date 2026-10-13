@@ -425,6 +425,16 @@ const ProductsPage = () => {
                         
                         <div className="hidden sm:block h-7 w-px bg-gray-200 dark:bg-gray-700 shrink-0 mx-1" />
 
+                        {/* Total Count Badge */}
+                        <div className="flex items-center gap-1.5 bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-900/30 rounded-lg px-2.5 py-1.5 shrink-0">
+                            <Package className="w-3 h-3 text-teal-500" />
+                            <span className="text-[9px] font-bold text-teal-600/70 uppercase tracking-wider">Total:</span>
+                            <span className="text-[11px] font-black text-teal-700 dark:text-teal-400">{totalProducts.toLocaleString()}</span>
+                            <span className="text-[9px] font-bold text-teal-600/70 uppercase tracking-wider hidden sm:inline">Medicines</span>
+                        </div>
+
+                        <div className="hidden sm:block h-7 w-px bg-gray-200 dark:bg-gray-700 shrink-0 mx-1" />
+
                         {/* Pagination Box */}
                         <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm px-1 py-1 shrink-0">
                             <button
@@ -501,6 +511,16 @@ const ProductsPage = () => {
 
             {/* Table Container with Pagination Info at Top */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm mx-1 md:mx-2 overflow-hidden mt-2">
+                {/* Filter Result Count Bar */}
+                <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/30 dark:bg-gray-800/20">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Inventory Catalog</span>
+                    </div>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        Showing <span className="text-teal-600">{products.length}</span> of <span className="text-teal-600">{totalProducts}</span> Medicines
+                    </span>
+                </div>
                 <ProductTable
                     products={products}
                     onEdit={handleEditProduct}

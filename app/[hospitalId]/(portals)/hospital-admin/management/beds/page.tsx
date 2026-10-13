@@ -8,6 +8,7 @@ import { ConfirmModal } from '@/components/admin/Modal';
 import { calculateStayDuration } from '@/lib/utils/date-utils';
 import HybridRoomSearch from '@/components/shared/HybridRoomSearch';
 import GenericBulkImportModal from '@/components/admin/GenericBulkImportModal';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 const BedsManagement = () => {
     const [beds, setBeds] = useState<any[]>([]);
@@ -401,7 +402,7 @@ const BedsManagement = () => {
                                     <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-tight truncate leading-tight">{bed.bedId}</h3>
                                      <div className="flex flex-col mt-0.5">
                                          <span className="text-[7px] font-bold text-slate-400 capitalize truncate">
-                                             {bed.status === 'Occupied' ? bed.currentOccupancy?.patientName : bed.type}
+                                             {bed.status === 'Occupied' ? (formatPatientNameWithPrefix(bed.currentOccupancy?.patientName, bed.currentOccupancy?.honorific || bed.currentOccupancy?.patientDetails?.honorific, true) || bed.currentOccupancy?.patientName) : bed.type}
                                          </span>
                                          {bed.status === 'Occupied' && bed.currentOccupancy?.reason && (
                                              <span className="text-[6px] font-bold text-teal-600 truncate mt-0.5 max-w-[80px]" title={bed.currentOccupancy.reason}>

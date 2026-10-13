@@ -155,4 +155,9 @@ export interface PatientRegistrationResponse {
     mrn: string;
     name: string;
   };
+  whatsapp?: {
+    success: boolean;
+    message?: string;
+    error?: string;
+  };
 }

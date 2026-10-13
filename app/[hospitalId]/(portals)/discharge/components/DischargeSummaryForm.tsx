@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { Plus, Trash2, ArrowLeft, HeartPulse, Stethoscope, User, ClipboardList, Save, History, Image as ImageIcon, Camera } from 'lucide-react';
 import { Card, Button, FormInput, FormSelect, FormTextarea, ConfirmModal } from '@/components/admin';
 import toast from 'react-hot-toast';
@@ -16,6 +16,7 @@ import { spellCheckService } from '@/lib/integrations';
 import type { SpellMatch, SpellState, SpellPopupState, ExtendedSpellState } from '@/lib/integrations/types';
 import { SpellCheck, AlertCircle, CheckCircle2, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 
 const INITIAL_FORM_STATE = {
     patientName: '',
@@ -165,6 +166,8 @@ const SAMPLE_DATA = {
 };
 
 export function DischargeSummaryForm() {
+    const params = useParams() as any;
+    const hospitalId = params?.hospitalId || '';
     const router = useRouter();
     const searchParams = useSearchParams() as any;
     const { user } = useAuthStore();
@@ -172,6 +175,21 @@ export function DischargeSummaryForm() {
     const isHelpdesk = user?.role === 'helpdesk';
     const recordId = ((searchParams?.get('id') ?? null) ?? null);
     const queryClient = useQueryClient();
+
+    const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
+    const [autoWhatsApp, setAutoWhatsApp] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('msc_auto_whatsapp_discharge') === 'true';
+        }
+        return false;
+    });
+
+    const handleToggleAutoWhatsApp = (val: boolean) => {
+        setAutoWhatsApp(val);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp_discharge', String(val));
+        }
+    };
     const [loading, setLoading] = useState(false);
     const [consultants, setConsultants] = useState<string[]>(['']);
     const [isInitialized, setIsInitialized] = useState(false);
@@ -802,6 +820,10 @@ export function DischargeSummaryForm() {
                 toast.success("Record updated successfully");
 
                 if (!isNurse) {
+                    if (autoWhatsApp) {
+                        setTriggerWhatsApp(true);
+                        setTimeout(() => setTriggerWhatsApp(false), 2000);
+                    }
                     setTimeout(() => handlePrint(), 500); // Slight delay to ensure state update
                 } else {
                     router.push('/nurse/discharge');
@@ -815,6 +837,10 @@ export function DischargeSummaryForm() {
                 if (isNurse) {
                     router.push('/nurse/discharge');
                 } else {
+                    if (autoWhatsApp) {
+                        setTriggerWhatsApp(true);
+                        setTimeout(() => setTriggerWhatsApp(false), 2000);
+                    }
                     setTimeout(() => handlePrint(), 500);
                 }
             }
@@ -1746,6 +1772,21 @@ export function DischargeSummaryForm() {
                             </>
                         )}
                     </Button>
+
+                    {!isNurse && (
+                        <WhatsAppSendButton
+                            hospitalId={hospitalId}
+                            targetRef={componentRef}
+                            phoneNumber={formData.phone || ''}
+                            documentName={`Discharge_Summary_${formData.patientName || 'Patient'}.pdf`}
+                            caption={`${WA_DIVIDER}\n*DISCHARGE SUMMARY*\n${WA_DIVIDER}\n*Patient:* ${formData.patientName || 'N/A'}\n*MRN:* ${formData.mrn || 'N/A'}\n*Diagnosis:* ${formData.diagnosis || formData.provisionalDiagnosis || 'N/A'}\n*Discharge Date:* ${formData.dischargeDate ? new Date(formData.dischargeDate).toLocaleDateString() : 'N/A'}\n*Condition:* ${formData.conditionAtDischarge || 'Stable'}\n${WA_DIVIDER}\n${READ_MORE}\nPlease find attached your complete clinical discharge summary. Wishing you a speedy recovery!`}
+                            showCheckbox={true}
+                            autoSend={autoWhatsApp}
+                            onAutoSendChange={handleToggleAutoWhatsApp}
+                            triggerSend={triggerWhatsApp}
+                            className="bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg sm:rounded-xl px-3 sm:px-6 py-2 sm:py-3.5 font-black shadow-lg shadow-emerald-500/20 text-[9px] sm:text-sm flex items-center gap-2"
+                        />
+                    )}
                 </div>
             </form>
 
@@ -1757,7 +1798,7 @@ export function DischargeSummaryForm() {
                 message={confirmModal.message}
             />
 
-            <div className="hidden">
+            <div style={{ position: 'fixed', left: '-9999px', top: '0', width: '794px', zIndex: -9999, background: '#ffffff', pointerEvents: 'none' }}>
                 <PrintableDischargeSummary
                     ref={componentRef}
                     data={formData}

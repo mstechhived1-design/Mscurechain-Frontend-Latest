@@ -15,20 +15,42 @@ const SwipeableToaster = () => {
     const processedToasts = useRef<Set<string>>(new Set());
 
     useEffect(() => {
+        // 1. Deduplicate identical messages and cap visible toasts
+        const seenMessages = new Set<string>();
+        const visibleToasts = toasts.filter(t => t.visible);
+
+        visibleToasts.forEach((t) => {
+            const msgKey = typeof t.message === 'string' 
+                ? t.message 
+                : (typeof t.message === 'function' ? String(t.message) : JSON.stringify(t.message));
+
+            if (msgKey && seenMessages.has(msgKey)) {
+                // Duplicate message already displayed, dismiss immediately
+                toast.dismiss(t.id);
+            } else if (msgKey) {
+                seenMessages.add(msgKey);
+            }
+        });
+
+        // 2. Limit maximum simultaneous visible toasts to 3 to prevent screen flooding
+        visibleToasts
+            .slice(3)
+            .forEach((t) => toast.dismiss(t.id));
+
+        // 3. Play sound once per unique toast
         toasts.forEach((t) => {
             if (t.visible && !processedToasts.current.has(t.id)) {
                 processedToasts.current.add(t.id);
                 // Play notification sound safely
                 try {
                     const soundFile = t.type === 'error' ? '/assets/emergency.mp3' : '/assets/nurse.mp3';
-                    // Append query param to potentially bypass service worker cache issues (ERR_CACHE_OPERATION_NOT_SUPPORTED) on 206 Partial Content
                     const audio = new Audio(soundFile + "?cb=" + Date.now());
-                    audio.volume = 0.5; // Set volume to 50% so it's not too loud
+                    audio.volume = 0.5;
                     
                     const playPromise = audio.play();
                     if (playPromise !== undefined) {
                         playPromise.catch(() => {
-                            // Silently ignore autoplay restrictions instead of logging
+                            // Silently ignore autoplay restrictions
                         });
                     }
                 } catch (error) {
@@ -41,8 +63,7 @@ const SwipeableToaster = () => {
         const visibleIds = new Set(toasts.filter(t => t.visible).map(t => t.id));
         for (const id of processedToasts.current) {
             if (!visibleIds.has(id)) {
-                // We don't remove it immediately because it might still be animating out, 
-                // but keeping it in the set is fine since it's just a set of strings.
+                // keep set clean
             }
         }
     }, [toasts]);

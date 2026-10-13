@@ -24,6 +24,7 @@ interface Prescription {
     suggestedTests?: string[];
     avoid?: string[];
     followUpDate?: string;
+    followUpTime?: string;
     notes?: string;
     doctor: {
         user?: {
@@ -184,7 +185,8 @@ export default function PrescriptionsSection({
                 doc.setFontSize(10);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor(25, 118, 210); // Primary Blue
-                doc.text(`FOLLOW-UP DATE: ${format(new Date(prescription.followUpDate), 'PPPP')}`, 15, y);
+                const timeText = prescription.followUpTime ? ` at ${prescription.followUpTime}` : '';
+                doc.text(`FOLLOW-UP DATE: ${format(new Date(prescription.followUpDate), 'PPPP')}${timeText}`, 15, y);
             }
 
             // --- FOOTER ---
@@ -426,6 +428,17 @@ export default function PrescriptionsSection({
                                         </div>
                                         <p className="text-xs font-bold text-amber-800 dark:text-amber-300 leading-relaxed uppercase italic">
                                             {selectedPrescription.notes}
+                                        </p>
+                                    </div>
+                                )}
+                                {selectedPrescription.followUpDate && (
+                                    <div className="p-4 rounded-2xl bg-teal-50/50 dark:bg-teal-900/10 border border-teal-100/50 dark:border-teal-900/20">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Calendar size={12} className="text-teal-600" />
+                                            <span className="text-[8px] font-black text-teal-600 uppercase tracking-widest">Scheduled Follow-Up Review</span>
+                                        </div>
+                                        <p className="text-xs font-black text-teal-950 dark:text-teal-200 uppercase leading-relaxed">
+                                            {format(new Date(selectedPrescription.followUpDate), 'dd MMM yyyy')}{selectedPrescription.followUpTime ? ` at ${selectedPrescription.followUpTime}` : ''}
                                         </p>
                                     </div>
                                 )}

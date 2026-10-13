@@ -2,6 +2,7 @@ import React from 'react';
 import { BillPayload } from '@/lib/integrations/types/labBilling';
 import Image from 'next/image';
 import { LabSettingsService, LabSettings } from '@/lib/integrations/services/labSettings.service';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 import HeaderPrint from './HeaderPrint';
 import FooterPrint from './FooterPrint';
@@ -71,10 +72,10 @@ const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date
 
 
                 {/* Info Grid */}
-                <div className="grid grid-cols-2 gap-0 border border-black mb-3">
+                <div className="grid grid-cols-2 gap-0 mb-3" style={{ border: '1px solid #000000' }}>
 
                     {/* Invoice Info */}
-                    <div className="border-r border-black p-3">
+                    <div className="p-3" style={{ borderRight: '1px solid #000000' }}>
                         <h3 className="font-bold text-xs uppercase mb-3 text-black">INVOICE INFORMATION</h3>
                         <div className="grid grid-cols-[100px_1fr] gap-y-1 text-xs">
                             <span className="font-semibold text-black">Invoice ID:</span>
@@ -118,12 +119,14 @@ const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date
                                     <span className="font-semibold text-black">Name Lab:</span>
                                     <span>{billData.patientDetails.refDoctor || billData.patientDetails.name}</span>
                                     <span className="font-semibold text-black">Patient Name:</span>
-                                    <span className="font-bold text-black">{billData.patientDetails.refDoctor ? billData.patientDetails.name : (billData.patientDetails.originalPatientName || 'N/A')}</span>
+                                    <span className="font-bold text-black">{formatPatientNameWithPrefix(billData.patientDetails.refDoctor ? billData.patientDetails.name : (billData.patientDetails.originalPatientName || billData.patientDetails.name || 'N/A'), (billData.patientDetails as any).honorific, true)}</span>
                                 </>
                             ) : (
                                 <>
                                     <span className="font-semibold text-black">Name:</span>
-                                    <span>{billData.patientDetails.name}</span>
+                                    <span className="font-bold text-black">{formatPatientNameWithPrefix(billData.patientDetails.name, (billData.patientDetails as any).honorific, true)}</span>
+                                    <span className="font-semibold text-black">MRN:</span>
+                                    <span className="font-bold text-black">{billData.patientDetails.mrn || (billData as any).mrn || 'N/A'}</span>
                                 </>
                             )}
 
@@ -155,26 +158,26 @@ const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date
                 </div>
 
                 {/* Items Table */}
-                <table className="w-full border-collapse border border-black mb-2 text-xs">
+                <table className="w-full mb-2 text-xs" style={{ borderCollapse: 'collapse', border: '1px solid #000000', width: '100%' }}>
                     <thead>
-                        <tr className="bg-gray-200 text-black">
-                            <th className="border border-black p-1.5 text-left w-16">S.No</th>
-                            <th className="border border-black p-1.5 text-left">Test / Service</th>
-                            <th className="border border-black p-1.5 text-right w-24">Price (₹)</th>
+                        <tr style={{ backgroundColor: '#e5e7eb', color: '#000000' }}>
+                            <th className="p-1.5 text-left w-16" style={{ border: '1px solid #000000', backgroundColor: '#e5e7eb', color: '#000000' }}>S.No</th>
+                            <th className="p-1.5 text-left" style={{ border: '1px solid #000000', backgroundColor: '#e5e7eb', color: '#000000' }}>Test / Service</th>
+                            <th className="p-1.5 text-right w-24" style={{ border: '1px solid #000000', backgroundColor: '#e5e7eb', color: '#000000' }}>Price (₹)</th>
                         </tr>
                     </thead>
                     <tbody>
                         {billData.items && billData.items.length > 0 ? (
                             billData.items.map((item, index) => (
                                 <tr key={index}>
-                                    <td className="border border-black p-1.5 text-center">{index + 1}</td>
-                                    <td className="border border-black p-1.5 font-medium">{item.testName}</td>
-                                    <td className="border border-black p-1.5 text-right font-bold">₹{item.price?.toFixed(2) || '0.00'}</td>
+                                    <td className="p-1.5 text-center" style={{ border: '1px solid #000000' }}>{index + 1}</td>
+                                    <td className="p-1.5 font-medium" style={{ border: '1px solid #000000' }}>{item.testName}</td>
+                                    <td className="p-1.5 text-right font-bold" style={{ border: '1px solid #000000' }}>₹{item.price?.toFixed(2) || '0.00'}</td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={3} className="border border-black p-4 text-center text-black">
+                                <td colSpan={3} className="p-4 text-center text-black" style={{ border: '1px solid #000000' }}>
                                     No tests/items in this invoice
                                 </td>
                             </tr>
@@ -185,8 +188,8 @@ const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date
                 {/* Totals Section - Two Column Layout */}
                 <div className="grid grid-cols-2 gap-4 mb-3">
                     {/* Left: Payment Summary */}
-                    <div className="border border-black text-xs">
-                        <div className="flex justify-between p-2 border-b border-black">
+                    <div className="text-xs" style={{ border: '1px solid #000000' }}>
+                        <div className="flex justify-between p-2" style={{ borderBottom: '1px solid #000000' }}>
                             <span className="font-bold text-black">Payment Mode:</span>
                             <span>
                                 {billData.paymentMode === 'Mixed' && billData.paymentDetails ? (
@@ -198,62 +201,62 @@ const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date
                                 )}
                             </span>
                         </div>
-                        <div className="flex justify-between p-2 border-b border-black">
+                        <div className="flex justify-between p-2" style={{ borderBottom: '1px solid #000000' }}>
                             <span className="font-bold text-black">Payment Status:</span>
                             <span className="font-bold">{billData.balance > 0 ? "Partially Paid" : "Fully Paid"}</span>
                         </div>
 
-                        <div className="flex justify-between p-2 border-b border-black">
+                        <div className="flex justify-between p-2" style={{ borderBottom: '1px solid #000000' }}>
                             <span className="font-bold text-black">Bill Date:</span>
                             <span>{currentDate}</span>
                         </div>
-                        <div className="flex justify-between p-2 bg-gray-200">
+                        <div className="flex justify-between p-2" style={{ backgroundColor: '#e5e7eb' }}>
                             <span className="font-bold text-black">Bill Time:</span>
-                            <span>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="text-black">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                     </div>
 
                     {/* Right: Totals Box */}
-                    <div className="border border-black text-xs">
+                    <div className="text-xs" style={{ border: '1px solid #000000' }}>
                         {(() => {
                             const isAllSame = billData.totalAmount === billData.finalAmount && billData.finalAmount === billData.paidAmount;
                             if (isAllSame) {
                                 return (
                                     <>
-                                        <div className="flex justify-between p-2 border-b border-black">
+                                        <div className="flex justify-between p-2" style={{ borderBottom: '1px solid #000000' }}>
                                             <span className="font-bold text-black">Total Amount:</span>
                                             <span className="font-bold">₹{billData.totalAmount.toFixed(2)}</span>
                                         </div>
-                                        <div className="flex justify-between p-2 bg-gray-200">
+                                        <div className="flex justify-between p-2" style={{ backgroundColor: '#e5e7eb' }}>
                                             <span className="font-bold text-black">Balance Due:</span>
-                                            <span className="font-bold text-right">₹{billData.balance.toFixed(2)}</span>
+                                            <span className="font-bold text-right text-black">₹{billData.balance.toFixed(2)}</span>
                                         </div>
                                     </>
                                 );
                             } else {
                                 return (
                                     <>
-                                        <div className="flex justify-between p-2 border-b border-black">
+                                        <div className="flex justify-between p-2" style={{ borderBottom: '1px solid #000000' }}>
                                             <span className="font-bold text-black">Total Amount:</span>
                                             <span className="font-bold">₹{billData.totalAmount.toFixed(2)}</span>
                                         </div>
                                         {billData.discount > 0 && (
-                                            <div className="flex justify-between p-2 border-b border-black">
+                                            <div className="flex justify-between p-2" style={{ borderBottom: '1px solid #000000' }}>
                                                 <span className="font-bold text-black">Discount:</span>
                                                 <span>- ₹{billData.discount.toFixed(2)}</span>
                                             </div>
                                         )}
-                                        <div className="flex justify-between p-2 border-b border-black">
+                                        <div className="flex justify-between p-2" style={{ borderBottom: '1px solid #000000' }}>
                                             <span className="font-bold text-black">Final Amount:</span>
                                             <span className="font-bold">₹{billData.finalAmount.toFixed(2)}</span>
                                         </div>
-                                        <div className="flex justify-between p-2 border-b border-black">
+                                        <div className="flex justify-between p-2" style={{ borderBottom: '1px solid #000000' }}>
                                             <span className="font-bold text-black">Paid Amount:</span>
                                             <span className="font-bold">₹{billData.paidAmount.toFixed(2)}</span>
                                         </div>
-                                        <div className="flex justify-between p-2 bg-gray-200">
+                                        <div className="flex justify-between p-2" style={{ backgroundColor: '#e5e7eb' }}>
                                             <span className="font-bold text-black">Balance Due:</span>
-                                            <span className="font-bold text-right">₹{billData.balance.toFixed(2)}</span>
+                                            <span className="font-bold text-right text-black">₹{billData.balance.toFixed(2)}</span>
                                         </div>
                                     </>
                                 );

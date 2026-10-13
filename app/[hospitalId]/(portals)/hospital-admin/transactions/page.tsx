@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
+import { formatPatientNameWithPrefix, cleanPatientName } from '@/lib/utils/name-utils';
 
 function TransactionContent() {
   const searchParams = useSearchParams() as any;
@@ -222,7 +223,7 @@ function TransactionContent() {
           sno: index + 1,
           date: dateObj.toLocaleDateString('en-GB'),
           invoiceId: tx.referenceId?.invoiceId || tx.id || '-',
-          patient: (tx.patientName || 'ANONYMOUS').toUpperCase(),
+          patient: (formatPatientNameWithPrefix(tx.patientName, tx.patientHonorific || tx.honorific || tx.patientDetails?.honorific || (tx.referenceId as any)?.patientDetails?.honorific || (tx.referenceId as any)?.honorific, true) || tx.patientName || 'ANONYMOUS').toUpperCase(),
           mobile: tx.patientMobile || tx.referenceId?.mobile || '-',
           mode: pMode.toUpperCase(),
           total: total,
@@ -516,14 +517,14 @@ function TransactionContent() {
           <div className="overflow-x-auto w-full max-w-[100vw] sm:max-w-none"><table className="w-full text-left">
             <thead>
               <tr className="border-b border-slate-50 bg-slate-50/30">
-                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient Name</th>
-                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Service</th>
-                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Diagnosis / Service Details</th>
-                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Doctor</th>
-                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Method</th>
-                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
-                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date & Time</th>
-                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
+                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Patient Name</th>
+                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Service</th>
+                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Diagnosis / Service Details</th>
+                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Doctor</th>
+                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Payment Method</th>
+                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Amount</th>
+                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Date & Time</th>
+                <th className="px-2 md:px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -612,12 +613,12 @@ function TransactionContent() {
                     <td className="px-2 md:px-6 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 font-black text-[10px] uppercase">
-                          {tx.patientName?.charAt(0)}
+                          {(cleanPatientName(tx.patientName) || 'P').charAt(0)}
                         </div>
-                        <span className="font-thin text-slate-900 text-xs ">{tx.patientName}</span>
+                        <span className="font-bold text-slate-900 text-xs uppercase">{formatPatientNameWithPrefix(tx.patientName, tx.patientHonorific || tx.honorific || tx.patientDetails?.honorific || (tx.referenceId as any)?.patientDetails?.honorific || (tx.referenceId as any)?.honorific, true)}</span>
                       </div>
                     </td>
-                    <td className="px-2 md:px-8 py-4">
+                    <td className="px-2 md:px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className={`inline-flex items-center w-fit px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${serviceType === 'IPD' ? 'bg-rose-50 text-rose-600 border-rose-100' :
                           serviceType === 'OPD' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
@@ -629,40 +630,40 @@ function TransactionContent() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-2 md:px-8 py-4">
+                    <td className="px-2 md:px-6 py-4">
                       <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{clinicalDetail}</span>
                     </td>
-                    <td className="px-2 md:px-8 py-4">
-                      <div className="space-y-1">
+                    <td className="px-2 md:px-6 py-4 whitespace-nowrap min-w-max">
+                      <div className="space-y-1 whitespace-nowrap min-w-max">
                         {appointmentData.primaryDoctor || appointmentData.suggestedDoctorName ? (
-                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest whitespace-nowrap inline-block">
                             {appointmentData.primaryDoctor || appointmentData.suggestedDoctorName}
                           </p>
                         ) : (
-                          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">N/A</p>
+                          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest whitespace-nowrap inline-block">N/A</p>
                         )}
                         {appointmentData.conditionAtDischarge && (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
                             <div className={`w-1.5 h-1.5 rounded-full ${appointmentData.conditionAtDischarge === 'Stable' || appointmentData.conditionAtDischarge === 'Improved'
                               ? 'bg-emerald-500'
                               : appointmentData.conditionAtDischarge === 'Critical'
                                 ? 'bg-rose-500'
                                 : 'bg-amber-500'
                               }`} />
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">
                               {appointmentData.conditionAtDischarge}
                             </span>
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="px-2 md:px-8 py-4">
+                    <td className="px-2 md:px-6 py-4 whitespace-nowrap">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                         {tx.paymentMethod === 'cash' ? <IndianRupee size={12} strokeWidth={3} /> : <CreditCard size={12} strokeWidth={3} />}
                         {tx.paymentMethod}
                       </span>
                     </td>
-                    <td className="px-2 md:px-8 py-4">
+                    <td className="px-2 md:px-6 py-4 whitespace-nowrap">
                       {isDischargeTransaction && (ipdPaymentType === 'discharge' || ipdPaymentType === 'all') ? (
                         <div className="flex flex-row items-center gap-2 justify-start">
                           <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-100 rounded text-[10px] font-bold whitespace-nowrap">
@@ -680,7 +681,7 @@ function TransactionContent() {
                         </span>
                       )}
                     </td>
-                    <td className="px-2 md:px-8 py-4">
+                    <td className="px-2 md:px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="text-xs font-thin text-slate-900 leading-none">
                           {new Date(tx.transactionTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
@@ -690,7 +691,7 @@ function TransactionContent() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-2 md:px-8 py-4 text-center">
+                    <td className="px-2 md:px-6 py-4 text-center">
                       <button
                         onClick={() => {
                           setSelectedTransaction(tx);
@@ -738,7 +739,7 @@ function TransactionContent() {
             <div className="space-y-4">
               <div className="flex justify-between items-center py-3 border-b border-slate-100">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient Name</span>
-                <span className="text-sm font-black text-slate-900">{selectedTransaction.patientName}</span>
+                <span className="text-sm font-black text-slate-900">{formatPatientNameWithPrefix(selectedTransaction.patientName, selectedTransaction.patientHonorific || selectedTransaction.honorific || selectedTransaction.patientDetails?.honorific || (selectedTransaction.referenceId as any)?.patientDetails?.honorific || (selectedTransaction.referenceId as any)?.honorific, true) || selectedTransaction.patientName}</span>
               </div>
 
               <div className="flex justify-between items-center py-3 border-b border-slate-100">

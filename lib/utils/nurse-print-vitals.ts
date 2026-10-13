@@ -1,8 +1,14 @@
 import { format } from 'date-fns';
-import { formatDoctorName } from '@/lib/utils/name-utils';
+import { formatDoctorName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 export const generateNurseHourlyRecordHtml = (data: any) => {
     const { admission, vitals, meds, diet, labOrders, hospital } = data;
+
+    const patientDisplayName = formatPatientNameWithPrefix(
+        admission?.patientName || admission?.patient?.name || '',
+        admission?.honorific || admission?.patientHonorific || admission?.patientTitle || admission?.patient?.honorific,
+        true
+    ) || admission?.patientName || 'Unknown Patient';
 
     // Sort logs by timestamp ascending for chronological report
     const sortedVitals = [...vitals].sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -14,7 +20,7 @@ export const generateNurseHourlyRecordHtml = (data: any) => {
         <html>
         <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Patient Hourly Monitoring Record - ${admission.patientName}</title>
+            <title>Patient Hourly Monitoring Record - ${patientDisplayName}</title>
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
                 
@@ -369,7 +375,7 @@ export const generateNurseHourlyRecordHtml = (data: any) => {
             <div class="patient-info-grid">
                 <div class="info-item">
                     <span class="info-label">Patient Name</span>
-                    <span class="info-value">${admission.patientName}</span>
+                    <span class="info-value">${patientDisplayName}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Admission ID</span>

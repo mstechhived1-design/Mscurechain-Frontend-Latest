@@ -8,6 +8,7 @@ import { FlaskConical, RefreshCw, CheckCircle2, AlertCircle, PlayCircle, Chevron
 import { toast } from 'react-hot-toast';
 import { invalidateCachePattern, clearApiCache } from '@/lib/integrations/api/apiClient';
 import { getSocket } from '@/lib/integrations/api/socket';
+import { formatPatientDisplayName, formatPatientNameWithPrefix, cleanPatientName } from '@/lib/utils/name-utils';
 
 type TabType = 'pending' | 'collected' | 'ready';
 
@@ -50,7 +51,7 @@ export default function SampleCollectionPage() {
         if (sample.patientDetails?.patientType) return sample.patientDetails.patientType.toLowerCase() as 'opd' | 'ipd' | 'lab';
         if (sample.patientDetails?.bedInfo) return 'ipd';
         if (sample.patientDetails?.originalPatientName) return 'lab';
-        
+
         const nameLower = (sample.patientDetails?.name || '').toLowerCase();
         if (nameLower.includes('lab') || nameLower.includes('diagnostic') || nameLower.includes('center') || nameLower.includes('hospital')) {
             return 'lab';
@@ -112,10 +113,10 @@ export default function SampleCollectionPage() {
                 triggerLiveRefresh();
             };
 
-            socket.on('new_lab_order',       handleUpdate);
-            socket.on('sample_collected',    handleUpdate);
-            socket.on('lab_order_updated',   handleUpdate);
-            socket.on('lab_refresh_forced',  handleUpdate);
+            socket.on('new_lab_order', handleUpdate);
+            socket.on('sample_collected', handleUpdate);
+            socket.on('lab_order_updated', handleUpdate);
+            socket.on('lab_refresh_forced', handleUpdate);
             socket.on('payment_status_changed', handleUpdate);
         });
 
@@ -246,7 +247,7 @@ export default function SampleCollectionPage() {
         <div className="space-y-4 lg:space-y-6">
             {/* Unified Top Action Bar */}
             <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3 md:gap-4 mb-2">
-                
+
                 {/* Heading */}
                 <div className="shrink-0 flex items-center gap-2 px-1">
                     <div className="p-1.5 md:p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600">
@@ -264,7 +265,7 @@ export default function SampleCollectionPage() {
 
                 {/* Actions Row */}
                 <div className="w-full flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-between xl:justify-end">
-                    
+
                     {/* View Tabs */}
                     <div className="flex flex-1 items-center justify-start xl:justify-end overflow-x-auto no-scrollbar shrink-0">
                         <div className="inline-flex bg-slate-100 dark:bg-gray-700/50 p-1 rounded-lg">
@@ -306,7 +307,7 @@ export default function SampleCollectionPage() {
                         >
                             <Filter className="w-4 h-4 md:w-4.5 md:h-4.5" />
                         </button>
-                        
+
                         <button
                             onClick={() => { clearApiCache(); fetchSamples(false, true); }}
                             disabled={loading}
@@ -338,7 +339,7 @@ export default function SampleCollectionPage() {
                                                     ? 'bg-purple-500 text-white shadow-sm'
                                                     : 'bg-gray-800 dark:bg-gray-600 text-white shadow-sm'
                                         : 'text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-700'
-                                    }`}
+                                        }`}
                                 >
                                     {t === 'all' ? 'All' : t === 'opd' ? 'OPD' : t === 'ipd' ? 'IPD' : 'Lab-to-Lab'}
                                 </button>
@@ -435,22 +436,22 @@ export default function SampleCollectionPage() {
                                     <tr key={sample._id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors">
                                         <td className="px-4 md:px-6 py-3 md:py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-xs">
-                                                    {sample.patientDetails.name.charAt(0)}
+                                                <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-xs uppercase">
+                                                    {(cleanPatientName(sample.patientDetails?.name) || 'P').charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                                    <div className="font-bold text-xs md:text-sm text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
                                                         {sample.patientDetails.originalPatientName ? (
                                                             <>
-                                                                <span className="font-bold text-gray-900 dark:text-white">
-                                                                    {sample.patientDetails.originalPatientName}
+                                                                <span>
+                                                                    {formatPatientNameWithPrefix(sample.patientDetails.originalPatientName, (sample.patientDetails as any).honorific, true)}
                                                                 </span>
-                                                                <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase">
-                                                                    {sample.patientDetails.name}
+                                                                <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase font-semibold">
+                                                                    {formatPatientDisplayName(sample.patientDetails, sample, true)}
                                                                 </span>
                                                             </>
                                                         ) : (
-                                                            sample.patientDetails.name
+                                                            formatPatientDisplayName(sample.patientDetails, sample, true)
                                                         )}
                                                         {sample.priority && sample.priority !== 'routine' && (
                                                             <span className="bg-red-500 text-white font-black text-[9px] px-1.5 py-0.5 rounded uppercase animate-pulse">
@@ -458,8 +459,14 @@ export default function SampleCollectionPage() {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-gray-500">
-                                                        {sample.patientDetails.age}Y • {sample.patientDetails.gender}
+                                                    <div className="text-[10px] md:text-xs text-gray-500 font-medium">
+                                                        {(() => {
+                                                            const rawAge: any = sample.patientDetails.age;
+                                                            const unit = (sample.patientDetails as any).ageUnit || '';
+                                                            if (!rawAge || rawAge === '-' || rawAge === 'N/A') return '-';
+                                                            if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                                            return unit ? `${rawAge} ${unit}` : `${rawAge}Y`;
+                                                        })()} • {sample.patientDetails.gender || '-'}
                                                         {sample.patientDetails.bedInfo && (
                                                             <span className="ml-2 text-emerald-600 font-bold uppercase tracking-tighter">
                                                                 • {sample.patientDetails.bedInfo.bedId} ({sample.patientDetails.bedInfo.room})
@@ -588,31 +595,31 @@ export default function SampleCollectionPage() {
                                     <tr key={sample._id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors">
                                         <td className="px-4 md:px-6 py-3 md:py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs ${activeTab === 'pending' ? 'bg-primary-theme' : 'bg-primary-theme'}`}>
-                                                    {sample.patientDetails.name.charAt(0)}
+                                                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs uppercase ${activeTab === 'pending' ? 'bg-primary-theme' : 'bg-primary-theme'}`}>
+                                                    {(cleanPatientName(sample.patientDetails?.name) || 'P').charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-gray-900 dark:text-white flex items-center gap-2 flex-wrap">
+                                                    <div className="font-bold text-xs md:text-sm text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2 flex-wrap">
                                                         {getSamplePatientType(sample) === 'lab' ? (
                                                             <>
-                                                                <span className="font-bold text-gray-900 dark:text-white">
-                                                                    {sample.patientDetails.name}
+                                                                <span>
+                                                                    {formatPatientDisplayName(sample.patientDetails, sample, true)}
                                                                 </span>
-                                                                <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase">
+                                                                <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase font-semibold">
                                                                     {sample.patientDetails.refDoctor || 'Lab'}
                                                                 </span>
                                                             </>
                                                         ) : sample.patientDetails.originalPatientName ? (
                                                             <>
-                                                                <span className="font-bold text-gray-900 dark:text-white">
-                                                                    {sample.patientDetails.originalPatientName}
+                                                                <span>
+                                                                    {formatPatientNameWithPrefix(sample.patientDetails.originalPatientName, (sample.patientDetails as any).honorific, true)}
                                                                 </span>
-                                                                <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase">
-                                                                    {sample.patientDetails.name}
+                                                                <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase font-semibold">
+                                                                    {formatPatientDisplayName(sample.patientDetails, sample, true)}
                                                                 </span>
                                                             </>
                                                         ) : (
-                                                            sample.patientDetails.name
+                                                            formatPatientDisplayName(sample.patientDetails, sample, true)
                                                         )}
                                                         {sample.isWalkIn && (
                                                             <span className="px-1 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-[8px] font-bold rounded uppercase tracking-wider">
@@ -625,8 +632,14 @@ export default function SampleCollectionPage() {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-gray-500">
-                                                        {sample.patientDetails.age}Y • {sample.patientDetails.gender}
+                                                    <div className="text-[10px] md:text-xs text-gray-500 font-medium">
+                                                        {(() => {
+                                                            const rawAge: any = sample.patientDetails.age;
+                                                            const unit = (sample.patientDetails as any).ageUnit || '';
+                                                            if (!rawAge || rawAge === '-' || rawAge === 'N/A') return '-';
+                                                            if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                                            return unit ? `${rawAge} ${unit}` : `${rawAge}Y`;
+                                                        })()} • {sample.patientDetails.gender || '-'}
                                                         {sample.patientDetails.bedInfo && (
                                                             <span className="ml-2 text-emerald-600 font-bold uppercase tracking-tighter">
                                                                 • {sample.patientDetails.bedInfo.bedId} ({sample.patientDetails.bedInfo.room})

@@ -11,6 +11,47 @@ interface NotificationCenterProps {
   hospitalId?: string;
 }
 
+/**
+ * Helper to format date strictly as DD/MM/YYYY (first day/month/year)
+ */
+const formatDateDMY = (dateInput: string | Date | undefined | null): string => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+/**
+ * Sanitizes notification message to ensure:
+ * 1. No redundant "Dr. Dr." prefixes (e.g. "Dr. Dr. Ramesh" -> "Dr. Ramesh")
+ * 2. Any date in the message is formatted as DD/MM/YYYY (first day/month/year)
+ */
+const cleanNotificationMessage = (msg: string | undefined | null): string => {
+  if (!msg) return '';
+  // 1. Remove duplicate Dr. prefixes
+  let cleaned = msg.replace(/\b(dr\.?)\s*(dr\.?)+/gi, 'Dr.');
+
+  // 2. Format dates inside message from MM/DD/YYYY to DD/MM/YYYY (first day/month/year)
+  cleaned = cleaned.replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (match, p1, p2, year) => {
+    const num1 = parseInt(p1, 10);
+    const num2 = parseInt(p2, 10);
+    // If num1 <= 12 and num2 > 12, then num1 was month and num2 was day (e.g. 10/13/2026 -> 13/10/2026)
+    if (num1 <= 12 && num2 > 12) {
+      return `${String(num2).padStart(2, '0')}/${String(num1).padStart(2, '0')}/${year}`;
+    }
+    // If num1 > 12, it's already DD/MM/YYYY
+    if (num1 > 12) {
+      return `${String(num1).padStart(2, '0')}/${String(num2).padStart(2, '0')}/${year}`;
+    }
+    return match;
+  });
+
+  return cleaned;
+};
+
 function NotificationCenter({ showAuditHistory = true, hospitalId }: NotificationCenterProps) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -18,6 +59,7 @@ function NotificationCenter({ showAuditHistory = true, hospitalId }: Notificatio
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const actionsDropdownRef = useRef<HTMLDivElement>(null);
+  const shownNotifIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let isMounted = true;
@@ -45,15 +87,27 @@ function NotificationCenter({ showAuditHistory = true, hospitalId }: Notificatio
           await subscribeToSocket('notification:new', (newNotif: any) => {
             console.log('🔔 [SOCKET] New notification received:', newNotif);
             if (isMounted) {
+              const notifId = typeof newNotif._id === 'object' ? newNotif._id.$oid : newNotif._id;
+              
+              // Prevent duplicate notification processing & duplicate toast
+              if (notifId && shownNotifIdsRef.current.has(notifId)) {
+                return;
+              }
+              if (notifId) {
+                shownNotifIdsRef.current.add(notifId);
+              }
+
+              const cleanedMsg = cleanNotificationMessage(newNotif.message);
               const normalizedNotif: AppNotification = {
                 ...newNotif,
-                _id: typeof newNotif._id === 'object' ? newNotif._id.$oid : newNotif._id,
+                _id: notifId,
+                message: cleanedMsg,
                 isRead: newNotif.isRead ?? false,
                 createdAt: newNotif.createdAt || new Date().toISOString()
               };
 
               setNotifications(prev => {
-                // Avoid duplicates
+                // Avoid duplicates in dropdown list
                 if (prev.some(n => {
                   const existingId = typeof n._id === 'object' ? (n._id as any).$oid : n._id;
                   return existingId === normalizedNotif._id;
@@ -63,9 +117,12 @@ function NotificationCenter({ showAuditHistory = true, hospitalId }: Notificatio
                 return [normalizedNotif, ...prev];
               });
 
-              toast.success(normalizedNotif.message || 'New notification', { 
+              // Only show ONE toast per notification using notifId as toast id
+              toast.success(cleanedMsg || 'New notification', { 
+                id: `notif-${notifId || Date.now()}`,
                 icon: '🔔', 
-                className: 'text-[10px] sm:text-xs' 
+                className: 'text-[10px] sm:text-xs',
+                duration: 4000,
               });
 
               // 🎵 Play notification sound
@@ -202,7 +259,11 @@ function NotificationCenter({ showAuditHistory = true, hospitalId }: Notificatio
   const fetchNotifications = async () => {
     try {
       const data = await notificationService.getNotifications(hospitalId);
-      setNotifications(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setNotifications(list.map(n => ({
+        ...n,
+        message: cleanNotificationMessage(n.message)
+      })));
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     }
@@ -383,7 +444,7 @@ function NotificationCenter({ showAuditHistory = true, hospitalId }: Notificatio
                           <div className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${!notif.isRead ? 'bg-blue-600' : 'bg-transparent'}`} />
                           <div className="flex-1 min-w-0">
                             <p className={`text-[10px] sm:text-sm leading-tight sm:leading-relaxed ${!notif.isRead ? 'text-gray-900 dark:text-white font-bold' : 'text-gray-600 dark:text-gray-400'}`}>
-                              {notif.message}
+                              {cleanNotificationMessage(notif.message)}
                             </p>
                             <div className="flex items-center gap-2 mt-1.5 text-[7px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                               <span className="flex items-center gap-1">
@@ -391,7 +452,7 @@ function NotificationCenter({ showAuditHistory = true, hospitalId }: Notificatio
                                 {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                               <span>•</span>
-                              <span>{new Date(notif.createdAt).toLocaleDateString()}</span>
+                              <span>{formatDateDMY(notif.createdAt)}</span>
                             </div>
                           </div>
                           <div className="flex flex-col gap-2 shrink-0">

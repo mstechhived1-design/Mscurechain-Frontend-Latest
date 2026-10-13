@@ -30,10 +30,10 @@ export const computeAgeFromDob = (dob: any, fallbackAge: any, fallbackUnit: any)
             return "0 Days";
         }
     }
-    if (fallbackAge !== undefined && fallbackAge !== null && fallbackAge !== "-" && fallbackAge !== "") {
+    if (fallbackAge !== undefined && fallbackAge !== null && fallbackAge !== "-" && fallbackAge !== "" && fallbackAge !== "N/A") {
         const unit = fallbackUnit ? (fallbackUnit === 'Months' ? 'Months' : fallbackUnit === 'Days' ? 'Days' : 'Years') : 'Years';
         // if fallbackAge already has Y/Mos/Days, just return it
-        if (String(fallbackAge).match(/(Y|Mos|Days|Month|Day|Yr|Yrs)$/i)) return fallbackAge;
+        if (String(fallbackAge).match(/(Y|Mos|Days|Month|Day|Yr|Yrs)$/i)) return String(fallbackAge);
         return `${fallbackAge} ${unit}`;
     }
     return "N/A";
@@ -737,8 +737,434 @@ export const generatePayslipHtml = (data: any) => {
   `;
 };
 
+export const generateLabReceiptHtml = (data: any) => {
+  const { hospital = {}, patient = {}, appointment = {}, payment = {}, headerHtml, footerHtml, labTests = [], showGuardianDetails = true } = data || {};
+  
+  const formattedPatientName = formatPatientNameWithPrefix(
+    patient.name || patient.user?.name,
+    appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific || patient.honorific || patient.profile?.honorific || patient.honorificTitle
+  );
+
+  const ageDisplay = computeAgeFromDob(patient.dob || patient.dateOfBirth, patient.age, patient.ageUnit) || patient.age || "N/A";
+  const genderDisplay = patient.gender && patient.gender !== "-"
+    ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)
+    : "N/A";
+
+  const doctorTitle = formatDoctorName(appointment.doctorName || appointment.primaryDoctor || appointment.suggestedDoctorName || "Doctor");
+
+  const visitDateRaw = appointment.date || appointment.appointmentDate || payment.date || new Date();
+  const formatDDMMYYYY = (dateInput: Date | string | undefined): string => {
+    if (!dateInput) return "N/A";
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+  const dateFormatted = formatDDMMYYYY(visitDateRaw);
+  const timeFormatted = appointment.time || appointment.appointmentTime || "10:00 AM";
+
+  // Tests list
+  let testsList: any[] = [];
+  if (Array.isArray(labTests) && labTests.length > 0) {
+    testsList = labTests;
+  } else if (Array.isArray(appointment.tests) && appointment.tests.length > 0) {
+    testsList = appointment.tests;
+  } else if (appointment.testName) {
+    testsList = [{ name: appointment.testName, cost: payment.amount }];
+  } else if (appointment.notes && appointment.notes !== 'N/A') {
+    testsList = [{ name: appointment.notes, cost: payment.amount }];
+  } else if (patient.symptoms && patient.symptoms !== 'N/A') {
+    testsList = [{ name: patient.symptoms, cost: payment.amount }];
+  } else {
+    testsList = [{ name: "Lab Diagnostic Investigation", cost: payment.amount }];
+  }
+
+  const totalAmount = Number(payment.totalBillAmount || payment.fee || payment.originalAmount || payment.amount || 0);
+  const discountAmount = Number(payment.discount || payment.discountAmount || appointment.discount || 0);
+  const paidAmount = Number(payment.amount != null ? payment.amount : (payment.paidAmount || 0));
+  const balanceAmount = Number(payment.balance || (totalAmount - discountAmount - paidAmount > 0 ? totalAmount - discountAmount - paidAmount : 0));
+  const paymentMode = (payment.mode || payment.method || 'CASH').toUpperCase();
+  const receiptNo = payment.receiptNumber || payment.receiptNo || appointment.appointmentId || appointment.sampleId || 'REC-N/A';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Lab Diagnostic Receipt - ${formattedPatientName || "Patient"}</title>
+      <meta charset="UTF-8">
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        @page { size: A4; margin: 8mm 12mm; }
+        body {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          color: #0f172a;
+          line-height: 1.4;
+          margin: 0;
+          padding: 12px;
+          background: white;
+          font-size: 10.5px;
+        }
+        .header-wrapper { width: 100%; box-sizing: border-box; }
+        .footer-wrapper { width: 100%; box-sizing: border-box; }
+        .receipt-container { width: 100%; box-sizing: border-box; }
+        .receipt-title-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 12px;
+          background: #f8fafc;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 8px;
+          margin: 10px 0 12px 0;
+        }
+        .receipt-title {
+          font-size: 13px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: #0f172a;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .badge-lab {
+          background: #eef2ff;
+          color: #4f46e5;
+          border: 1px solid #c7d2fe;
+          font-size: 9.5px;
+          font-weight: 800;
+          padding: 2px 8px;
+          border-radius: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .badge-paid {
+          background: #f0fdf4;
+          color: #16a34a;
+          border: 1px solid #bbf7d0;
+          font-size: 9.5px;
+          font-weight: 800;
+          padding: 2px 8px;
+          border-radius: 4px;
+          text-transform: uppercase;
+        }
+        .info-card {
+          border: 1.5px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 10px 14px;
+          background: #fff;
+          margin-bottom: 12px;
+        }
+        .info-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 4px 20px;
+        }
+        .info-row {
+          display: flex;
+          align-items: baseline;
+          font-size: 10.5px;
+        }
+        .info-label {
+          width: 120px;
+          font-weight: 700;
+          color: #64748b;
+          flex-shrink: 0;
+          text-transform: uppercase;
+          font-size: 9px;
+          letter-spacing: 0.5px;
+        }
+        .info-colon { width: 12px; color: #64748b; font-weight: 700; }
+        .info-value { font-weight: 800; color: #0f172a; flex: 1; word-break: break-word; }
+        
+        .tests-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 12px 0;
+          font-size: 10px;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .tests-table th {
+          background: #f8fafc;
+          padding: 8px 12px;
+          font-weight: 800;
+          text-transform: uppercase;
+          font-size: 9px;
+          letter-spacing: 0.5px;
+          color: #475569;
+          border-bottom: 1.5px solid #e2e8f0;
+        }
+        .tests-table td {
+          padding: 8px 12px;
+          border-bottom: 1px solid #f1f5f9;
+          font-weight: 600;
+        }
+        .tests-table tr:last-child td { border-bottom: none; }
+        
+        .summary-box {
+          display: flex;
+          justify-content: flex-end;
+          margin: 10px 0;
+        }
+        .summary-card {
+          width: 280px;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          padding: 10px 14px;
+        }
+        .summary-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 3px 0;
+          font-size: 10.5px;
+          font-weight: 700;
+          color: #475569;
+        }
+        .summary-row.total {
+          border-top: 1.5px solid #cbd5e1;
+          margin-top: 4px;
+          padding-top: 6px;
+          font-size: 12px;
+          font-weight: 900;
+          color: #0f172a;
+        }
+        .summary-row.paid {
+          color: #0f766e;
+          font-size: 12px;
+          font-weight: 900;
+        }
+        .payment-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 14px;
+          background: #f0fdf4;
+          border: 1.5px solid #bbf7d0;
+          border-radius: 8px;
+          margin: 12px 0;
+        }
+        .instruction-box {
+          background: #f8fafc;
+          border: 1px dashed #cbd5e1;
+          border-radius: 6px;
+          padding: 8px 12px;
+          font-size: 9px;
+          color: #475569;
+          margin: 12px 0;
+        }
+        .instruction-box strong { color: #0f172a; }
+        .sig-section {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 25px;
+          padding-top: 10px;
+        }
+        .sig-box {
+          text-align: center;
+          width: 160px;
+          border-top: 1px solid #94a3b8;
+          padding-top: 4px;
+          font-size: 9px;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+        @media print {
+          body { padding: 0; margin: 0; }
+          .receipt-title-bar, .info-card, .tests-table, .summary-card, .payment-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+      </style>
+      ${!(data?.printWithHeader !== undefined ? data.printWithHeader : usePrintStore.getState().printWithHeader) ? `
+      <style>
+        .header-wrapper, .footer-wrapper, .hospital-header, .footer, .signatory-box, .signatory, .print-header, .print-footer, .header, .header-container, .divider-thick, .footer-note, .page-header, .footer-push { visibility: hidden !important; }
+      </style>
+      ` : ''}
+    </head>
+    <body onload="window.print();">
+      <div class="header-wrapper">
+        ${headerHtml || ''}
+      </div>
+
+      <div class="receipt-container">
+        <!-- Title bar -->
+        <div class="receipt-title-bar">
+          <div class="receipt-title">
+            <span>🔬 Lab Diagnostic Receipt &amp; Invoice</span>
+            <span class="badge-lab">LAB BILL</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="badge-paid">${(payment.status || 'PAID').toUpperCase()}</span>
+            <span style="font-weight: 800; font-size: 10px; color: #475569;"># ${receiptNo}</span>
+          </div>
+        </div>
+
+        <!-- Patient & Billing details -->
+        <div class="info-card">
+          <div class="info-grid">
+            <div class="info-row">
+              <span class="info-label">Patient Name</span>
+              <span class="info-colon">:</span>
+              <span class="info-value">${formattedPatientName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Date &amp; Time</span>
+              <span class="info-colon">:</span>
+              <span class="info-value">${dateFormatted} ${timeFormatted}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">MR No.</span>
+              <span class="info-colon">:</span>
+              <span class="info-value" style="color: #0f766e;">${patient.mrn || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Sample / Order ID</span>
+              <span class="info-colon">:</span>
+              <span class="info-value">${appointment.appointmentId || appointment.sampleId || receiptNo}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Age / Gender</span>
+              <span class="info-colon">:</span>
+              <span class="info-value">${ageDisplay} / ${genderDisplay}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Referred Doctor</span>
+              <span class="info-colon">:</span>
+              <span class="info-value">${doctorTitle}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Mobile No.</span>
+              <span class="info-colon">:</span>
+              <span class="info-value">${patient.mobile || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Payment Mode</span>
+              <span class="info-colon">:</span>
+              <span class="info-value">${paymentMode}</span>
+            </div>
+            ${patient.address && patient.address !== 'N/A' ? `
+            <div class="info-row" style="grid-column: 1 / -1;">
+              <span class="info-label">Address</span>
+              <span class="info-colon">:</span>
+              <span class="info-value">${patient.address}</span>
+            </div>` : ''}
+          </div>
+
+          ${showGuardianDetails && (patient.guardianName || appointment.guardianName) ? `
+          <div style="margin-top: 6px; padding: 4px 8px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 4px; font-size: 9.5px; display: flex; gap: 16px;">
+            <span><strong>Guardian:</strong> ${patient.guardianName || appointment.guardianName}${patient.guardianRelation || appointment.guardianRelation ? ` (${patient.guardianRelation || appointment.guardianRelation})` : ''}</span>
+            ${patient.guardianMobile || appointment.guardianMobile ? `<span><strong>Contact:</strong> ${patient.guardianMobile || appointment.guardianMobile}</span>` : ''}
+          </div>` : ''}
+        </div>
+
+        <!-- Investigation & Test Breakdown -->
+        <table class="tests-table">
+          <thead>
+            <tr>
+              <th style="width: 35px; text-align: center;">#</th>
+              <th style="text-align: left;">Investigation / Test Description</th>
+              <th style="width: 140px; text-align: center;">Department / Type</th>
+              <th style="width: 100px; text-align: right;">Amount (INR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${testsList.map((t: any, idx: number) => {
+              const testName = t.name || t.testName || t.investigationName || t.description || 'Lab Test';
+              const testDept = t.department || t.category || t.type || 'Clinical Pathology';
+              const testCost = t.cost != null ? Number(t.cost) : (t.price != null ? Number(t.price) : (testsList.length === 1 ? paidAmount : 0));
+              return `
+              <tr>
+                <td style="text-align: center; color: #64748b;">${idx + 1}</td>
+                <td><strong style="color: #0f172a;">${testName}</strong></td>
+                <td style="text-align: center; color: #64748b;">${testDept}</td>
+                <td style="text-align: right; font-weight: 800; color: #0f172a;">₹ ${Math.round(testCost).toLocaleString('en-IN')}</td>
+              </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <!-- Summary & Totals -->
+        <div class="summary-box">
+          <div class="summary-card">
+            <div class="summary-row">
+              <span>Gross Total:</span>
+              <span>₹ ${Math.round(totalAmount > 0 ? totalAmount : paidAmount).toLocaleString('en-IN')}</span>
+            </div>
+            ${discountAmount > 0 ? `
+            <div class="summary-row" style="color: #e11d48;">
+              <span>Discount Applied:</span>
+              <span>- ₹ ${Math.round(discountAmount).toLocaleString('en-IN')}</span>
+            </div>` : ''}
+            <div class="summary-row total">
+              <span>Net Total:</span>
+              <span>₹ ${Math.round(paidAmount + balanceAmount).toLocaleString('en-IN')}</span>
+            </div>
+            <div class="summary-row paid">
+              <span>Amount Paid:</span>
+              <span>₹ ${Math.round(paidAmount).toLocaleString('en-IN')}</span>
+            </div>
+            ${balanceAmount > 0 ? `
+            <div class="summary-row" style="color: #e11d48; font-weight: 900;">
+              <span>Balance Due:</span>
+              <span>₹ ${Math.round(balanceAmount).toLocaleString('en-IN')}</span>
+            </div>` : ''}
+          </div>
+        </div>
+
+        <!-- Payment Confirmation Banner -->
+        <div class="payment-banner">
+          <div>
+            <span style="font-size: 9.5px; font-weight: 700; color: #166534; text-transform: uppercase;">Payment Received With Thanks</span>
+            <div style="font-size: 11px; font-weight: 800; color: #14532d; margin-top: 1px;">
+              ₹ ${Math.round(paidAmount).toLocaleString('en-IN')} via ${paymentMode}
+            </div>
+          </div>
+          <span style="font-size: 10px; font-weight: 800; color: #15803d; background: #dcfce7; padding: 3px 10px; border-radius: 4px; border: 1px solid #86efac;">
+            TRANSACTION VERIFIED
+          </span>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instruction-box">
+          <strong>Important Instructions:</strong>
+          <ul style="margin: 4px 0 0 16px; padding: 0;">
+            <li>Please present this receipt along with your MR No. at the sample collection counter / laboratory desk.</li>
+            <li>Report delivery timelines depend on individual test requirements. Online/WhatsApp reports will be shared once authorized by the pathologist.</li>
+          </ul>
+        </div>
+
+        <!-- Signatures -->
+        <div class="sig-section">
+          <div class="sig-box">Patient / Representative</div>
+          <div class="sig-box">Cashier / Billing Desk</div>
+          <div class="sig-box">Authorized Lab Signatory</div>
+        </div>
+      </div>
+
+      ${footerHtml ? `
+      <div class="footer-wrapper" style="margin-top: 20px;">
+        ${footerHtml}
+      </div>` : ''}
+    </body>
+    </html>
+  `;
+};
+
 export const generateOPDRegistrationSlipHtml = (data: any) => {
-  const { hospital = {}, patient = {}, appointment = {}, payment = {}, headerHtml, footerHtml } = data;
+  const { hospital = {}, patient = {}, appointment = {}, payment = {}, headerHtml, footerHtml } = data || {};
+  const isLab = data.isLab === true ||
+    data.registrationType === 'LAB' ||
+    (appointment?.type && (appointment.type.toLowerCase() === 'lab' || appointment.type.toLowerCase() === 'lab_test' || appointment.type.toLowerCase().includes('lab'))) ||
+    (appointment?.specialization && appointment.specialization.toLowerCase().includes('lab'));
+
+  if (isLab) {
+    return generateLabReceiptHtml(data);
+  }
   const ageDisplay = computeAgeFromDob(patient.dob, patient.age, patient.ageUnit) || patient.age || "N/A";
   const doctorTitle = formatDoctorName(appointment.doctorName);
   
@@ -1005,7 +1431,7 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
           }
         }
       </style>
-      ${!usePrintStore.getState().printWithHeader ? `
+      ${!(data?.printWithHeader !== undefined ? data.printWithHeader : usePrintStore.getState().printWithHeader) ? `
       <style>
         .header-wrapper, .footer-wrapper, .hospital-header, .footer, .signatory-box, .signatory, .print-header, .print-footer, .header, .header-container, .divider-thick, .footer-note, .page-header, .footer-push { visibility: hidden !important; }
       </style>
@@ -1053,7 +1479,13 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
         </div>
         <div class="grid-row">
           <span class="label" style="width: 110px;">DOB</span><span class="colon">:</span>
-          <span class="value">${patient.dob ? new Date(patient.dob).toLocaleDateString('en-GB') : "N/A"}</span>
+          <span class="value">${(() => {
+            const val = patient.dob || patient.dateOfBirth;
+            if (!val) return "N/A";
+            if (typeof val === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(val.trim())) return val.trim();
+            const d = new Date(val);
+            return !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB') : String(val);
+          })()}</span>
         </div>
 
         <div class="grid-row">
@@ -1189,6 +1621,15 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
 
 export const generateClinicalReceiptHtml = (data: any) => {
   const { hospital = {}, patient = {}, appointment = {}, payment = {}, headerHtml, footerHtml } = data || {};
+
+  const isLab = data.isLab === true ||
+    data.registrationType === 'LAB' ||
+    (appointment?.type && (appointment.type.toLowerCase() === 'lab' || appointment.type.toLowerCase() === 'lab_test' || appointment.type.toLowerCase().includes('lab'))) ||
+    (appointment?.specialization && appointment.specialization.toLowerCase().includes('lab'));
+
+  if (isLab) {
+    return generateLabReceiptHtml(data);
+  }
 
   const isDischargeOrDetailed = data.forceDetailed === true ||
     data.registrationType === 'DISCHARGE' ||
@@ -1600,7 +2041,7 @@ export const generateClinicalReceiptHtml = (data: any) => {
           }
         }
       </style>
-      ${!usePrintStore.getState().printWithHeader ? `
+      ${!(data?.printWithHeader !== undefined ? data.printWithHeader : usePrintStore.getState().printWithHeader) ? `
       <style>
         .header-wrapper, .footer-wrapper, .hospital-header, .footer, .signatory-box, .signatory, .print-header, .print-footer, .header, .header-container, .divider-thick, .footer-note, .page-header, .footer-push { visibility: hidden !important; }
         .print-settings-toggle-wrapper { visibility: visible !important; }
@@ -1710,7 +2151,13 @@ export const generateClinicalReceiptHtml = (data: any) => {
                             </div>
                             <div>
                                  <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">DOB</div>
-                                 <div style="font-size: 10px; font-weight: 700; color: #1e293b;">${patient.dob ? new Date(patient.dob).toLocaleDateString("en-GB") : "N/A"}</div>
+                                 <div style="font-size: 10px; font-weight: 700; color: #1e293b;">${(() => {
+                                   const val = patient.dob || patient.dateOfBirth;
+                                   if (!val) return "N/A";
+                                   if (typeof val === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(val.trim())) return val.trim();
+                                   const d = new Date(val);
+                                   return !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB') : String(val);
+                                 })()}</div>
                             </div>
                         </div>
                     </div>
@@ -2517,7 +2964,7 @@ export const generateLabTokenHtml = (data: any) => {
               
               @media print {
                 @page { size: A4; margin: 0; }
-                body { margin: 0; padding: 12mm 15mm 12mm 25mm; }
+                body { margin: 0; padding: 10mm 12mm 10mm 12mm; }
               }
               html, body {
                 height: 100%;

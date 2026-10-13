@@ -19,6 +19,7 @@ import toast from 'react-hot-toast';
 import { useTodayStatus, useCheckIn, useCheckOut, useNotifications } from '@/lib/integrations/hooks';
 import { format } from 'date-fns';
 import { AttendanceModal } from '@/components/attendance/AttendanceModal';
+import { formatPatientDisplayName } from '@/lib/utils/name-utils';
 
 export default function NurseDashboard() {
     const [stats, setStats] = useState({
@@ -293,7 +294,7 @@ export default function NurseDashboard() {
                                                 <tr key={adm._id} className="group hover:bg-slate-50/50 transition-colors">
                                                     <td className="px-4 sm:px-8 py-3 sm:py-5 text-xs font-black text-slate-900">
                                                         <div className="flex flex-col">
-                                                            <span>{adm.patient?.name}</span>
+                                                            <span className="uppercase">{formatPatientDisplayName(adm.patient, adm, true)}</span>
                                                             <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-1">{adm.bed?.bedId || 'N/A'}</span>
                                                         </div>
                                                     </td>
@@ -349,7 +350,7 @@ export default function NurseDashboard() {
                                         key={adm._id}
                                         time={i === 0 ? "Now" : "Soon"}
                                         task="Monitoring"
-                                        patient={adm.patient?.name || 'Unknown'}
+                                        patient={formatPatientDisplayName(adm.patient, adm, true) || 'Unknown'}
                                     />
                                 ))
                             ) : (

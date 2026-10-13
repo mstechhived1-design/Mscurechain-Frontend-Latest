@@ -31,6 +31,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import EditTransactionModal from './EditTransactionModal';
+import ClinicalReceipt from '@/components/helpdesk/ClinicalReceipt';
 import { formatTime12Hr } from '@/lib/print-utils';
 import { getDateRangeForPreset } from '@/lib/utils/date-utils';
 
@@ -86,6 +87,44 @@ export default function TransactionsPage() {
     const [hospital, setHospital] = useState<any>(null);
     const [showEditedOnly, setShowEditedOnly] = useState(false);
     const [editingTx, setEditingTx] = useState<any>(null);
+    const [previewTx, setPreviewTx] = useState<any>(null);
+    const [fullPatient, setFullPatient] = useState<any>(null);
+
+    // Fetch full patient profile on receipt preview if needed
+    useEffect(() => {
+        if (!previewTx) {
+            setFullPatient(null);
+            return;
+        }
+        const patientId = previewTx.user?._id || previewTx.user || previewTx.patient?._id || previewTx.patient || previewTx.patientDetails?._id || previewTx.patientDetails?.user || previewTx.referenceId?.patient?._id || previewTx.referenceId?.patient;
+        const validId = typeof patientId === 'object' ? (patientId?._id || patientId?.id) : patientId;
+        if (validId && typeof validId === 'string' && validId.length === 24) {
+            helpdeskService.getPatientById(validId).then(res => {
+                const pData = res?.data || res?.patient || res;
+                if (pData) setFullPatient((prev: any) => ({ ...prev, ...pData }));
+            }).catch(() => {});
+        }
+
+        // Also search by mobile or MRN to guarantee matching the exact patient record from the Patients page!
+        const searchKey = previewTx.patientMobile || previewTx.mobile || previewTx.patientMRN || previewTx.patientDetails?.mobile || previewTx.patientDetails?.mrn;
+        if (searchKey) {
+            helpdeskService.searchPatients(searchKey, 1, 5).then((res: any) => {
+                const list = Array.isArray(res) ? res : (res?.data || res?.patients || []);
+                const match = list.find((p: any) => 
+                    (previewTx.patientMRN && (p.mrn === previewTx.patientMRN || p.profile?.mrn === previewTx.patientMRN)) ||
+                    (searchKey && (p.mobile === searchKey || p.user?.mobile === searchKey))
+                ) || list[0];
+                if (match) {
+                    setFullPatient((prev: any) => ({
+                        ...prev,
+                        ...match,
+                        user: match.user || match,
+                        profile: match.profile || prev?.profile
+                    }));
+                }
+            }).catch(() => {});
+        }
+    }, [previewTx]);
 
     // Fetch hospital branding for receipts
     useEffect(() => {
@@ -1321,14 +1360,14 @@ export default function TransactionsPage() {
                                             <td className="px-2 sm:px-4 py-2 sm:py-3">
                                                 <p className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">{clinicalDetail}</p>
                                             </td>
-                                            <td className="px-2 sm:px-4 py-2 sm:py-3">
-                                                <div className="space-y-0.5">
+                                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap min-w-max">
+                                                <div className="space-y-0.5 whitespace-nowrap min-w-max">
                                                     {resolvedDoctorName ? (
-                                                        <p className="text-[9px] sm:text-[10px] font-black text-teal-600 uppercase tracking-wider leading-tight">
+                                                        <p className="text-[9px] sm:text-[10px] font-black text-teal-600 uppercase tracking-wider leading-tight whitespace-nowrap inline-block">
                                                             {resolvedDoctorName}
                                                         </p>
                                                     ) : (
-                                                        <p className="text-[9px] sm:text-[10px] font-bold text-slate-300 uppercase tracking-wider leading-tight">N/A</p>
+                                                        <p className="text-[9px] sm:text-[10px] font-bold text-slate-300 uppercase tracking-wider leading-tight whitespace-nowrap inline-block">N/A</p>
                                                     )}
                                                     {appointmentData.conditionAtDischarge && (
                                                         <div className="flex items-center gap-1">
@@ -1431,7 +1470,7 @@ export default function TransactionsPage() {
                                                         <Activity size={14} />
                                                     </button>
                                                     <button
-                                                        onClick={() => handlePrintTransaction(tx)}
+                                                        onClick={() => setPreviewTx(tx)}
                                                         className="p-1 sm:p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all border border-transparent hover:border-indigo-100"
                                                         title="Print Receipt"
                                                     >
@@ -1459,6 +1498,62 @@ export default function TransactionsPage() {
                     onClose={() => setEditingTx(null)} 
                 />
             )}
+
+            {previewTx && (() => {
+                const activePatient = fullPatient?.user || fullPatient?.patient || fullPatient || {};
+                const activeProfile = fullPatient?.profile || fullPatient?.patientProfile || activePatient?.profile || {};
+
+                const resolvedAddress = activeProfile?.address || activePatient?.address || (fullPatient as any)?.address || previewTx.patientDetails?.address || previewTx.patient?.address || previewTx.address || 'N/A';
+                const resolvedBloodGroup = activeProfile?.bloodGroup || activePatient?.bloodGroup || (fullPatient as any)?.bloodGroup || previewTx.patientDetails?.bloodGroup || previewTx.patient?.bloodGroup || 'N/A';
+                const resolvedDob = activeProfile?.dob || activePatient?.dateOfBirth || activePatient?.dob || (fullPatient as any)?.dob || (fullPatient as any)?.dateOfBirth || previewTx.patientDetails?.dob || previewTx.patientDetails?.dateOfBirth || previewTx.dob || previewTx.dateOfBirth;
+                const resolvedMrn = (previewTx.patientMRN && previewTx.patientMRN !== 'Resolving...') ? previewTx.patientMRN : (activeProfile?.mrn || (fullPatient as any)?.mrn || previewTx.patientDetails?.mrn || 'N/A');
+
+                const rawType = (previewTx.type || '').toLowerCase();
+                const apptData = previewTx.referenceId || {};
+                const isLabTx = rawType === 'lab_test' || rawType === 'lab' || rawType.includes('lab') || Boolean(apptData.tests && apptData.tests.length > 0) || Boolean(previewTx.tests && previewTx.tests.length > 0);
+                const labTestsList = apptData.tests || previewTx.tests || (apptData.testName ? [{ name: apptData.testName, cost: previewTx.amount }] : (apptData.description ? [{ name: apptData.description, cost: previewTx.amount }] : (previewTx.description ? [{ name: previewTx.description, cost: previewTx.amount }] : [])));
+
+                return (
+                    <ClinicalReceipt
+                        hospital={hospital}
+                        isLab={isLabTx}
+                        labTests={labTestsList}
+                        patient={{
+                            name: getPatientNameWithPrefix(previewTx),
+                            mrn: resolvedMrn,
+                            mobile: previewTx.patientMobile || previewTx.mobile || previewTx.patientDetails?.mobile || previewTx.patient?.mobile || activePatient?.mobile || '',
+                            age: previewTx.patientDetails?.age || previewTx.patient?.age || activePatient?.age || '',
+                            gender: previewTx.patientDetails?.gender || previewTx.patient?.gender || activeProfile?.gender || activePatient?.gender || '',
+                            address: resolvedAddress,
+                            bloodGroup: resolvedBloodGroup,
+                            dob: resolvedDob,
+                            dateOfBirth: resolvedDob,
+                            guardianName: activeProfile?.GuardianName || activeProfile?.guardianName || activePatient?.guardianName || previewTx.patientDetails?.GuardianName || previewTx.patientDetails?.guardianName || '',
+                            guardianRelation: activeProfile?.GuardianRelation || activeProfile?.guardianRelation || activePatient?.guardianRelation || previewTx.patientDetails?.GuardianRelation || previewTx.patientDetails?.guardianRelation || '',
+                            guardianMobile: activeProfile?.GuardianMobile || activeProfile?.guardianMobile || activePatient?.guardianMobile || previewTx.patientDetails?.GuardianMobile || previewTx.patientDetails?.guardianMobile || '',
+                        }}
+                        appointment={{
+                            appointmentId: previewTx.referenceId?.appointmentId || previewTx.referenceId?.sampleId || previewTx.transactionId || previewTx.receiptNumber || 'N/A',
+                            type: previewTx.type || 'consultation',
+                            date: previewTx.createdAt ? new Date(previewTx.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
+                            time: previewTx.appointmentTime || previewTx.time || '10:00 AM',
+                            doctorName: previewTx.referenceId?.primaryDoctor || previewTx.referenceId?.suggestedDoctorName || 'Doctor',
+                            specialization: previewTx.type || 'Consultation',
+                        }}
+                        payment={{
+                            amount: Number(previewTx.amount || previewTx.payment?.amount || 0),
+                            method: (previewTx.paymentMethod || previewTx.paymentMode || 'cash').toLowerCase(),
+                            mode: previewTx.paymentMethod || previewTx.paymentMode || 'Cash',
+                            status: previewTx.status || 'Paid',
+                            receiptNumber: previewTx.receiptNumber || previewTx.transactionId || previewTx.invoiceNumber || 'REC-N/A',
+                        }}
+                        onClose={() => {
+                            setPreviewTx(null);
+                            setFullPatient(null);
+                        }}
+                    />
+                );
+            })()}
 
         </div >
     );

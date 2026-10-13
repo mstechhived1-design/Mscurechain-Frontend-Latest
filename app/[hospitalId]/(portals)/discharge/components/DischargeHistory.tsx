@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import ClinicalReceipt from '@/components/helpdesk/ClinicalReceipt';
 import { useTenantLink } from '@/hooks/useTenantLink';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 import toast from 'react-hot-toast';
 
 interface DischargeHistoryProps {
@@ -387,7 +388,7 @@ export function DischargeHistory({ basePath }: DischargeHistoryProps) {
                                                             {record.patientName?.charAt(0) || 'P'}
                                                         </div>
                                                         <div>
-                                                            <h4 className="font-black text-blue-600 text-[9px] sm:text-sm leading-tight uppercase tracking-tight">{record.patientName}</h4>
+                                                            <h4 className="font-black text-blue-600 text-[9px] sm:text-sm leading-tight uppercase tracking-tight">{formatPatientNameWithPrefix(record.patientName, record.honorific || record.patientHonorific, true) || record.patientName}</h4>
                                                             <p className="text-[7px] sm:text-[10px] font-bold text-slate-400 uppercase mt-0.5">{record.gender} • {record.age}</p>
                                                         </div>
                                                     </div>
@@ -489,7 +490,7 @@ export function DischargeHistory({ basePath }: DischargeHistoryProps) {
                                             {record.patientName?.charAt(0) || 'P'}
                                         </div>
                                         <div>
-                                            <h4 className="font-black text-slate-900 text-[10px] sm:text-sm uppercase tracking-tight">{record.patientName}</h4>
+                                            <h4 className="font-black text-slate-900 text-[10px] sm:text-sm uppercase tracking-tight">{formatPatientNameWithPrefix(record.patientName, record.honorific || record.patientHonorific, true) || record.patientName}</h4>
                                             <p className="text-[7px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">{record.gender} • {record.age}</p>
                                         </div>
                                     </div>

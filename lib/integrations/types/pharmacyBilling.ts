@@ -48,6 +48,9 @@ export interface PharmacyBillPayload {
   items: BillItem[];
   paymentSummary: PaymentSummary;
   orderId?: string;
+  honorific?: string;
+  patient?: any;
+  patientDetails?: any;
 }
 
 export interface PharmacyBill extends PharmacyBillPayload {

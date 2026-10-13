@@ -388,10 +388,18 @@ export default function PatientRegistration() {
             };
 
             const res = await helpdeskService.registerPatient(registrationData as any);
-            toast.success(`Successfully Registered: ${res.patient.mrn}`);
+            const waStatus = (res as any)?.whatsapp;
+            if (waStatus?.success) {
+                toast.success(`Registered: ${res.patient.mrn} • 💬 Welcome WhatsApp sent to ${formData.mobile}!`, { duration: 5000 });
+            } else if (waStatus?.error) {
+                toast.success(`Successfully Registered: ${res.patient.mrn}`);
+                toast.error(`⚠️ WhatsApp Notice: ${waStatus.error}`, { duration: 6000 });
+            } else {
+                toast.success(`Successfully Registered: ${res.patient.mrn}`);
+            }
             setTimeout(() => {
                 router.push(`/helpdesk/appointment-booking?patientId=${res.patient.id}&type=${formData.registrationType}`);
-            }, 1000);
+            }, 1800);
         } catch (error: any) {
             let errorMsg = error.message || "Failed to register";
             

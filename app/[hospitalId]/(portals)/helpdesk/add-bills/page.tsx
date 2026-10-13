@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, User, FileText, Plus, Trash2, Loader2, ArrowLeft,
@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
 import { usePrintStore } from '@/stores/printStore';
 import type { LabTest } from '@/lib/integrations/services/lab.service';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface BillItem {
@@ -36,6 +37,24 @@ type BillMode = 'lab' | 'ipd_charge' | 'custom' | 'package';
 // ─── Component ──────────────────────────────────────────────────────────────
 export default function AddBillsPage() {
     const router = useRouter();
+    const params = useParams() as any;
+    const hospitalId = params?.hospitalId || '';
+    const printIframeRef = useRef<HTMLIFrameElement>(null);
+
+    const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
+    const [autoWhatsApp, setAutoWhatsApp] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('msc_auto_whatsapp_addbills') === 'true';
+        }
+        return false;
+    });
+
+    const handleToggleAutoWhatsApp = (val: boolean) => {
+        setAutoWhatsApp(val);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp_addbills', String(val));
+        }
+    };
 
     // ── Patient Search ──
     const [patientSearch, setPatientSearch] = useState('');
@@ -2547,6 +2566,7 @@ export default function AddBillsPage() {
                             {/* Modal Body (Iframe) */}
                             <div style={{ flex: 1, padding: 0, background: '#f1f5f9', overflow: 'hidden', display: 'flex', justifyContent: 'center', position: 'relative' }}>
                                 <iframe
+                                    ref={printIframeRef}
                                     srcDoc={previewHtml
                                         .replace('<body onload="window.print();">', `
                                             <body style="margin:0; background:#f1f5f9; overflow:hidden; display:flex; justify-content:center; align-items:center;">
@@ -2577,15 +2597,31 @@ export default function AddBillsPage() {
                             </div>
 
                             {/* Modal Footer */}
-                            <div style={{ padding: '16px 24px', background: 'white', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                            <div style={{ padding: '16px 24px', background: 'white', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                                 <button
                                     onClick={() => setShowPrintModal(false)}
                                     style={{ padding: '10px 20px', borderRadius: 10, background: 'white', color: '#475569', border: '1px solid #cbd5e1', fontWeight: 600, cursor: 'pointer' }}
                                 >
                                     Cancel
                                 </button>
+                                <WhatsAppSendButton
+                                    hospitalId={hospitalId}
+                                    targetRef={printIframeRef}
+                                    phoneNumber={selectedPatient?.user?.mobile || selectedPatient?.profile?.contactNumber || selectedPatient?.mobile || ''}
+                                    documentName={`Bill_Receipt_${selectedPatient?.name || 'Patient'}.pdf`}
+                                    caption={`${WA_DIVIDER}\n*ADDITIONAL CHARGES RECEIPT*\n${WA_DIVIDER}\n*Patient:* ${selectedPatient?.name || 'N/A'}\n*MRN:* ${selectedPatient?.mrn || 'N/A'}\n*Amount:* ₹${totalAmount.toLocaleString('en-IN')}\n*Payment Mode:* ${paymentMethod.toUpperCase()}\n${WA_DIVIDER}\n${READ_MORE}\nThank you for choosing our hospital.`}
+                                    showCheckbox={true}
+                                    autoSend={autoWhatsApp}
+                                    onAutoSendChange={handleToggleAutoWhatsApp}
+                                    triggerSend={triggerWhatsApp}
+                                    className="px-5 py-2.5"
+                                />
                                 <button
                                     onClick={() => {
+                                        if (autoWhatsApp) {
+                                            setTriggerWhatsApp(true);
+                                            setTimeout(() => setTriggerWhatsApp(false), 2000);
+                                        }
                                         const printWindow = window.open('', '_blank');
                                         if (printWindow) {
                                             printWindow.document.open();

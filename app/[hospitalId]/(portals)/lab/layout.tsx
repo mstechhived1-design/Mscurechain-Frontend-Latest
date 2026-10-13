@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useRef, useTransition } from "react";
 import { useRouter, usePathname, useParams } from "next/navigation";
 import { useAuthStore } from '@/stores/authStore';
 import { Menu, LogOut, LayoutDashboard, IndianRupee, Building2, FlaskConical, Settings, ShieldCheck, FileEdit, Wrench, Package } from "lucide-react";
@@ -38,8 +38,17 @@ const LabLayout = ({ children }: { children: React.ReactNode }) => {
 
     useRealtime(['lab', 'billing', 'patients', 'system']);
 
+    const isFetchingCountRef = useRef(false);
+    const lastCountFetchRef = useRef(0);
+
     const fetchPendingCount = async () => {
         if (!isAuthenticated || user?.role !== 'lab') return;
+        const now = Date.now();
+        // Prevent concurrent requests and throttle to at most once every 1.5 seconds
+        if (isFetchingCountRef.current || (now - lastCountFetchRef.current < 1500)) return;
+        isFetchingCountRef.current = true;
+        lastCountFetchRef.current = now;
+
         try {
             // Use dedicated count method — always bypasses cache for accuracy
             const count = await LabSampleService.getPendingCount();
@@ -47,8 +56,10 @@ const LabLayout = ({ children }: { children: React.ReactNode }) => {
         } catch (error: any) {
             // Silence 403s as they are handled by the license lock
             if (error.status !== 403) {
-                console.error('Failed to fetch pending test count:', error);
+                console.warn('Failed to fetch pending test count:', error?.message || error);
             }
+        } finally {
+            isFetchingCountRef.current = false;
         }
     };
 
@@ -125,7 +136,9 @@ const LabLayout = ({ children }: { children: React.ReactNode }) => {
     }, [isAuthenticated, isInitialized, user?.role, router, isLoginPage, getPath]);
 
     useEffect(() => {
-        let socketInstance: any = null;
+        let isCancelled = false;
+        let registeredSocket: any = null;
+        let debounceTimer: any = null;
 
         if (isAuthenticated && user?.role === 'lab') {
             const hId = (routeParams?.hospitalId as string);
@@ -134,46 +147,40 @@ const LabLayout = ({ children }: { children: React.ReactNode }) => {
             joinSocketRoom({ role: 'lab', userId: user.id, hospitalId: hId });
 
             getSocket().then(socket => {
-                if (socket) {
-                    socketInstance = socket;
-                    
-                    // Handler function to re-fetch count when a change is detected
-                    // Two-tier delay: first at 500ms, then again at 2s to catch any slow DB writes
-                    const handleUpdate = () => {
-                        console.log('📡 [LabLayout] Real-time event received, refreshing count...');
-                        // First refresh shortly after event — covers fast DB writes
-                        setTimeout(() => {
-                            clearApiCache();
-                            fetchPendingCount();
-                        }, 500);
-                        // Second refresh after 2s — handles slower writes or network lag
-                        setTimeout(() => {
-                            clearApiCache();
-                            fetchPendingCount();
-                        }, 2000);
-                    };
+                if (isCancelled || !socket) return;
+                registeredSocket = socket;
+                
+                // Debounced handler: coalesce rapid real-time bursts into a single refresh
+                const handleUpdate = () => {
+                    if (debounceTimer) clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        clearApiCache();
+                        fetchPendingCount();
+                    }, 800);
+                };
 
-                    socket.on('new_lab_order', handleUpdate);
-                    socket.on('sample_collected', handleUpdate);
-                    socket.on('lab_order_updated', handleUpdate);
-                    socket.on('payment_status_changed', handleUpdate);
-                    socket.on('bill_generated', handleUpdate);
-                    socket.on('lab_refresh_forced', handleUpdate);
-                }
+                socket.on('new_lab_order', handleUpdate);
+                socket.on('sample_collected', handleUpdate);
+                socket.on('lab_order_updated', handleUpdate);
+                socket.on('payment_status_changed', handleUpdate);
+                socket.on('bill_generated', handleUpdate);
+                socket.on('lab_refresh_forced', handleUpdate);
             });
         }
 
         return () => {
-            if (socketInstance) {
-                socketInstance.off('new_lab_order');
-                socketInstance.off('sample_collected');
-                socketInstance.off('lab_order_updated');
-                socketInstance.off('payment_status_changed');
-                socketInstance.off('bill_generated');
-                socketInstance.off('lab_refresh_forced');
+            isCancelled = true;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            if (registeredSocket) {
+                registeredSocket.off('new_lab_order');
+                registeredSocket.off('sample_collected');
+                registeredSocket.off('lab_order_updated');
+                registeredSocket.off('payment_status_changed');
+                registeredSocket.off('bill_generated');
+                registeredSocket.off('lab_refresh_forced');
             }
         };
-    }, [isAuthenticated, user, routeParams?.hospitalId]);
+    }, [isAuthenticated, user?.id, user?.role, routeParams?.hospitalId]);
 
     if (!isLoginPage && (!isMounted || isLoading || !isInitialized)) {
         return (

@@ -6,6 +6,7 @@ import { feedbackService } from '@/lib/integrations/services/feedback.service';
 import { useAuthStore } from '@/stores/authStore';
 import { MessageSquare, Star, Quote, Loader, User, XCircle, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { formatPatientDisplayName } from '@/lib/utils/name-utils';
 import toast from 'react-hot-toast';
 
 export default function FeedbacksPage() {
@@ -174,7 +175,7 @@ export default function FeedbacksPage() {
                                         </div>
                                         <div>
                                             <h4 className="font-bold text-slate-900 leading-tight">
-                                                {fb.isAnonymous ? 'Anonymous Patient' : fb.patientName}
+                                                {fb.isAnonymous ? 'Anonymous Patient' : (formatPatientDisplayName(fb.patient, fb, true) || fb.patientName)}
                                             </h4>
                                             <div className="flex items-center gap-2 mt-0.5">
                                                 {fb.patient?.mrn && (

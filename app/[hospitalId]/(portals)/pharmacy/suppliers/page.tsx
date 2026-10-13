@@ -449,6 +449,13 @@ const SuppliersPage = () => {
                                 />
                             </div>
 
+                            {/* Total Count Badge */}
+                            <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 md:py-2 shrink-0 shadow-sm">
+                                <Truck className="w-3.5 h-3.5 text-teal-500" />
+                                <span className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vendors:</span>
+                                <span className="text-[11px] md:text-xs font-black text-teal-700 dark:text-teal-400">{totalSuppliers}</span>
+                            </div>
+
                             <button
                                 onClick={() => setIsAddModalOpen(true)}
                                 className="flex items-center justify-center gap-1.5 px-4 py-1.5 md:py-2 bg-teal-600 text-white rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-teal-700 transition-colors shadow-sm shrink-0 w-full sm:w-auto"

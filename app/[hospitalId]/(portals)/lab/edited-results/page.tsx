@@ -6,6 +6,7 @@ import { LabSampleService } from '@/lib/integrations/services/labSample.service'
 import { LabSample } from '@/lib/integrations/types/labSample';
 import { toast } from 'react-hot-toast';
 import { Search, FileText, Download, CheckCircle2, ChevronLeft, ChevronRight, Edit3, Clock } from 'lucide-react';
+import { formatPatientDisplayName, formatPatientNameWithPrefix, cleanPatientName } from '@/lib/utils/name-utils';
 
 export default function LabEditedResultsPage() {
     const router = useRouter();
@@ -56,11 +57,16 @@ export default function LabEditedResultsPage() {
         }
     };
 
-    const filteredSamples = editedSamples.filter(sample =>
-        sample.patientDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sample.sampleId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (sample.patientDetails.mobile && sample.patientDetails.mobile.includes(searchQuery))
-    );
+    const filteredSamples = editedSamples.filter(sample => {
+        const formattedName = formatPatientDisplayName(sample.patientDetails, sample, true);
+        const query = searchQuery.toLowerCase();
+        return (
+            (sample.patientDetails?.name && sample.patientDetails.name.toLowerCase().includes(query)) ||
+            formattedName.toLowerCase().includes(query) ||
+            sample.sampleId.toLowerCase().includes(query) ||
+            (sample.patientDetails?.mobile && sample.patientDetails.mobile.includes(query))
+        );
+    });
 
     // Calculate total pages
     const totalPages = Math.ceil(filteredSamples.length / itemsPerPage);
@@ -171,12 +177,33 @@ export default function LabEditedResultsPage() {
                                         <tr key={sample._id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors">
                                             <td className="px-4 md:px-6 py-3 md:py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold text-xs">
-                                                        {sample.patientDetails.name.charAt(0)}
+                                                    <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold text-xs uppercase">
+                                                        {(cleanPatientName(sample.patientDetails?.name) || 'P').charAt(0).toUpperCase()}
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium text-gray-900 dark:text-white">{sample.patientDetails.name}</div>
-                                                        <div className="text-xs text-gray-500">{sample.patientDetails.age}Y • {sample.patientDetails.gender}</div>
+                                                        <div className="font-bold text-xs md:text-sm text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                                                            {sample.patientDetails?.originalPatientName ? (
+                                                                <>
+                                                                    <span>
+                                                                        {formatPatientNameWithPrefix(sample.patientDetails.originalPatientName, (sample.patientDetails as any).honorific, true)}
+                                                                    </span>
+                                                                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded uppercase font-semibold">
+                                                                        {formatPatientDisplayName(sample.patientDetails, sample, true)}
+                                                                    </span>
+                                                                </>
+                                                            ) : (
+                                                                formatPatientDisplayName(sample.patientDetails, sample, true)
+                                                            )}
+                                                        </div>
+                                                        <div className="text-[10px] md:text-xs text-gray-500 font-medium">
+                                                            {(() => {
+                                                                const rawAge: any = sample.patientDetails?.age;
+                                                                const unit = (sample.patientDetails as any)?.ageUnit || '';
+                                                                if (!rawAge || rawAge === '-' || rawAge === 'N/A') return '-';
+                                                                if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                                                return unit ? `${rawAge} ${unit}` : `${rawAge}Y`;
+                                                            })()} • {sample.patientDetails?.gender || '-'}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>

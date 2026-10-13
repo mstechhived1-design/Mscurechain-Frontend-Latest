@@ -16,8 +16,9 @@ import { LabSettingsService } from '@/lib/integrations/services/labSettings.serv
 import { Download, ArrowLeft, Printer, FileText, Send, Edit3 } from 'lucide-react';
 import { invalidateCachePattern } from '@/lib/integrations/api/apiClient';
 import { API_CONFIG } from '@/lib/integrations/config/api-config';
-import { WhatsAppSendButton, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
+import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
+import { formatPatientDisplayName } from '@/lib/utils/name-utils';
 
 export default function LabResultEntryPage() {
     const params = useParams() as any;
@@ -37,9 +38,32 @@ export default function LabResultEntryPage() {
     const printRef = useRef<HTMLDivElement>(null);
     const hospitalId = (params?.hospitalId as string) || '';
 
+    const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
+    const [autoWhatsApp, setAutoWhatsApp] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('msc_auto_whatsapp') === 'true';
+        }
+        return false;
+    });
+
+    const handleToggleAutoWhatsApp = (val: boolean) => {
+        setAutoWhatsApp(val);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp', String(val));
+        }
+    };
+
+    const triggerPrintAndWhatsApp = () => {
+        handlePrint();
+        if (autoWhatsApp) {
+            setTriggerWhatsApp(true);
+            setTimeout(() => setTriggerWhatsApp(false), 500);
+        }
+    };
+
     const labReportCaption = React.useMemo(() => {
         if (!sample) return '';
-        const pName = sample.patientDetails?.name || 'Valued Patient';
+        const pName = formatPatientDisplayName(sample.patientDetails, sample, true);
         const isMongoId = (val?: string) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
         const getValidMrn = (val?: any) => (val && typeof val === 'string' && !isMongoId(val)) ? val : null;
 
@@ -59,7 +83,7 @@ export default function LabResultEntryPage() {
         const testList = (sample.tests || []).map(t => t.testName).join(', ') || 'Diagnostic Report';
 
         return `*${hospName.toUpperCase()}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 *OFFICIAL LABORATORY TEST REPORT*
 
 *Patient Name:* ${pName}
@@ -68,7 +92,7 @@ export default function LabResultEntryPage() {
 *Sample / Report ID:* ${sampId}
 *Report Date:* ${dateStr}
 *Tests Performed:* ${testList}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${WA_DIVIDER}
 ${READ_MORE}
 *Important Patient Instructions:*
 • Find your official diagnostic laboratory test report PDF attached above.
@@ -595,7 +619,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                 <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Edit Results
                             </button>
                             <button
-                                onClick={handlePrint}
+                                onClick={triggerPrintAndWhatsApp}
                                 className="flex-1 sm:flex-none px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-900 dark:bg-gray-700 text-white rounded-xl font-bold text-[10px] sm:text-xs md:text-sm flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-gray-800 transition-all shadow-sm active:scale-95"
                             >
                                 <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Print
@@ -606,6 +630,9 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                 phoneNumber={sample.patientDetails?.mobile || (sample.patientDetails as any)?.phone || ''}
                                 documentName={`Lab_Report_${sample.sampleId || 'Report'}.pdf`}
                                 caption={labReportCaption}
+                                autoSend={autoWhatsApp}
+                                onAutoSendChange={handleToggleAutoWhatsApp}
+                                triggerSend={triggerWhatsApp}
                             />
                             {/* <button
                                 onClick={handleDownload}
@@ -649,7 +676,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 </button>
                 <div className="min-w-0">
                     <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">Result Entry</h1>
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">Sample #{sample.sampleId} • {sample.patientDetails.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">Sample #{sample.sampleId} • {formatPatientDisplayName(sample.patientDetails, sample, true)}</p>
                 </div>
             </div>
 

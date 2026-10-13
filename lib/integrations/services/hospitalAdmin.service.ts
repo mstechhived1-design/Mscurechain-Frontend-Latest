@@ -844,7 +844,7 @@ export const hospitalAdminService = {
   },
 
   /** GET /hospital/auth-log-filters */
-  getAuthLogFilters: () => 
+  getAuthLogFilters: () =>
     apiClient<{ success: boolean; data: { roles: string[] } }>(HOSPITAL_ADMIN_ENDPOINTS.AUTH_LOG_FILTERS),
 
   updateReminderConfig: (data: any) =>

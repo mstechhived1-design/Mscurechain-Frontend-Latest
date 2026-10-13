@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Undo2, Search, Package, IndianRupee, RotateCcw, AlertCircle, FileText } from 'lucide-react';
 import { apiClient } from '@/lib/integrations/api/apiClient';
 import toast from 'react-hot-toast';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 export default function GeneralReturnPage() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -168,7 +169,7 @@ export default function GeneralReturnPage() {
                                 Invoice: {invoice.invoiceNo}
                             </h2>
                             <p className="text-sm text-gray-500 mt-1">
-                                Patient: <span className="font-medium text-gray-700">{invoice.patientName || 'N/A'}</span> • 
+                                Patient: <span className="font-medium text-gray-700">{formatPatientNameWithPrefix(invoice.patientName || invoice.patient?.name || 'N/A', invoice.honorific || invoice.patient?.honorific, true)}</span> • 
                                 Date: {new Date(invoice.createdAt).toLocaleDateString()}
                             </p>
                         </div>

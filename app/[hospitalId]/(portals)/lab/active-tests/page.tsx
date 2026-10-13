@@ -6,6 +6,7 @@ import { LabSample } from '@/lib/integrations/types/labSample';
 import { LabSampleService } from '@/lib/integrations/services/labSample.service';
 import { Activity, RefreshCw, Trash2, User, TestTube, Clock, AlertCircle, CheckCircle2, IndianRupee } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { formatPatientDisplayName, cleanPatientName } from '@/lib/utils/name-utils';
 
 function ActiveTestsPage() {
     const router = useRouter();
@@ -144,16 +145,16 @@ function ActiveTestsPage() {
                             className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all p-4 sm:p-6"
                         >
                             <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                                <div className="hidden sm:flex w-14 h-14 rounded-xl items-center justify-center font-semibold text-white shadow-sm bg-indigo-500 shrink-0">
-                                    {sample.patientDetails.name.charAt(0)}
+                                <div className="hidden sm:flex w-14 h-14 rounded-xl items-center justify-center font-bold text-white shadow-sm bg-indigo-500 shrink-0 text-base uppercase">
+                                    {(cleanPatientName(sample.patientDetails?.name) || 'P').charAt(0)}
                                 </div>
 
                                 <div className="flex-1 min-w-0 w-full">
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 mb-3">
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                                    {sample.patientDetails.name}
+                                                <h3 className="text-lg font-bold text-gray-900 dark:text-white uppercase">
+                                                    {formatPatientDisplayName(sample.patientDetails, sample, true)}
                                                 </h3>
                                                 {sample.priority && sample.priority !== 'routine' && (
                                                     <span className="bg-red-500 text-white font-black text-[10px] px-2 py-0.5 rounded shadow uppercase animate-pulse">
@@ -161,10 +162,16 @@ function ActiveTestsPage() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                                            <div className="flex items-center gap-4 text-xs font-medium text-gray-500 dark:text-gray-400">
                                                 <span className="flex items-center gap-1.5">
                                                     <User className="w-3.5 h-3.5" />
-                                                    {sample.patientDetails.age}Y • {sample.patientDetails.gender}
+                                                    {(() => {
+                                                        const rawAge: any = sample.patientDetails.age;
+                                                        const unit = (sample.patientDetails as any).ageUnit || '';
+                                                        if (!rawAge || rawAge === '-' || rawAge === 'N/A') return '-';
+                                                        if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                                        return unit ? `${rawAge} ${unit}` : `${rawAge}Y`;
+                                                    })()} • {sample.patientDetails.gender || '-'}
                                                 </span>
                                                 <span className="flex items-center gap-1.5">
                                                     <Clock className="w-3.5 h-3.5" />
