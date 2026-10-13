@@ -289,23 +289,34 @@ const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date
                 visibility: visible;
             }
             @page {
-                size: A4;
+                size: A4 portrait;
                 margin: 0;
+            }
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: 100% !important;
+                overflow: hidden !important;
             }
             #printable-bill {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
                 width: 100% !important;
-                height: 296mm !important;
+                max-width: 210mm !important;
+                height: 100% !important;
+                max-height: 296mm !important;
                 margin: 0 !important;
-                padding: 15mm !important; /* Standard print padding */
+                padding: 12mm !important;
                 border: none !important;
                 display: flex !important;
                 flex-direction: column !important;
                 justify-content: space-between !important;
                 box-sizing: border-box !important;
                 background-color: white !important;
+                page-break-after: avoid !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
             }
              /* Small fix to hide Next.js dev overlays if present */
             nextjs-portal, #__next-build-watcher {

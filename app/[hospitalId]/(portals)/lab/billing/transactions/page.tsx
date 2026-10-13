@@ -824,17 +824,19 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                         </div>
 
                         {/* Paper Preview Body */}
-                        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center items-start">
-                            <div
-                                ref={modalPrintRef}
-                                className="bg-white shadow-xl rounded-sm border border-slate-200 dark:border-slate-800 mx-auto w-full max-w-[210mm]"
-                                style={{ width: '210mm', minHeight: '297mm' }}
-                            >
-                                <BillPrintView
-                                    billData={selectedBill}
-                                    invoiceId={selectedBill.invoiceId}
-                                    date={new Date(selectedBill.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                />
+                        <div className="flex-1 overflow-auto p-3 sm:p-6 bg-slate-100 dark:bg-slate-950">
+                            <div className="w-full min-w-max flex justify-center">
+                                <div
+                                    ref={modalPrintRef}
+                                    className="bg-white shadow-xl rounded-sm border border-slate-200 dark:border-slate-800 mx-auto"
+                                    style={{ width: '210mm', minWidth: '210mm', minHeight: '297mm' }}
+                                >
+                                    <BillPrintView
+                                        billData={selectedBill}
+                                        invoiceId={selectedBill.invoiceId}
+                                        date={new Date(selectedBill.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    />
+                                </div>
                             </div>
                         </div>
 

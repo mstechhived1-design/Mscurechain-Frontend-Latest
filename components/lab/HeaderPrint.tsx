@@ -138,67 +138,6 @@ const HeaderPrint: React.FC = () => {
                 <div style={containerStyle} className="lab-header-container">
                     <style>
                         {`
-                        @media screen and (max-width: 640px) {
-                            .lab-header-container {
-                                margin-bottom: 10px !important;
-                            }
-                            .lab-header-top-section {
-                                flex-direction: column !important;
-                                align-items: center !important;
-                                gap: 8px !important;
-                                padding: 8px 0 !important;
-                                text-align: center !important;
-                            }
-                            .lab-header-logo-container {
-                                min-width: unset !important;
-                                max-width: 110px !important;
-                                margin-bottom: 2px !important;
-                            }
-                            .lab-header-logo {
-                                max-height: 55px !important;
-                                width: auto !important;
-                            }
-                            .lab-header-divider {
-                                display: none !important;
-                            }
-                            .lab-header-right-section {
-                                align-items: center !important;
-                                width: 100% !important;
-                                gap: 4px !important;
-                            }
-                            .lab-header-title {
-                                font-size: 18px !important;
-                                margin-bottom: 4px !important;
-                                line-height: 1.1 !important;
-                                white-space: normal !important;
-                                max-width: 90% !important;
-                            }
-                            .lab-header-email, 
-                            .lab-header-address, 
-                            .lab-header-phone-container {
-                                font-size: 10px !important;
-                                justify-content: center !important;
-                                text-align: center !important;
-                                line-height: 1.2 !important;
-                            }
-                            .lab-header-email svg, 
-                            .lab-header-phone-container svg {
-                                width: 10px !important;
-                                height: 10px !important;
-                            }
-                            .lab-header-contact-row {
-                                flex-direction: column !important;
-                                gap: 4px !important;
-                                align-items: center !important;
-                                width: 100% !important;
-                            }
-                            .lab-header-divider-small {
-                                display: none !important;
-                            }
-                            .lab-header-bottom-line {
-                                height: 2px !important;
-                            }
-                        }
                         @media print {
                             .lab-header-container, .lab-header-top-section {
                                 display: table !important;
