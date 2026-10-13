@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { LabSample } from '@/lib/integrations/types/labSample';
 import HeaderPrint from './HeaderPrint';
+import FooterPrint from './FooterPrint';
 import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 
@@ -117,19 +118,21 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
         };
 
         return (
-            <div ref={ref} style={{ padding: 0, background: '#fff', fontFamily: '"Segoe UI", Arial, sans-serif' }}>
+            <div ref={ref} style={{ padding: 0, background: '#fff', fontFamily: '"Segoe UI", Arial, sans-serif', width: '100%', maxWidth: '210mm', minHeight: '290mm', margin: '0 auto' }}>
                 <style>{`
                     .print-content {
                         display: block;
                         width: 100%;
                         max-width: 210mm;
+                        min-height: 290mm;
                         margin: 0 auto;
                         position: relative;
                         background: #ffffff;
                         color: #000;
+                        box-sizing: border-box;
                     }
                     @media (min-width: 800px) {
-                        .report-body   { padding: 20px !important; }
+                        .report-body   { padding: 10mm 12mm !important; }
                         .lab-patient-grid {
                             font-size: 13px !important;
                         }
@@ -138,10 +141,13 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                         .lab-test-table td { padding: 8px 10px !important; }
                     }
                     .report-body {
-                        display: block;
-                        padding: 12px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        padding: 10mm 12mm;
                         box-sizing: border-box;
                         position: relative;
+                        min-height: 290mm;
                     }
                     .lab-print-footer {
                         display: block;
@@ -498,6 +504,9 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                                                     (Lab Technician / Incharge)
                                                 </div>
                                             </div>
+                                        </div>
+                                        <div className="lab-print-footer mt-4">
+                                            <FooterPrint />
                                         </div>
                                     </td>
                                 </tr>

@@ -57,8 +57,18 @@ const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date
     }, []);
 
     return (
-        <div className="p-6 bg-white text-black font-sans max-w-[210mm] mx-auto flex flex-col justify-between" id="printable-bill">
-            <div className="w-full">
+        <div
+            className="bg-white text-black font-sans mx-auto flex flex-col justify-between"
+            id="printable-bill"
+            style={{
+                width: '100%',
+                maxWidth: '210mm',
+                minHeight: '290mm',
+                padding: '12mm',
+                boxSizing: 'border-box',
+            }}
+        >
+            <div className="w-full flex-1 flex flex-col">
                 {/* Header Component - Replaces static header */}
                 <HeaderPrint />
 

@@ -93,7 +93,7 @@ export const useWhatsAppSender = ({ hospitalId }: UseWhatsAppSenderProps) => {
           });
 
           // Crucial fix: convert all fixed footers inside tempContainer to position: absolute pinned to bottom with exact equal margins
-          const footers = tempContainer.querySelectorAll<HTMLElement>('.footer-wrapper, .hospital-footer, footer, [class*="footer-wrapper"]');
+          const footers = tempContainer.querySelectorAll<HTMLElement>('.footer-wrapper, .hospital-footer, footer, .lab-footer-container, .lab-print-footer, [class*="footer-wrapper"], [class*="lab-footer"]');
           footers.forEach(f => {
             f.style.setProperty('position', 'absolute', 'important');
             f.style.setProperty('bottom', `${PAGE_PADDING_BOTTOM}px`, 'important');
@@ -171,11 +171,18 @@ export const useWhatsAppSender = ({ hospitalId }: UseWhatsAppSenderProps) => {
           windowHeight: targetElement === tempContainer ? dynamicHeight : (targetElement.scrollHeight || undefined),
           onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
             // 1. Convert any fixed footers to absolute bottom with standard equal margins
-            const clonedHasInner = !!clonedElement.querySelector('.container, .receipt-container, .print-block, .prescription-responsive-container');
+            const clonedHasInner = !!clonedElement.querySelector('.container, .receipt-container, .print-block, .prescription-responsive-container, .print-content, #printable-bill, .report-body');
             const clonedMargin = clonedHasInner ? '12mm' : `${PAGE_PADDING_X}px`;
             const clonedWidth = clonedHasInner ? 'calc(100% - 24mm)' : `calc(100% - ${PAGE_PADDING_X * 2}px)`;
 
-            const clonedFooters = clonedElement.querySelectorAll<HTMLElement>('.footer-wrapper, .hospital-footer, footer, [class*="footer-wrapper"]');
+            // Normalize lab/report containers so left and right margins are completely balanced
+            clonedElement.querySelectorAll<HTMLElement>('.print-content, #printable-bill, .report-body, .lab-report-template, .bill-preview-body').forEach(el => {
+              el.style.setProperty('width', '100%', 'important');
+              el.style.setProperty('max-width', '100%', 'important');
+              el.style.setProperty('box-sizing', 'border-box', 'important');
+            });
+
+            const clonedFooters = clonedElement.querySelectorAll<HTMLElement>('.footer-wrapper, .hospital-footer, footer, .lab-footer-container, .lab-print-footer, [class*="footer-wrapper"], [class*="lab-footer"]');
             clonedFooters.forEach(f => {
               const comp = window.getComputedStyle(f);
               if (comp.position === 'fixed' || f.style.position === 'absolute') {

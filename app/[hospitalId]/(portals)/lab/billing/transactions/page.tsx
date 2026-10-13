@@ -797,31 +797,56 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
 
             {/* Print Preview Modal - Professional Style */}
             {showPreview && selectedBill && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95">
-                        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
-                            <div>
-                                <h3 className="font-bold text-gray-900 dark:text-white">Invoice Preview</h3>
-                                <p className="text-xs text-gray-500">{selectedBill.invoiceId}</p>
-                            </div>
-                            <button onClick={() => setShowPreview(false)} className="p-2 hover:bg-gray-200 rounded-lg">
-                                <X className="w-5 h-5 text-gray-500" />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-8 bg-gray-100/50 dark:bg-black/20">
-                            <div className="bg-white shadow-lg mx-auto" style={{ width: '210mm', minHeight: '297mm', padding: '20mm' }}>
-                                <div ref={modalPrintRef}>
-                                    <BillPrintView
-                                        billData={selectedBill}
-                                        invoiceId={selectedBill.invoiceId}
-                                        date={new Date(selectedBill.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                    />
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-gray-900 w-full max-w-4xl max-h-[94vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-gray-800">
+                        {/* Header Bar */}
+                        <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/80">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 rounded-lg">
+                                    <Eye size={18} />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-sm text-gray-900 dark:text-white">Invoice Preview</h3>
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 uppercase tracking-wider">
+                                            {selectedBill.patientType || 'OPD'}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] font-mono text-gray-500">{selectedBill.invoiceId}</p>
                                 </div>
                             </div>
+                            <button
+                                onClick={() => setShowPreview(false)}
+                                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
-                        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
-                            <button onClick={() => setShowPreview(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Close</button>
-                            <div className="flex items-center gap-3">
+
+                        {/* Paper Preview Body */}
+                        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center items-start">
+                            <div
+                                ref={modalPrintRef}
+                                className="bg-white shadow-xl rounded-sm border border-slate-200 dark:border-slate-800 mx-auto w-full max-w-[210mm]"
+                                style={{ width: '210mm', minHeight: '297mm' }}
+                            >
+                                <BillPrintView
+                                    billData={selectedBill}
+                                    invoiceId={selectedBill.invoiceId}
+                                    date={new Date(selectedBill.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Action Bar */}
+                        <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-900">
+                            <button
+                                onClick={() => setShowPreview(false)}
+                                className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors border border-gray-200 dark:border-gray-700"
+                            >
+                                Close
+                            </button>
+                            <div className="flex items-center gap-2.5">
                                 <WhatsAppSendButton
                                     hospitalId={hospitalId}
                                     targetRef={modalPrintRef}
@@ -829,9 +854,12 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                     documentName={`Invoice_${selectedBill.invoiceId || 'Lab'}.pdf`}
                                     caption={labInvoiceCaption}
                                     showCheckbox={false}
-                                    className="px-4 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-all active:scale-95"
+                                    className="px-3.5 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
                                 />
-                                <button onClick={handlePrint} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-200 dark:shadow-none transition-all flex items-center gap-2">
+                                <button
+                                    onClick={handlePrint}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
+                                >
                                     <Printer className="w-4 h-4" /> Print Invoice
                                 </button>
                             </div>
