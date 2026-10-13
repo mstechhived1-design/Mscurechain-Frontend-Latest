@@ -164,13 +164,13 @@ export default function TransactionsPage() {
         }
 
         // Also search by mobile or MRN to guarantee matching the exact patient record from the Patients page!
-        const searchKey = previewTx.patientMobile || previewTx.mobile || previewTx.patientMRN || previewTx.patientDetails?.mobile || previewTx.patientDetails?.mrn;
+        const searchKey = previewTx.patientMobile || previewTx.mobile || previewTx.phone || previewTx.patientMRN || previewTx.mrn || previewTx.patientDetails?.mobile || previewTx.patientDetails?.mrn;
         if (searchKey) {
             helpdeskService.searchPatients(searchKey, 1, 5).then((res: any) => {
                 const list = Array.isArray(res) ? res : (res?.data || res?.patients || []);
                 const match = list.find((p: any) => 
-                    (previewTx.patientMRN && (p.mrn === previewTx.patientMRN || p.profile?.mrn === previewTx.patientMRN)) ||
-                    (searchKey && (p.mobile === searchKey || p.user?.mobile === searchKey))
+                    ((previewTx.patientMRN || previewTx.mrn) && (p.mrn === (previewTx.patientMRN || previewTx.mrn) || p.profile?.mrn === (previewTx.patientMRN || previewTx.mrn))) ||
+                    (searchKey && (p.mobile === searchKey || p.user?.mobile === searchKey || p.phone === searchKey))
                 ) || list[0];
                 if (match) {
                     setFullPatient((prev: any) => ({
@@ -1614,13 +1614,28 @@ export default function TransactionsPage() {
                 const activePatient = fullPatient?.user || fullPatient?.patient || fullPatient || {};
                 const activeProfile = fullPatient?.profile || fullPatient?.patientProfile || activePatient?.profile || {};
 
+                const rawType = (previewTx.type || '').toLowerCase();
+                const apptData = previewTx.referenceId || {};
+
                 const resolvedAddress = activeProfile?.address || activePatient?.address || (fullPatient as any)?.address || previewTx.patientDetails?.address || previewTx.patient?.address || previewTx.address || 'N/A';
                 const resolvedBloodGroup = activeProfile?.bloodGroup || activePatient?.bloodGroup || (fullPatient as any)?.bloodGroup || previewTx.patientDetails?.bloodGroup || previewTx.patient?.bloodGroup || 'N/A';
                 const resolvedDob = activeProfile?.dob || activePatient?.dateOfBirth || activePatient?.dob || (fullPatient as any)?.dob || (fullPatient as any)?.dateOfBirth || previewTx.patientDetails?.dob || previewTx.patientDetails?.dateOfBirth || previewTx.dob || previewTx.dateOfBirth;
-                const resolvedMrn = (previewTx.patientMRN && previewTx.patientMRN !== 'Resolving...') ? previewTx.patientMRN : (activeProfile?.mrn || (fullPatient as any)?.mrn || previewTx.patientDetails?.mrn || 'N/A');
-
-                const rawType = (previewTx.type || '').toLowerCase();
-                const apptData = previewTx.referenceId || {};
+                const resolvedMrn = 
+                    (previewTx.patientMRN && previewTx.patientMRN !== 'Resolving...' && previewTx.patientMRN !== 'N/A' && previewTx.patientMRN !== '—') 
+                        ? previewTx.patientMRN 
+                        : (previewTx.mrn && previewTx.mrn !== 'Resolving...' && previewTx.mrn !== 'N/A' && previewTx.mrn !== '—')
+                            ? previewTx.mrn
+                            : (apptData?.mrn && apptData.mrn !== 'Resolving...' && apptData.mrn !== 'N/A' && apptData.mrn !== '—')
+                                ? apptData.mrn
+                                : (activeProfile?.mrn && activeProfile.mrn !== 'N/A' && activeProfile.mrn !== '—')
+                                    ? activeProfile.mrn
+                                    : ((fullPatient as any)?.mrn && (fullPatient as any)?.mrn !== 'N/A' && (fullPatient as any)?.mrn !== '—')
+                                        ? (fullPatient as any).mrn
+                                        : (previewTx.patientDetails?.mrn && previewTx.patientDetails?.mrn !== 'N/A' && previewTx.patientDetails?.mrn !== '—')
+                                            ? previewTx.patientDetails.mrn
+                                            : patientMRNMap.get(cleanPatientName(previewTx.patientName || '').toUpperCase())
+                                            || patientMRNMap.get((previewTx.patientMobile || previewTx.mobile || previewTx.phone || '').trim())
+                                            || 'N/A';
                 const isLabTx = rawType === 'lab_test' || rawType === 'lab' || rawType.includes('lab') || Boolean(apptData.tests && apptData.tests.length > 0) || Boolean(previewTx.tests && previewTx.tests.length > 0);
                 const labTestsList = apptData.tests || previewTx.tests || (apptData.testName ? [{ name: apptData.testName, cost: previewTx.amount }] : (apptData.description ? [{ name: apptData.description, cost: previewTx.amount }] : (previewTx.description ? [{ name: previewTx.description, cost: previewTx.amount }] : [])));
 
