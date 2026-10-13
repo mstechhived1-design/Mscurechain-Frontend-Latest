@@ -795,6 +795,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                     {selectedBill && (
                                         <WhatsAppSendButton
                                             hospitalId={hospitalId}
+                                            department="pharma"
                                             targetRef={modalPrintRef}
                                             phoneNumber={selectedBill.customerPhone || (selectedBill as any).phone || (selectedBill as any).mobile || ''}
                                             documentName={`Invoice_${selectedBill.invoiceId || 'Pharmacy'}.pdf`}

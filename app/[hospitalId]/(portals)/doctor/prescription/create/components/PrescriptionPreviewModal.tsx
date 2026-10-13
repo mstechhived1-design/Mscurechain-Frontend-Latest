@@ -1488,6 +1488,7 @@ return (
 
                         <WhatsAppSendButton
                             hospitalId={hospitalId}
+                            department="doctor"
                             targetRef={paperRef}
                             phoneNumber={patientMobile}
                             documentName={`Prescription_${formData.patientName || 'Patient'}.pdf`}

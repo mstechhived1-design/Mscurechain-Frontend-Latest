@@ -6,16 +6,18 @@ import { sendWhatsAppMedia } from './whatsappApi';
 
 interface UseWhatsAppSenderProps {
   hospitalId: string;
+  department?: 'pharma' | 'lab' | 'frontdesk' | 'doctor' | string;
 }
 
-export const useWhatsAppSender = ({ hospitalId }: UseWhatsAppSenderProps) => {
+export const useWhatsAppSender = ({ hospitalId, department }: UseWhatsAppSenderProps) => {
   const [isSending, setIsSending] = useState(false);
 
   const captureAndSend = async (
     targetRef: React.RefObject<HTMLElement | null>,
     phoneNumber: string,
     documentName: string = 'Document.pdf',
-    caption: string = 'Here is your document.'
+    caption: string = 'Here is your document.',
+    overrideDepartment?: string
   ) => {
     if (!targetRef.current) {
       toast.error('Could not find the document to capture.');
@@ -338,6 +340,7 @@ export const useWhatsAppSender = ({ hospitalId }: UseWhatsAppSenderProps) => {
         pdfBase64,
         fileName: documentName,
         caption,
+        department: overrideDepartment || department,
       });
 
       if (!res || res.success === false) {

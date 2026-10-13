@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { LabSettingsService, LabSettings } from '@/lib/integrations/services/labSettings.service';
+import { DepartmentWhatsAppConnector } from '@/components/WhatsApp/DepartmentWhatsAppConnector';
 import { toast } from 'react-hot-toast';
 import { Save, Building2, Phone, Mail, Globe, MapPin, FileText, ImageIcon, Printer, ChevronDown, ChevronUp, Plus, ScrollText, X, Camera } from 'lucide-react';
 import ImageCropper from '@/components/ui/ImageCropper';
@@ -27,6 +29,8 @@ export default function LabSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const { user, setUser } = useAuthStore();
+    const params = useParams();
+    const hospitalId = (params?.hospitalId as string) || (user?.hospital as any) || '';
 
     // Cropper State
     const [cropper, setCropper] = useState<{
@@ -586,6 +590,18 @@ export default function LabSettingsPage() {
                             )}
                         </div>
                     </div>
+
+                    {/* Dedicated WhatsApp QR Scanner Card */}
+                    {hospitalId && (
+                        <div className="pt-6">
+                            <DepartmentWhatsAppConnector
+                                hospitalId={hospitalId}
+                                department="lab"
+                                portalName="Laboratory"
+                                subtitle="Link dedicated WhatsApp device for diagnostic reports and test receipts"
+                            />
+                        </div>
+                    )}
 
                     {/* Submit Button */}
                     <div className="pt-8 border-t border-slate-100 dark:border-gray-700">

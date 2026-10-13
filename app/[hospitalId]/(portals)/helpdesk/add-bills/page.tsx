@@ -2606,6 +2606,7 @@ export default function AddBillsPage() {
                                 </button>
                                 <WhatsAppSendButton
                                     hospitalId={hospitalId}
+                                    department="frontdesk"
                                     targetRef={printIframeRef}
                                     phoneNumber={selectedPatient?.user?.mobile || selectedPatient?.profile?.contactNumber || selectedPatient?.mobile || ''}
                                     documentName={`Bill_Receipt_${selectedPatient?.name || 'Patient'}.pdf`}

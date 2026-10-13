@@ -39,6 +39,7 @@ interface WhatsAppSendButtonProps {
   onAutoSendChange?: (enabled: boolean) => void;
   triggerSend?: boolean;
   onSendingChange?: (isSending: boolean) => void;
+  department?: 'pharma' | 'lab' | 'frontdesk' | 'doctor' | string;
 }
 
 export const WhatsAppSendButton = React.forwardRef<WhatsAppSendButtonHandle, WhatsAppSendButtonProps>(({
@@ -56,8 +57,9 @@ export const WhatsAppSendButton = React.forwardRef<WhatsAppSendButtonHandle, Wha
   onAutoSendChange,
   triggerSend,
   onSendingChange,
+  department,
 }, ref) => {
-  const { captureAndSend, isSending } = useWhatsAppSender({ hospitalId });
+  const { captureAndSend, isSending } = useWhatsAppSender({ hospitalId, department });
   
   // Auto WhatsApp State
   const [internalAutoSend, setInternalAutoSend] = useState(() => {
@@ -153,7 +155,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
       return false;
     }
     const finalCaption = buildFinalCaption();
-    const success = await captureAndSend(targetRef, phoneNumber, documentName, finalCaption);
+    const success = await captureAndSend(targetRef, phoneNumber, documentName, finalCaption, department);
     if (success) {
       setIsSent(true);
       setTimeout(() => setIsSent(false), 2500);

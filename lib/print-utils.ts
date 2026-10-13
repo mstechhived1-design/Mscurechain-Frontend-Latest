@@ -1170,7 +1170,7 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
   
   const formattedPatientName = formatPatientNameWithPrefix(
     patient.name || patient.user?.name,
-    appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific || patient.honorific || patient.profile?.honorific || patient.honorificTitle
+    appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific || patient.honorific || patient.profile?.honorific || patient.honorificTitle || patient.patientHonorific
   );
   
   const rawToken = appointment.tokenNo || appointment.tokenNumber || appointment.token || appointment.queueNumber || appointment.dailyTokenNumber || (appointment.queuePosition !== undefined ? appointment.queuePosition : undefined) || (() => {
@@ -1195,11 +1195,20 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
                          getSymptomsText(appointment.reasonForVisit) || 
                          "N/A";
   
-  const isIPD = data.registrationType === 'IPD' || (appointment.type && appointment.type.toUpperCase().includes('IPD'));
-  const slipTitle = isIPD ? "IPD Admission Slip" : "OPD Registration Slip";
-  const idLabel = isIPD ? "IPD.No." : "OP.No.";
-  const tokenLabel = isIPD ? "Admission Token" : "Today's Token No";
-  const visitTypeDisplay = appointment.type || (isIPD ? "IPD Admission" : "Registration");
+  const isDischargeTx = Boolean(
+    payment?.isDischarge ||
+    payment?.isDischargeTransaction ||
+    patient?.dischargeType ||
+    data.registrationType === 'DISCHARGE' ||
+    (appointment.type && /discharge|settlement/i.test(appointment.type)) ||
+    (appointment.specialization && /discharge|settlement/i.test(appointment.specialization))
+  );
+
+  const isIPD = data.registrationType === 'IPD' || (appointment.type && appointment.type.toUpperCase().includes('IPD')) || isDischargeTx;
+  const slipTitle = isDischargeTx ? "IPD Discharge Slip" : isIPD ? "IPD Admission Slip" : "OPD Registration Slip";
+  const idLabel = (isIPD || isDischargeTx) ? "IPD.No." : "OP.No.";
+  const tokenLabel = isDischargeTx ? "Discharge Token" : isIPD ? "Admission Token" : "Today's Token No";
+  const visitTypeDisplay = isDischargeTx ? "IPD Discharge Settlement" : appointment.type || (isIPD ? "IPD Admission" : "Registration");
 
   // ── Follow-up validity block ─────────────────────────────────────────────
   // Priority: stored followUpStatus snapshot (booked values) › live hospital settings
@@ -1536,35 +1545,89 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
         </div>`;
         })()}
 
-        <!-- Compact single row: Token | Fee (if discount) | Discount (if discount) | Paid Amount | Payment Mode -->
-        <div style="grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-          <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
-            <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">${tokenLabel}</span>
-            <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
-            <span style="font-size: 11px; font-weight: 900; color: #0f766e; background: #f0fdf4; padding: 1px 5px; border-radius: 3px; border: 1px solid #ccfbf1; display: inline-block;"># ${tokenNoDisplay}</span>
-          </div>
-          ${Number(payment.discount || appointment.discount || 0) > 0 ? `
-          <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 100px;">
-            <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">Fee</span>
-            <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
-            <span style="font-size: 10px; font-weight: 700; color: #334155;">₹ ${Math.round(payment.totalBillAmount || payment.fee || payment.originalAmount || (Number(payment.amount || 0) + Number(payment.discount || appointment.discount || 0))).toLocaleString('en-IN')}</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 100px;">
-            <span style="font-size: 10px; font-weight: 700; color: #e11d48; flex-shrink: 0;">Discount</span>
-            <span style="color: #e11d48; font-weight: 700; flex-shrink: 0;">:</span>
-            <span style="font-size: 10px; font-weight: 800; color: #e11d48;">- ₹ ${Math.round(Number(payment.discount || appointment.discount || 0)).toLocaleString('en-IN')}</span>
-          </div>` : ''}
-          <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
-            <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">Paid Amount</span>
-            <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
-            <span style="font-size: 11px; font-weight: 900; color: #0f766e;">₹ ${Math.round(payment.amount != null ? payment.amount : (payment.paidAmount || 0)).toLocaleString('en-IN')}</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
-            <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">Payment Mode</span>
-            <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
-            <span style="font-size: 10px; font-weight: 800; color: #1e293b;">${(payment.method || 'CASH').toUpperCase()}</span>
-          </div>
-        </div>
+        ${(() => {
+          if (isDischargeTx) {
+            const totalBill = Number(payment.totalBillAmount || payment.grandTotal || (Number(payment.amount || 0) + Number(payment.advanceAmount || 0)));
+            const discount = Number(payment.discount || appointment.discount || 0);
+            const afterDiscount = Math.max(0, totalBill - discount);
+            const advancePaid = Number(payment.advanceAmount || 0);
+            let settlementPaid = Number(payment.remainingPaid || payment.settlementAmount || payment.amount || 0);
+            if (isDischargeTx && settlementPaid === 0 && afterDiscount > advancePaid) {
+              settlementPaid = Math.max(0, afterDiscount - advancePaid);
+            }
+            let totalPaid = Number(payment.totalPaidAmount || payment.paidAmount || (advancePaid + settlementPaid));
+            if (isDischargeTx && totalPaid <= advancePaid && afterDiscount > advancePaid) {
+              totalPaid = advancePaid + settlementPaid;
+            }
+            let balanceDue = Number(payment.balance ?? payment.dueAmount ?? Math.max(0, afterDiscount - totalPaid));
+            if (isDischargeTx && (payment.status?.toLowerCase() === 'paid' || payment.status?.toLowerCase() === 'completed')) {
+              balanceDue = Math.max(0, afterDiscount - totalPaid);
+            }
+            return `
+            <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; margin-top: 6px; padding: 8px 10px; background: #f8fafc; border: 1.5px solid #0f172a; border-radius: 8px;">
+              <div>
+                <div style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Grand Total</div>
+                <div style="font-size: 13px; font-weight: 900; color: #0f172a;">₹ ${Math.round(totalBill).toLocaleString('en-IN')}</div>
+              </div>
+              ${discount > 0 ? `
+              <div>
+                <div style="font-size: 8.5px; font-weight: 700; color: #e11d48; text-transform: uppercase;">(-) Discount</div>
+                <div style="font-size: 13px; font-weight: 900; color: #e11d48;">- ₹ ${Math.round(discount).toLocaleString('en-IN')}</div>
+              </div>` : ''}
+              ${advancePaid > 0 ? `
+              <div>
+                <div style="font-size: 8.5px; font-weight: 700; color: #2563eb; text-transform: uppercase;">(-) Advance Paid</div>
+                <div style="font-size: 13px; font-weight: 900; color: #2563eb;">- ₹ ${Math.round(advancePaid).toLocaleString('en-IN')}</div>
+              </div>` : ''}
+              <div>
+                <div style="font-size: 8.5px; font-weight: 700; color: #0f766e; text-transform: uppercase;">Settlement Paid</div>
+                <div style="font-size: 13px; font-weight: 900; color: #0f766e;">₹ ${Math.round(settlementPaid).toLocaleString('en-IN')}</div>
+              </div>
+              <div>
+                <div style="font-size: 8.5px; font-weight: 700; color: #0f172a; text-transform: uppercase;">Total Paid</div>
+                <div style="font-size: 13px; font-weight: 900; color: #0f172a;">₹ ${Math.round(totalPaid).toLocaleString('en-IN')}</div>
+              </div>
+              <div>
+                <div style="font-size: 8.5px; font-weight: 700; color: ${balanceDue > 0 ? '#b91c1c' : '#15803d'}; text-transform: uppercase;">Balance Due</div>
+                <div style="font-size: 13px; font-weight: 900; color: ${balanceDue > 0 ? '#b91c1c' : '#15803d'};">₹ ${Math.round(balanceDue).toLocaleString('en-IN')}</div>
+              </div>
+              <div>
+                <div style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Payment Mode</div>
+                <div style="font-size: 11px; font-weight: 800; color: #334155; margin-top: 2px;">${(payment.method || payment.mode || 'CASH').toUpperCase()}</div>
+              </div>
+            </div>`;
+          }
+          return `
+          <!-- Compact single row: Token | Fee (if discount) | Discount (if discount) | Paid Amount | Payment Mode -->
+          <div style="grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
+              <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">${tokenLabel}</span>
+              <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
+              <span style="font-size: 11px; font-weight: 900; color: #0f766e; background: #f0fdf4; padding: 1px 5px; border-radius: 3px; border: 1px solid #ccfbf1; display: inline-block;"># ${tokenNoDisplay}</span>
+            </div>
+            ${Number(payment.discount || appointment.discount || 0) > 0 ? `
+            <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 100px;">
+              <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">Fee</span>
+              <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
+              <span style="font-size: 10px; font-weight: 700; color: #334155;">₹ ${Math.round(payment.totalBillAmount || payment.fee || payment.originalAmount || (Number(payment.amount || 0) + Number(payment.discount || appointment.discount || 0))).toLocaleString('en-IN')}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 100px;">
+              <span style="font-size: 10px; font-weight: 700; color: #e11d48; flex-shrink: 0;">Discount</span>
+              <span style="color: #e11d48; font-weight: 700; flex-shrink: 0;">:</span>
+              <span style="font-size: 10px; font-weight: 800; color: #e11d48;">- ₹ ${Math.round(Number(payment.discount || appointment.discount || 0)).toLocaleString('en-IN')}</span>
+            </div>` : ''}
+            <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
+              <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">Paid Amount</span>
+              <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
+              <span style="font-size: 11px; font-weight: 900; color: #0f766e;">₹ ${Math.round(payment.amount != null ? payment.amount : (payment.paidAmount || 0)).toLocaleString('en-IN')}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
+              <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">Payment Mode</span>
+              <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
+              <span style="font-size: 10px; font-weight: 800; color: #1e293b;">${(payment.method || 'CASH').toUpperCase()}</span>
+            </div>
+          </div>`;
+        })()}
 
         ${
           (payment.method || '').toUpperCase() === 'MIXED' && (payment.paymentDetails || payment.splitPayments || payment.breakdown)
@@ -1644,10 +1707,55 @@ export const generateClinicalReceiptHtml = (data: any) => {
 
   const formattedPatientName = formatPatientNameWithPrefix(
     patient.name || patient.user?.name,
-    appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific || patient.honorific || patient.profile?.honorific || patient.honorificTitle
+    appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific || patient.honorific || patient.profile?.honorific || patient.honorificTitle || patient.patientHonorific
   );
 
-  const isIPD = data.registrationType === 'IPD' || (appointment.type && appointment.type.toUpperCase().includes('IPD'));
+  const mrnCandidates = [
+    patient.mrn,
+    patient.mrnNumber,
+    patient.medicalRecordNumber,
+    patient.patientId,
+    patient.uhid,
+    patient.user?.mrn,
+    patient.user?.patientId,
+    appointment.mrn,
+    appointment.patientDetails?.mrn,
+    (appointment as any)?.patientMrn,
+    (payment as any)?.mrn,
+    (payment as any)?.patientMrn,
+    (payment as any)?.referenceNode,
+    (payment as any)?.referenceId,
+    (appointment as any)?.referenceNode
+  ];
+  const resolvedPatientMrn = mrnCandidates.find(c => c && typeof c === 'string' && c.trim() !== '' && c.trim() !== 'N/A' && c.trim() !== 'Resolving...' && c.trim() !== '-' && !c.includes('undefined')) || (patient.mrn && patient.mrn !== 'Resolving...' ? patient.mrn : "N/A");
+
+  const isDischargeTx = Boolean(
+    payment?.isDischarge ||
+    payment?.isDischargeTransaction ||
+    patient?.dischargeType ||
+    data.registrationType === 'DISCHARGE' ||
+    (appointment.type && /discharge|settlement/i.test(appointment.type)) ||
+    (appointment.specialization && /discharge|settlement/i.test(appointment.specialization))
+  );
+
+  const isIPD = data.registrationType === 'IPD' || (appointment.type && appointment.type.toUpperCase().includes('IPD')) || isDischargeTx;
+  
+  const totalBill = Number(payment.totalBillAmount || payment.grandTotal || (Number(payment.amount || 0) + Number(payment.advanceAmount || 0)));
+  const discount = Number(payment.discount || appointment.discount || 0);
+  const afterDiscount = Math.max(0, totalBill - discount);
+  const advancePaid = Number(payment.advanceAmount || 0);
+  let settlementPaid = Number(payment.remainingPaid || payment.settlementAmount || payment.amount || 0);
+  if (isDischargeTx && settlementPaid === 0 && afterDiscount > advancePaid) {
+    settlementPaid = Math.max(0, afterDiscount - advancePaid);
+  }
+  let totalPaid = Number(payment.totalPaidAmount || payment.paidAmount || (advancePaid + settlementPaid));
+  if (isDischargeTx && totalPaid <= advancePaid && afterDiscount > advancePaid) {
+    totalPaid = advancePaid + settlementPaid;
+  }
+  let balanceDue = Number(payment.balance ?? payment.dueAmount ?? Math.max(0, afterDiscount - totalPaid));
+  if (isDischargeTx && (payment.status?.toLowerCase() === 'paid' || payment.status?.toLowerCase() === 'completed')) {
+    balanceDue = Math.max(0, afterDiscount - totalPaid);
+  }
   
   const getSymptomsText = (val: any) => {
     if (Array.isArray(val)) return val.length > 0 ? val.join(', ') : '';
@@ -1719,11 +1827,41 @@ export const generateClinicalReceiptHtml = (data: any) => {
             padding: 0 !important;
             -webkit-print-color-adjust: exact;
           }
+          .header-wrapper {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            background: white !important;
+            z-index: 1000 !important;
+          }
+          .footer-wrapper {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            background: white !important;
+            z-index: 1000 !important;
+          }
           .print-header-spacer {
+            height: 135px !important;
             margin-bottom: 0 !important;
           }
           .print-footer-spacer {
+            height: 125px !important;
             margin-top: 0 !important;
+          }
+          .print-table {
+            page-break-inside: auto !important;
+          }
+          .print-table > tbody > tr {
+            page-break-inside: auto !important;
+          }
+          .print-table > tbody > tr > td {
+            page-break-inside: auto !important;
+          }
+          .data-grid tr, .payment-table tr, .vitals-grid tr {
+            page-break-inside: avoid !important;
           }
         }
         html, body {
@@ -2100,9 +2238,9 @@ export const generateClinicalReceiptHtml = (data: any) => {
                   <div>
                     <div class="bill-title">
                       ${
-                        patient.dischargeType || data.registrationType === "DISCHARGE"
-                          ? "DISCHARGE SUMMARY & BILLING STATEMENT"
-                          : data.registrationType === "IPD"
+                        isDischargeTx
+                          ? "IPD DISCHARGE BILLING STATEMENT"
+                          : isIPD
                             ? "IPD ADMISSION RECEIPT"
                             : (appointment.type?.toLowerCase() === 'follow-up'
                               ? "FOLLOW-UP APPOINTMENT RECEIPT"
@@ -2111,9 +2249,9 @@ export const generateClinicalReceiptHtml = (data: any) => {
                     </div>
                     <div class="bill-subtitle">
                       ${
-                        patient.dischargeType || data.registrationType === "DISCHARGE"
-                          ? "Comprehensive Clinical Summary & Final Invoice"
-                          : data.registrationType === "IPD"
+                        isDischargeTx
+                          ? "Hospital Discharge & Final Settlement Invoice"
+                          : isIPD
                             ? "Hospital Admission Document"
                             : (appointment.type?.toLowerCase() === 'follow-up'
                               ? "Follow-up Consultation Slip"
@@ -2139,7 +2277,7 @@ export const generateClinicalReceiptHtml = (data: any) => {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                             <div>
                                 <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">MRN / Mobile</div>
-                                <div style="font-size: 10px; font-weight: 700; color: #1e293b;">${patient.mrn} / ${patient.mobile}</div>
+                                <div style="font-size: 10px; font-weight: 700; color: #1e293b;">${resolvedPatientMrn} / ${patient.mobile || patient.user?.mobile || "N/A"}</div>
                             </div>
                             <div>
                                 <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Age / Gender</div>
@@ -2462,45 +2600,45 @@ export const generateClinicalReceiptHtml = (data: any) => {
                     </thead>
                     <tbody>
                       ${
-                        patient.dischargeType ||
-                        data.registrationType === "DISCHARGE" ||
-                        (appointment.type &&
-                          (appointment.type.includes("Settlement") ||
-                            appointment.type.includes("Discharge")))
+                        isDischargeTx
                           ? `
                         <tr>
-                          <td style="font-weight: bold; color: #475569;">Advance Amount Paid</td>
-                          <td style="text-align: right;">₹ ${Math.round(payment.advanceAmount || 0).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                          <td style="font-weight: bold; color: #475569;">Remaining Amount Paid</td>
-                          <td style="text-align: right;">₹ ${Math.round(payment.remainingPaid || 0).toLocaleString()}</td>
+                          <td style="font-weight: 700; color: #1e293b;">Grand Total</td>
+                          <td style="text-align: right; font-weight: 800; font-size: 12px; color: #0f172a;">₹ ${Math.round(totalBill).toLocaleString('en-IN')}</td>
                         </tr>
                         ${
-                          Number(payment.discount || appointment.discount || 0) > 0
+                          discount > 0
                             ? `
                         <tr style="color: #e11d48;">
-                          <td style="font-weight: bold;">Discount Applied</td>
-                          <td style="text-align: right; font-weight: 800;">- ₹ ${Math.round(Number(payment.discount || appointment.discount || 0)).toLocaleString()}</td>
+                          <td style="font-weight: 700;">(-) Discount Applied</td>
+                          <td style="text-align: right; font-weight: 800;">- ₹ ${Math.round(discount).toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr style="font-weight: 700; background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+                          <td>After Discount</td>
+                          <td style="text-align: right; font-weight: 800;">₹ ${Math.round(afterDiscount).toLocaleString('en-IN')}</td>
+                        </tr>`
+                            : ""
+                        }
+                        ${
+                          advancePaid > 0
+                            ? `
+                        <tr style="color: #2563eb;">
+                          <td style="font-weight: 700;">(-) Advance Paid</td>
+                          <td style="text-align: right; font-weight: 800;">- ₹ ${Math.round(advancePaid).toLocaleString('en-IN')}</td>
                         </tr>`
                             : ""
                         }
                         <tr>
-                          <td style="font-weight: bold; color: #1e40af;">Total Amount Paid</td>
-                          <td style="text-align: right; font-weight: bold; color: #1e40af;">₹ ${Math.round(payment.totalPaidAmount || (payment.advanceAmount || 0) + (payment.remainingPaid || 0)).toLocaleString()}</td>
+                          <td style="font-weight: 700; color: #0f766e;">Settlement Paid Amount</td>
+                          <td style="text-align: right; font-weight: 800; color: #0f766e;">₹ ${Math.round(settlementPaid).toLocaleString('en-IN')}</td>
                         </tr>
-                        ${
-                          payment.balance > 0
-                            ? `
-                        <tr style="background-color: #fef2f2;">
-                          <td style="font-weight: bold; color: #b91c1c;">BALANCE DUE (UNPAID)</td>
-                          <td style="text-align: right; font-weight: 900; color: #b91c1c;">₹ ${Math.round(payment.balance).toLocaleString()}</td>
-                        </tr>`
-                            : ""
-                        }
-                        <tr class="total-row">
-                          <td>TOTAL BILL AMOUNT</td>
-                          <td style="text-align: right;">₹ ${Math.round(payment.totalBillAmount || payment.amount || 0).toLocaleString()}</td>
+                        <tr class="total-row" style="background-color: #f1f5f9; border-top: 2px solid #0f172a;">
+                          <td style="font-weight: 900; color: #0f172a;">TOTAL PAID AMOUNT</td>
+                          <td style="text-align: right; font-weight: 900; color: #0f172a; font-size: 13px;">₹ ${Math.round(totalPaid).toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr style="${balanceDue > 0 ? 'background-color: #fef2f2; color: #b91c1c;' : 'background-color: #f0fdf4; color: #15803d;'} font-weight: 800;">
+                          <td>${balanceDue > 0 ? 'BALANCE DUE (UNPAID)' : 'Balance Due'}</td>
+                          <td style="text-align: right; font-weight: 900;">₹ ${Math.round(balanceDue).toLocaleString('en-IN')}</td>
                         </tr>
                       `
                           : data.registrationType === "IPD"
@@ -2567,6 +2705,74 @@ export const generateClinicalReceiptHtml = (data: any) => {
                     </div>
                     <div class="${(payment?.status || "").toUpperCase() === "PAID" ? "status-paid" : ""}">Payment Status: ${(payment?.status || "PAID").toUpperCase()}</div>
                   </div>
+                  ${
+                    isDischargeTx && (payment.receipts?.length > 0 || payment.payments?.length > 0 || advancePaid > 0 || settlementPaid > 0)
+                      ? (() => {
+                          let receiptList = (payment.receipts && payment.receipts.length > 0)
+                            ? payment.receipts
+                            : (payment.payments && payment.payments.length > 0)
+                              ? payment.payments
+                              : [];
+                          if (receiptList.length === 0 && (advancePaid > 0 || settlementPaid > 0)) {
+                            const synth = [];
+                            if (advancePaid > 0) {
+                              synth.push({
+                                date: appointment.date || '-',
+                                receiptNo: 'IPD-ADVANCE',
+                                amount: advancePaid,
+                                mode: 'Advance'
+                              });
+                            }
+                            if (settlementPaid > 0) {
+                              synth.push({
+                                date: payment.date ? new Date(payment.date).toLocaleDateString('en-GB') : (appointment.date || '-'),
+                                receiptNo: payment.receiptNumber || payment.receiptNo || 'SETTLE-REC',
+                                amount: settlementPaid,
+                                mode: payment.mode || payment.method || 'Settlement'
+                              });
+                            }
+                            receiptList = synth;
+                          }
+                          return `
+                          <div style="margin-top: 12px; border-top: 1.5px solid #0f172a; padding-top: 8px;">
+                            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #0f172a; margin-bottom: 5px; letter-spacing: 0.5px;">Receipt Details :</div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                              <thead>
+                                <tr style="background-color: #f1f5f9; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1;">
+                                  <th style="padding: 4px 6px; text-align: left; font-weight: 700; width: 8%;">S.No</th>
+                                  <th style="padding: 4px 6px; text-align: left; font-weight: 700; width: 22%;">Record Date</th>
+                                  <th style="padding: 4px 6px; text-align: left; font-weight: 700; width: 28%;">Receipt No</th>
+                                  <th style="padding: 4px 6px; text-align: right; font-weight: 700; width: 22%;">Amount</th>
+                                  <th style="padding: 4px 6px; text-align: left; font-weight: 700; width: 20%;">Payment Type</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${receiptList.map((r: any, idx: number) => {
+                                  const rDate = r.date ? (typeof r.date === 'string' && r.date.includes('/') ? r.date : new Date(r.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })) : (appointment.date || '-');
+                                  const rNo = r.receiptNo || r.receiptNumber || r.transactionId || `REC-0${idx + 1}`;
+                                  const rAmt = Math.round(Number(r.amount || 0)).toLocaleString('en-IN');
+                                  const rType = r.type || r.mode || r.paymentMode || (idx === 0 && advancePaid > 0 ? 'Advance' : 'Settlement');
+                                  return `
+                                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                                      <td style="padding: 4px 6px; text-align: left;">${idx + 1}</td>
+                                      <td style="padding: 4px 6px; text-align: left;">${rDate}</td>
+                                      <td style="padding: 4px 6px; text-align: left; font-weight: 600;">${rNo}</td>
+                                      <td style="padding: 4px 6px; text-align: right; font-weight: 700;">₹ ${rAmt}</td>
+                                      <td style="padding: 4px 6px; text-align: left;">${rType}</td>
+                                    </tr>
+                                  `;
+                                }).join('')}
+                                <tr style="background-color: #f8fafc; font-weight: 800; border-top: 1.5px solid #0f172a; border-bottom: 1.5px solid #0f172a;">
+                                  <td colspan="3" style="padding: 5px 6px; text-align: right; text-transform: uppercase;">Total :</td>
+                                  <td style="padding: 5px 6px; text-align: right; color: #0f766e; font-size: 11px;">₹ ${Math.round(totalPaid).toLocaleString('en-IN')}</td>
+                                  <td style="padding: 5px 6px;"></td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>`;
+                        })()
+                      : ""
+                  }
                 </div>
               </td>
             </tr>
@@ -4223,7 +4429,7 @@ export const generateAddBillsReceiptHtml = (data: any) => {
                     <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr 1.2fr; gap: 8px;">
                         <div>
                             <div style="font-size: 7.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">MRN / Mobile</div>
-                            <div style="font-size: 9.5px; font-weight: 700; color: #1e293b;">${patient.mrn || "N/A"} / ${patient.mobile || "N/A"}</div>
+                            <div style="font-size: 9.5px; font-weight: 700; color: #1e293b;">${patient.mrn || (patient as any)?.mrnNumber || (patient as any)?.medicalRecordNumber || (patient as any)?.patientId || (patient as any)?.uhid || (patient as any)?.user?.mrn || (appointment as any)?.mrn || (appointment as any)?.patientDetails?.mrn || (appointment as any)?.patientMrn || (payment as any)?.mrn || (payment as any)?.patientMrn || (payment as any)?.referenceNode || (appointment as any)?.referenceNode || "N/A"} / ${patient.mobile || (patient as any)?.user?.mobile || "N/A"}</div>
                         </div>
                         <div>
                             <div style="font-size: 7.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">Age / Gender</div>

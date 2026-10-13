@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { userService } from '@/lib/integrations/services/user.service';
 import { pharmacyService } from '@/lib/integrations/services/pharmacy.service';
+import { DepartmentWhatsAppConnector } from '@/components/WhatsApp/DepartmentWhatsAppConnector';
 import { toast } from 'react-hot-toast';
 import {
     User as UserIcon,
@@ -41,8 +43,10 @@ import SupportBadgeToggle from '@/components/common/SupportBadgeToggle';
  * Handles branding, entity details, and node configuration for pharmacy owners.
  */
 const PharmacyProfile = () => {
+    const params = useParams();
     // Auth Store for persistent user data
     const { user, setUser, checkAuth } = useAuthStore();
+    const hospitalId = (params?.hospitalId as string) || (user?.hospital as any) || '';
 
     // UI State
     const [isLoading, setIsLoading] = useState(true);
@@ -1028,6 +1032,18 @@ const PharmacyProfile = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* Dedicated WhatsApp QR Scanner Card */}
+                    {hospitalId && (
+                        <div className="pt-2">
+                            <DepartmentWhatsAppConnector
+                                hospitalId={hospitalId}
+                                department="pharma"
+                                portalName="Pharmacy"
+                                subtitle="Link dedicated WhatsApp device for pharmacy bills and receipts"
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* ── LIVE RECEIPT PREVIEW (Desktop side-by-side, Mobile stacked) ── */}

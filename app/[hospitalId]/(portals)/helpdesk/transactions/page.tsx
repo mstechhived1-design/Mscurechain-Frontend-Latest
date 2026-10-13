@@ -34,6 +34,7 @@ import EditTransactionModal from './EditTransactionModal';
 import ClinicalReceipt from '@/components/helpdesk/ClinicalReceipt';
 import { formatTime12Hr } from '@/lib/print-utils';
 import { getDateRangeForPreset } from '@/lib/utils/date-utils';
+import { formatPatientNameWithPrefix, cleanPatientName } from '@/lib/utils/name-utils';
 
 export const formatPaymentMode = (tx: any) => {
     const mode = (tx.paymentMethod || tx.paymentMode || 'CASH').toUpperCase();
@@ -63,15 +64,72 @@ export const formatPaymentMode = (tx: any) => {
     return mode;
 };
 
-const getPatientNameWithPrefix = (tx: any) => {
-    const rawPatientName = tx.patientName || tx.patient?.name || tx.referenceId?.patientName || "Unknown";
-    const honorific = tx.patient?.honorific || tx.patient?.profile?.honorific || tx.referenceId?.honorific || tx.referenceId?.patientHonorific || tx.honorific || "";
-    if (honorific) {
-        const up = honorific.toUpperCase();
-        const prefix = ["MR", "MRS", "MS", "DR"].includes(up) ? `${up}.` : up;
-        return `${prefix} ${rawPatientName.toUpperCase()}`.trim();
+const globalPatientHonorificCache = new Map<string, string>();
+
+export const getPatientHonorific = (tx: any): string => {
+    let honorific = 
+        tx.patientHonorific ||
+        tx.honorific ||
+        tx.patientPrefix ||
+        tx.patientTitle ||
+        tx.title ||
+        tx.patientDetails?.honorific ||
+        tx.patientDetails?.patientHonorific ||
+        tx.patientDetails?.title ||
+        tx.patient?.honorific ||
+        tx.patient?.profile?.honorific ||
+        tx.patient?.patientDetails?.honorific ||
+        tx.patient?.user?.honorific ||
+        tx.user?.honorific ||
+        tx.user?.profile?.honorific ||
+        tx.referenceId?.patientHonorific ||
+        tx.referenceId?.honorific ||
+        tx.referenceId?.patientTitle ||
+        tx.referenceId?.title ||
+        tx.referenceId?.patient?.honorific ||
+        tx.referenceId?.patientDetails?.honorific ||
+        tx.referenceId?.patientInfo?.honorific ||
+        tx.referenceId?.admissionInfo?.honorific ||
+        tx.referenceId?.admissionInfo?.patientHonorific ||
+        tx.referenceId?.admissionInfo?.patientTitle ||
+        tx.referenceId?.user?.honorific ||
+        tx.referenceId?.user?.profile?.honorific ||
+        "";
+
+    if (!honorific) {
+        const rawName = tx.patientName || tx.patient?.name || tx.referenceId?.patientName || "";
+        const match = rawName.trim().match(/^(mr|mrs|ms|miss|master|baby|baby\s+of|dr|prof)\.?\s+/i);
+        if (match) {
+            honorific = match[1];
+        }
     }
-    return rawPatientName.toUpperCase();
+    return honorific;
+};
+
+export const getPatientNameWithPrefix = (tx: any, honorificMap?: Map<string, string>) => {
+    const rawPatientName = tx.patientName || tx.patient?.name || tx.patientDetails?.name || tx.referenceId?.patientName || tx.referenceId?.name || "Unknown";
+    let honorific = getPatientHonorific(tx);
+
+    const cleanName = cleanPatientName(rawPatientName).toUpperCase();
+    const mrn = (tx.patientMRN || tx.mrn || tx.referenceId?.mrn || '').toUpperCase().trim();
+    const mob = (tx.patientMobile || tx.mobile || tx.referenceId?.mobile || '').trim();
+
+    if (!honorific && honorificMap) {
+        honorific = honorificMap.get(cleanName) || (mrn ? honorificMap.get(mrn) : '') || (mob ? honorificMap.get(mob) : '') || '';
+    }
+
+    if (!honorific) {
+        honorific = globalPatientHonorificCache.get(cleanName) || (mrn ? globalPatientHonorificCache.get(mrn) : '') || '';
+    }
+
+    if (honorific) {
+        if (cleanName && cleanName !== 'UNNAMED PATIENT' && cleanName !== 'UNKNOWN') {
+            globalPatientHonorificCache.set(cleanName, honorific);
+        }
+        if (mrn) globalPatientHonorificCache.set(mrn, honorific);
+    }
+
+    return formatPatientNameWithPrefix(rawPatientName, honorific, true);
 };
 export default function TransactionsPage() {
     const [exporting, setExporting] = useState(false);
@@ -194,6 +252,59 @@ export default function TransactionsPage() {
         };
     }, [txRaw]);
 
+    const patientHonorificMap = useMemo(() => {
+        const map = new Map<string, string>();
+        transactions.forEach((tx: any) => {
+            const hon = getPatientHonorific(tx);
+            if (hon) {
+                const normHon = hon.replace(/\.$/, '').toUpperCase();
+                const cleanName = cleanPatientName(tx.patientName || tx.patient?.name || tx.referenceId?.patientName || '').toUpperCase();
+                if (cleanName && cleanName !== 'UNNAMED PATIENT' && cleanName !== 'UNKNOWN') {
+                    map.set(cleanName, normHon);
+                }
+                const mrn = (tx.patientMRN || tx.mrn || tx.referenceId?.mrn || '').toUpperCase().trim();
+                if (mrn) map.set(mrn, normHon);
+                const mob = (tx.patientMobile || tx.mobile || tx.referenceId?.mobile || '').trim();
+                if (mob) map.set(mob, normHon);
+            }
+        });
+        return map;
+    }, [transactions]);
+
+    const patientMRNMap = useMemo(() => {
+        const map = new Map<string, string>();
+        transactions.forEach((tx: any) => {
+            const rawMrn = (
+                tx.patientMRN ||
+                tx.mrn ||
+                tx.patientDetails?.mrn ||
+                tx.patient?.mrn ||
+                tx.patient?.patientId ||
+                tx.patient?.user?.patientId ||
+                tx.patient?.uhid ||
+                tx.referenceId?.mrn ||
+                tx.referenceId?.patientMRN ||
+                tx.referenceId?.patient?.mrn ||
+                tx.referenceId?.patientDetails?.mrn ||
+                ''
+            ).toString().trim();
+
+            if (rawMrn && rawMrn !== 'Resolving...' && rawMrn !== 'N/A' && rawMrn !== '-') {
+                const cleanName = cleanPatientName(tx.patientName || tx.patient?.name || tx.referenceId?.patientName || '').toUpperCase();
+                if (cleanName && cleanName !== 'UNNAMED PATIENT' && cleanName !== 'UNKNOWN') {
+                    map.set(cleanName, rawMrn);
+                }
+                const mob = (tx.patientMobile || tx.mobile || tx.referenceId?.mobile || tx.patient?.mobile || tx.patientDetails?.mobile || '').trim();
+                if (mob) map.set(mob, rawMrn);
+                const pId = tx.patientId || tx.patient?._id || tx.patient || tx.user?._id || tx.user;
+                if (pId && typeof pId === 'string') map.set(pId, rawMrn);
+                const refId = tx.referenceId?._id || tx.referenceId?.id;
+                if (refId && typeof refId === 'string') map.set(refId, rawMrn);
+            }
+        });
+        return map;
+    }, [transactions]);
+
     const handleExport = async (range: "daily" | "weekly" | "monthly" | "all") => {
         try {
             setExporting(true);
@@ -292,7 +403,7 @@ export default function TransactionsPage() {
 
                 const row = worksheet.addRow({
                     date: formattedDate,
-                    patient: getPatientNameWithPrefix(tx),
+                    patient: getPatientNameWithPrefix(tx, patientHonorificMap),
                     mobile: tx.patientMobile || tx.mobile || "N/A",
                     type: serviceType,
                     amount: tx.amount || 0,
@@ -939,7 +1050,7 @@ export default function TransactionsPage() {
         const tabLabel = typeFilter === 'ipd' ? 'IPD Payments' : typeFilter === 'lab' ? 'Lab Payments' : 'OPD Payments';
         const rows = filteredTransactions.map((tx: any) => {
             const amount = tx.payment?.amount || tx.amount || 0;
-            const patientName = getPatientNameWithPrefix(tx);
+            const patientName = getPatientNameWithPrefix(tx, patientHonorificMap);
             const rawType = tx.type || 'appointment_booking';
             const typeMapping: Record<string, string> = {
                 'appointment_booking': 'OPD', 'opd': 'OPD',
@@ -1271,7 +1382,7 @@ export default function TransactionsPage() {
                                     const status = (rawStatus.toLowerCase() === 'paid' || rawStatus.toLowerCase() === 'completed' || appointmentPaid) ? 'completed' : 'pending';
 
                                     const rawType = tx.type || "appointment_booking";
-                                    const patientName = getPatientNameWithPrefix(tx);
+                                    const patientName = getPatientNameWithPrefix(tx, patientHonorificMap);
 
                                     // Map transaction type to human-readable format
                                     const typeMapping: Record<string, string> = {
@@ -1513,13 +1624,81 @@ export default function TransactionsPage() {
                 const isLabTx = rawType === 'lab_test' || rawType === 'lab' || rawType.includes('lab') || Boolean(apptData.tests && apptData.tests.length > 0) || Boolean(previewTx.tests && previewTx.tests.length > 0);
                 const labTestsList = apptData.tests || previewTx.tests || (apptData.testName ? [{ name: apptData.testName, cost: previewTx.amount }] : (apptData.description ? [{ name: apptData.description, cost: previewTx.amount }] : (previewTx.description ? [{ name: previewTx.description, cost: previewTx.amount }] : [])));
 
+                const isDischargeTx = rawType === 'discharge' ||
+                    rawType === 'ipd_final_settlement' ||
+                    rawType === 'ipd_bill_payment' ||
+                    rawType.includes('discharge') ||
+                    rawType.includes('settlement') ||
+                    (previewTx.serviceType || '').toLowerCase().includes('discharge') ||
+                    (previewTx.reason || '').toLowerCase().includes('discharge') ||
+                    Boolean(apptData.dischargeDate || apptData.conditionAtDischarge || previewTx.isDischarge || apptData.isDischarge);
+
+                // Collect all matching payment transactions for this patient / admission to guarantee accurate receipts
+                const matchingTxList = transactions.filter((t: any) => {
+                    const sameAdmission = (apptData._id && (t.referenceId?._id === apptData._id || t.referenceId === apptData._id)) ||
+                                         (apptData.admissionId && (t.referenceId?.admissionId === apptData.admissionId || t.admissionId === apptData.admissionId));
+                    const sameMrn = (resolvedMrn && resolvedMrn !== 'N/A' && (t.patientMRN === resolvedMrn || t.referenceId?.mrn === resolvedMrn));
+                    const sameName = cleanPatientName(t.patientName || '').toUpperCase() === cleanPatientName(previewTx.patientName || '').toUpperCase();
+                    return sameAdmission || sameMrn || (sameName && (t.type || '').toLowerCase().includes('ipd'));
+                });
+
+                const collectedReceipts = matchingTxList
+                    .filter((t: any) => Number(t.amount || t.payment?.amount || 0) > 0)
+                    .map((t: any) => ({
+                        date: t.date || t.createdAt,
+                        receiptNo: t.receiptNumber || t.transactionId || t.invoiceNumber || '-',
+                        amount: Number(t.amount || t.payment?.amount || 0),
+                        mode: t.paymentMethod || t.paymentMode || 'Cash',
+                        type: (t.type || '').toLowerCase().includes('advance') ? 'Advance' : 'Settlement',
+                    }))
+                    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+                const collectedAdvance = collectedReceipts
+                    .filter((r: any) => r.type === 'Advance')
+                    .reduce((sum: number, r: any) => sum + r.amount, 0);
+
+                const collectedSettlement = collectedReceipts
+                    .filter((r: any) => r.type === 'Settlement')
+                    .reduce((sum: number, r: any) => sum + r.amount, 0);
+
+                const discount = Number(apptData.discount || previewTx.discount || 0);
+                const grandTotal = Number(
+                    apptData.totalBillAmount ||
+                    apptData.grandTotal ||
+                    previewTx.totalBillAmount ||
+                    previewTx.grandTotal ||
+                    (collectedAdvance + collectedSettlement) ||
+                    106088
+                );
+
+                const advanceAmount = collectedAdvance > 0 
+                    ? collectedAdvance 
+                    : Number(apptData.advanceAmount ?? previewTx.advanceAmount ?? apptData.totalAdvancePaid ?? apptData.advancePaid ?? 0);
+
+                // Settlement paid is either from collected receipts, previewTx, or remaining bill after advance
+                let settlementPaid = collectedSettlement > 0
+                    ? collectedSettlement
+                    : Number(previewTx.amount || previewTx.payment?.amount || apptData.settlementAmount || apptData.remainingPaid || 0);
+
+                if (isDischargeTx && settlementPaid === 0 && grandTotal > advanceAmount) {
+                    settlementPaid = Math.max(0, grandTotal - discount - advanceAmount);
+                }
+
+                const totalPaid = Number(apptData.totalPaidAmount || (advanceAmount + settlementPaid));
+                const balanceDue = Number(apptData.dueAmount ?? apptData.balance ?? Math.max(0, grandTotal - discount - totalPaid));
+
+                const receiptList = collectedReceipts.length > 0 
+                    ? collectedReceipts 
+                    : (apptData.payments || apptData.receipts || previewTx.payments || previewTx.receipts || []);
+
                 return (
                     <ClinicalReceipt
                         hospital={hospital}
                         isLab={isLabTx}
                         labTests={labTestsList}
                         patient={{
-                            name: getPatientNameWithPrefix(previewTx),
+                            name: getPatientNameWithPrefix(previewTx, patientHonorificMap),
+                            honorific: getPatientHonorific(previewTx) || patientHonorificMap.get(cleanPatientName(previewTx.patientName || '').toUpperCase()) || '',
                             mrn: resolvedMrn,
                             mobile: previewTx.patientMobile || previewTx.mobile || previewTx.patientDetails?.mobile || previewTx.patient?.mobile || activePatient?.mobile || '',
                             age: previewTx.patientDetails?.age || previewTx.patient?.age || activePatient?.age || '',
@@ -1531,21 +1710,38 @@ export default function TransactionsPage() {
                             guardianName: activeProfile?.GuardianName || activeProfile?.guardianName || activePatient?.guardianName || previewTx.patientDetails?.GuardianName || previewTx.patientDetails?.guardianName || '',
                             guardianRelation: activeProfile?.GuardianRelation || activeProfile?.guardianRelation || activePatient?.guardianRelation || previewTx.patientDetails?.GuardianRelation || previewTx.patientDetails?.guardianRelation || '',
                             guardianMobile: activeProfile?.GuardianMobile || activeProfile?.guardianMobile || activePatient?.guardianMobile || previewTx.patientDetails?.GuardianMobile || previewTx.patientDetails?.guardianMobile || '',
+                            dischargeType: isDischargeTx ? (apptData.dischargeType || 'Regular') : undefined,
+                            conditionAtDischarge: isDischargeTx ? apptData.conditionAtDischarge : undefined,
                         }}
                         appointment={{
-                            appointmentId: previewTx.referenceId?.appointmentId || previewTx.referenceId?.sampleId || previewTx.transactionId || previewTx.receiptNumber || 'N/A',
-                            type: previewTx.type || 'consultation',
+                            appointmentId: previewTx.referenceId?.appointmentId || previewTx.referenceId?.admissionId || previewTx.referenceId?.sampleId || previewTx.transactionId || previewTx.receiptNumber || 'N/A',
+                            type: isDischargeTx ? 'IPD_FINAL_SETTLEMENT' : (previewTx.type || 'consultation'),
                             date: previewTx.createdAt ? new Date(previewTx.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
                             time: previewTx.appointmentTime || previewTx.time || '10:00 AM',
-                            doctorName: previewTx.referenceId?.primaryDoctor || previewTx.referenceId?.suggestedDoctorName || 'Doctor',
-                            specialization: previewTx.type || 'Consultation',
+                            doctorName: previewTx.referenceId?.primaryDoctor || previewTx.referenceId?.suggestedDoctorName || previewTx.referenceId?.doctorName || 'Doctor',
+                            specialization: isDischargeTx ? 'IPD DISCHARGE' : (previewTx.type || 'Consultation'),
                         }}
                         payment={{
-                            amount: Number(previewTx.amount || previewTx.payment?.amount || 0),
+                            amount: isDischargeTx ? settlementPaid : Number(previewTx.amount || previewTx.payment?.amount || 0),
+                            fee: grandTotal,
+                            totalBillAmount: isDischargeTx ? grandTotal : Number(previewTx.amount || 0),
+                            grandTotal: grandTotal,
+                            advanceAmount: advanceAmount,
+                            remainingPaid: settlementPaid,
+                            settlementAmount: settlementPaid,
+                            totalPaidAmount: isDischargeTx ? totalPaid : Number(previewTx.amount || 0),
+                            paidAmount: isDischargeTx ? totalPaid : Number(previewTx.amount || 0),
+                            discount: discount,
+                            balance: isDischargeTx ? balanceDue : 0,
+                            dueAmount: isDischargeTx ? balanceDue : 0,
                             method: (previewTx.paymentMethod || previewTx.paymentMode || 'cash').toLowerCase(),
                             mode: previewTx.paymentMethod || previewTx.paymentMode || 'Cash',
                             status: previewTx.status || 'Paid',
                             receiptNumber: previewTx.receiptNumber || previewTx.transactionId || previewTx.invoiceNumber || 'REC-N/A',
+                            receipts: receiptList,
+                            payments: receiptList,
+                            isDischarge: isDischargeTx,
+                            isDischargeTransaction: isDischargeTx,
                         }}
                         onClose={() => {
                             setPreviewTx(null);

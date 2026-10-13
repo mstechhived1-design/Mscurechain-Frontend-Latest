@@ -129,11 +129,21 @@ export interface AttendanceHistory {
 }
 
 export interface CheckInRequest {
+  lat?: number;
+  lng?: number;
+  photo?: string | null;
   location?: string;
+  notes?: string;
+  [key: string]: any;
 }
 
 export interface CheckOutRequest {
+  lat?: number;
+  lng?: number;
+  photo?: string | null;
   location?: string;
+  notes?: string;
+  [key: string]: any;
 }
 
 // Leave Management Types

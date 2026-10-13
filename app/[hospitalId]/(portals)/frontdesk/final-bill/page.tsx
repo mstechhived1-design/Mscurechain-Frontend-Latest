@@ -622,6 +622,7 @@ export default function FinalBillPage() {
                                 {/* WhatsApp Button for Final Bill */}
                                 <WhatsAppSendButton
                                     hospitalId={hospitalId}
+                                    department="frontdesk"
                                     targetRef={waBillRef}
                                     phoneNumber={selectedPatient?.mobile || selectedPatient?.user?.mobile || ''}
                                     documentName={`FinalBill_${selectedPatient?.name || 'Patient'}.pdf`}

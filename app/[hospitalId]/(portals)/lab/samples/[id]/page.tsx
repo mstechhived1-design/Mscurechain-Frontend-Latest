@@ -626,6 +626,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             </button>
                             <WhatsAppSendButton
                                 hospitalId={hospitalId}
+                                department="lab"
                                 targetRef={printRef}
                                 phoneNumber={sample.patientDetails?.mobile || (sample.patientDetails as any)?.phone || ''}
                                 documentName={`Lab_Report_${sample.sampleId || 'Report'}.pdf`}

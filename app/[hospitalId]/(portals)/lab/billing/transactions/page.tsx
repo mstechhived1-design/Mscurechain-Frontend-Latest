@@ -851,6 +851,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             <div className="flex items-center gap-2.5">
                                 <WhatsAppSendButton
                                     hospitalId={hospitalId}
+                                    department="lab"
                                     targetRef={modalPrintRef}
                                     phoneNumber={selectedPatientPhone}
                                     documentName={`Invoice_${selectedBill.invoiceId || 'Lab'}.pdf`}

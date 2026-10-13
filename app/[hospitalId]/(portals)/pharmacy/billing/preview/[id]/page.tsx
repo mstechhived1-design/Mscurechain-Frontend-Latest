@@ -207,6 +207,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
 
                             <WhatsAppSendButton
                                 hospitalId={hospitalId}
+                                department="pharma"
                                 targetRef={componentRef}
                                 phoneNumber={bill.customerPhone}
                                 documentName={`Invoice_${bill.invoiceId || 'Pharmacy'}.pdf`}

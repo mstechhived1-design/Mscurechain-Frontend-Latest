@@ -12,6 +12,7 @@ import AvailabilityManager from '@/components/doctor/AvailabilityManager';
 
 import ProfileHeader from '@/components/doctor/ProfileHeader';
 import PrinterSettingsCard from '@/components/printers/PrinterSettingsCard';
+import { DepartmentWhatsAppConnector } from '@/components/WhatsApp/DepartmentWhatsAppConnector';
 
 export default async function DoctorProfilePage({ params }: { params: Promise<{ hospitalId: string }> }) {
     const { hospitalId } = await params;
@@ -332,6 +333,14 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
                             <div className="text-center py-10 text-gray-400 italic text-xs">No analytics.</div>
                         )}
                     </div>
+
+                    {/* Dedicated WhatsApp Device Connector */}
+                    <DepartmentWhatsAppConnector
+                        hospitalId={hospitalId}
+                        department="doctor"
+                        portalName="Doctor Terminal"
+                        subtitle="Prescriptions, patient advisories, and clinical consult summaries"
+                    />
                 </div>
             </div>
         </div>

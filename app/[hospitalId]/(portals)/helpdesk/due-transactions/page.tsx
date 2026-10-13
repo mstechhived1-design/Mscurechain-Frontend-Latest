@@ -28,6 +28,7 @@ import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { formatTime12Hr } from '@/lib/print-utils';
 import ClinicalReceipt from '@/components/helpdesk/ClinicalReceipt';
+import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 
 export const formatPaymentMode = (tx: any) => {
     const mode = (tx.paymentMethod || tx.paymentMode || 'CASH').toUpperCase();
@@ -1067,11 +1068,9 @@ export default function TransactionsPage() {
                 const tx = previewTx;
                 const p = tx.patientDetails || tx.patientId || tx.patient || tx.referenceId?.patient || {};
                 const pProfile = p.profile || {};
-                const honorific = p.honorific || pProfile.honorific || tx.referenceId?.honorific || tx.honorific || '';
+                const honorific = p.honorific || pProfile.honorific || tx.referenceId?.honorific || tx.patientHonorific || tx.honorific || '';
                 const rawName = tx.patientName || p.name || tx.referenceId?.patientName || 'Unknown';
-                const upHonorific = honorific ? honorific.toUpperCase() : '';
-                const prefixStr = ['MR', 'MRS', 'MS', 'DR'].includes(upHonorific) ? `${upHonorific}.` : upHonorific;
-                const formattedName = `${prefixStr} ${rawName}`.trim();
+                const formattedName = formatPatientNameWithPrefix(rawName, honorific, true);
 
                 const pAge = p.age || pProfile.age || tx.patientDetails?.age || '';
                 const pGender = p.gender || pProfile.gender || tx.patientDetails?.gender || '';
@@ -1082,6 +1081,28 @@ export default function TransactionsPage() {
                 const apptData = tx.referenceId || {};
                 const isLabTx = rawType === 'lab_test' || rawType === 'lab' || rawType.includes('lab') || Boolean(apptData.tests && apptData.tests.length > 0) || Boolean(tx.tests && tx.tests.length > 0);
                 const labTestsList = apptData.tests || tx.tests || (apptData.testName ? [{ name: apptData.testName, cost: tx.amount }] : (apptData.description ? [{ name: apptData.description, cost: tx.amount }] : []));
+
+                const isDischargeTx = rawType === 'discharge' ||
+                    rawType === 'ipd_final_settlement' ||
+                    rawType === 'ipd_bill_payment' ||
+                    rawType.includes('discharge') ||
+                    rawType.includes('settlement') ||
+                    (tx.serviceType || '').toLowerCase().includes('discharge') ||
+                    (tx.reason || '').toLowerCase().includes('discharge') ||
+                    Boolean(apptData.dischargeDate || apptData.conditionAtDischarge || tx.isDischarge || apptData.isDischarge);
+
+                const advanceAmount = Number(apptData.advanceAmount ?? tx.advanceAmount ?? apptData.totalAdvancePaid ?? apptData.advancePaid ?? 0);
+                const discount = Number(apptData.discount || tx.discount || 0);
+                let settlementPaid = Number(tx.amount || tx.payment?.amount || apptData.settlementAmount || apptData.remainingPaid || 0);
+                const grandTotal = Number(apptData.totalBillAmount || apptData.grandTotal || tx.totalBillAmount || tx.grandTotal || (settlementPaid + advanceAmount));
+
+                if (isDischargeTx && settlementPaid === 0 && grandTotal > advanceAmount) {
+                    settlementPaid = Math.max(0, grandTotal - discount - advanceAmount);
+                }
+
+                const totalPaid = Number(apptData.totalPaidAmount || (advanceAmount + settlementPaid));
+                const balanceDue = Number(apptData.dueAmount ?? apptData.balance ?? Math.max(0, grandTotal - discount - totalPaid));
+                const receiptList = apptData.payments || apptData.receipts || tx.payments || tx.receipts || [];
 
                 return (
                     <ClinicalReceipt
@@ -1097,21 +1118,38 @@ export default function TransactionsPage() {
                             address: p.address || pProfile.address || 'N/A',
                             bloodGroup: p.bloodGroup || pProfile.bloodGroup || 'N/A',
                             dateOfBirth: p.dob || p.dateOfBirth || pProfile.dob,
+                            dischargeType: isDischargeTx ? (apptData.dischargeType || 'Regular') : undefined,
+                            conditionAtDischarge: isDischargeTx ? apptData.conditionAtDischarge : undefined,
                         }}
                         appointment={{
-                            appointmentId: tx.referenceId?.appointmentId || tx.referenceId?.sampleId || tx.transactionId || tx.receiptNumber || 'N/A',
-                            type: tx.type || 'consultation',
+                            appointmentId: tx.referenceId?.appointmentId || tx.referenceId?.admissionId || tx.referenceId?.sampleId || tx.transactionId || tx.receiptNumber || 'N/A',
+                            type: isDischargeTx ? 'IPD_FINAL_SETTLEMENT' : (tx.type || 'consultation'),
                             date: tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
                             time: tx.appointmentTime || tx.time || '10:00 AM',
                             doctorName: tx.referenceId?.primaryDoctor || tx.referenceId?.doctorName || 'Doctor',
-                            specialization: tx.type || 'Consultation',
+                            specialization: isDischargeTx ? 'IPD DISCHARGE' : (tx.type || 'Consultation'),
                         }}
                         payment={{
-                            amount: Number(tx.payment?.amount || tx.amount || 0),
+                            amount: isDischargeTx ? settlementPaid : Number(tx.payment?.amount || tx.amount || 0),
+                            fee: grandTotal,
+                            totalBillAmount: isDischargeTx ? grandTotal : Number(tx.amount || 0),
+                            grandTotal: grandTotal,
+                            advanceAmount: advanceAmount,
+                            remainingPaid: settlementPaid,
+                            settlementAmount: settlementPaid,
+                            totalPaidAmount: isDischargeTx ? totalPaid : Number(tx.amount || 0),
+                            paidAmount: isDischargeTx ? totalPaid : Number(tx.amount || 0),
+                            discount: discount,
+                            balance: isDischargeTx ? balanceDue : 0,
+                            dueAmount: isDischargeTx ? balanceDue : 0,
                             method: (tx.paymentMethod || tx.paymentMode || 'cash').toLowerCase(),
                             mode: tx.paymentMethod || tx.paymentMode || 'Cash',
                             status: tx.status || 'Paid',
                             receiptNumber: tx.receiptNumber || tx.transactionId || 'REC-N/A',
+                            receipts: receiptList,
+                            payments: receiptList,
+                            isDischarge: isDischargeTx,
+                            isDischargeTransaction: isDischargeTx,
                         }}
                         onClose={() => setPreviewTx(null)}
                     />

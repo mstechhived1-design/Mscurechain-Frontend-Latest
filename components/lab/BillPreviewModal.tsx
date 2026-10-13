@@ -192,6 +192,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                         <WhatsAppSendButton
                             ref={whatsAppButtonRef}
                             hospitalId={resolvedHospitalId}
+                            department="lab"
                             targetRef={printRef}
                             phoneNumber={patientPhone}
                             documentName={`Invoice_${invoiceId || 'Lab'}.pdf`}

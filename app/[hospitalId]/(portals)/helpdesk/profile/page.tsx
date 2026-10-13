@@ -22,6 +22,7 @@ import { staffService } from '@/lib/integrations/services/staff.service';
 import { helpdeskService } from '@/lib/integrations/services/helpdesk.service';
 import { HelpdeskDashboardSkeleton } from "@/components/ui/skeletons";
 import ProfileHeroCard from '@/components/shared/ProfileHeroCard';
+import { DepartmentWhatsAppConnector } from '@/components/WhatsApp/DepartmentWhatsAppConnector';
 import toast from 'react-hot-toast';
 
 export default function HelpdeskProfilePage() {
@@ -148,8 +149,8 @@ export default function HelpdeskProfilePage() {
 
                 </div>
 
-                {/* RIGHT COLUMN: BANK */}
-                <div className="lg:col-span-8">
+                {/* RIGHT COLUMN: BANK & WHATSAPP */}
+                <div className="lg:col-span-8 space-y-5">
                     <div className="bg-white p-4 sm:p-7 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm space-y-4 sm:space-y-5">
                         <div className="flex items-center gap-2.5 border-b border-slate-50 pb-3 sm:pb-4">
                             <div className="p-1.5 sm:p-2 bg-teal-600 rounded-lg sm:rounded-xl text-white">
@@ -189,6 +190,16 @@ export default function HelpdeskProfilePage() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Dedicated WhatsApp Section (Right Side, Below Bank Details) */}
+                    {hospitalId && (
+                        <DepartmentWhatsAppConnector
+                            hospitalId={hospitalId}
+                            department="frontdesk"
+                            portalName="Front Desk / Helpdesk"
+                            subtitle="Dedicated WhatsApp device for OPD registrations, tokens, and billing receipts"
+                        />
+                    )}
                 </div>
             </div>
         </div>

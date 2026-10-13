@@ -12,6 +12,22 @@ import type {
   LeaveBalance
 } from '../types';
 
+const resolveBrowserCoordinates = async (): Promise<{ lat?: number; lng?: number }> => {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    return {};
+  }
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => {
+        console.warn('[StaffService] Geolocation error:', err?.message);
+        resolve({});
+      },
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
+    );
+  });
+};
+
 export const staffService = {
   // Dashboard
   getDashboard: () =>
@@ -43,17 +59,35 @@ export const staffService = {
   getTodayStatus: () =>
     apiClient<{ attendance: TodayAttendance | null }>(STAFF_ENDPOINTS.TODAY_STATUS),
 
-  checkIn: (data?: CheckInRequest) =>
-    apiClient<{ attendance: TodayAttendance }>(STAFF_ENDPOINTS.CHECK_IN, {
+  checkIn: async (data?: CheckInRequest) => {
+    const payload: CheckInRequest = { ...(data || {}) };
+    if (!payload.lat || !payload.lng) {
+      const coords = await resolveBrowserCoordinates();
+      if (coords.lat !== undefined && coords.lng !== undefined) {
+        payload.lat = coords.lat;
+        payload.lng = coords.lng;
+      }
+    }
+    return apiClient<{ attendance: TodayAttendance }>(STAFF_ENDPOINTS.CHECK_IN, {
       method: 'POST',
-      body: JSON.stringify(data || {}),
-    }),
+      body: JSON.stringify(payload),
+    });
+  },
 
-  checkOut: (data?: CheckOutRequest) =>
-    apiClient<{ attendance: TodayAttendance }>(STAFF_ENDPOINTS.CHECK_OUT, {
+  checkOut: async (data?: CheckOutRequest) => {
+    const payload: CheckOutRequest = { ...(data || {}) };
+    if (!payload.lat || !payload.lng) {
+      const coords = await resolveBrowserCoordinates();
+      if (coords.lat !== undefined && coords.lng !== undefined) {
+        payload.lat = coords.lat;
+        payload.lng = coords.lng;
+      }
+    }
+    return apiClient<{ attendance: TodayAttendance }>(STAFF_ENDPOINTS.CHECK_OUT, {
       method: 'POST',
-      body: JSON.stringify(data || {}),
-    }),
+      body: JSON.stringify(payload),
+    });
+  },
 
   // Leave Management
   getLeaves: (params?: { status?: string; year?: number }) => {

@@ -103,7 +103,7 @@ export default function TransactionHistoryPage() {
     const [whatsAppModalReport, setWhatsAppModalReport] = useState<any>(null);
     const [whatsAppPhone, setWhatsAppPhone] = useState<string>('');
     const whatsAppIframeRef = useRef<HTMLIFrameElement>(null);
-    const { captureAndSend, isSending: isSendingWhatsApp } = useWhatsAppSender({ hospitalId: (params?.hospitalId as string) || '' });
+    const { captureAndSend, isSending: isSendingWhatsApp } = useWhatsAppSender({ hospitalId: (params?.hospitalId as string) || '', department: 'frontdesk' });
 
     useEffect(() => {
         hospitalAdminService.getHospital().then(res => setHospital(res?.hospital)).catch(() => { });

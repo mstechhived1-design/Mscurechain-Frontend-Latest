@@ -1157,6 +1157,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             <div className="flex items-center gap-2">
                                 <WhatsAppSendButton
                                     hospitalId={hospitalId}
+                                    department="pharma"
                                     targetRef={printBillRef}
                                     phoneNumber={mobileNumber}
                                     documentName={`Invoice_${patientName || 'Patient'}.pdf`}
@@ -1188,6 +1189,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             <div className="flex items-center gap-3">
                                 <WhatsAppSendButton
                                     hospitalId={hospitalId}
+                                    department="pharma"
                                     targetRef={printBillRef}
                                     phoneNumber={mobileNumber}
                                     documentName={`Invoice_${patientName || 'Patient'}.pdf`}

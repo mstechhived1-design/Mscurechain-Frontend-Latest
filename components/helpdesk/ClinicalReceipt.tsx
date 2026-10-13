@@ -102,6 +102,13 @@ interface ReceiptProps {
     advanceAmount?: number;
     remainingPaid?: number;
     balance?: number;
+    dueAmount?: number;
+    grandTotal?: number;
+    settlementAmount?: number;
+    receipts?: any[];
+    payments?: any[];
+    isDischarge?: boolean;
+    isDischargeTransaction?: boolean;
     method: 'cash' | 'card' | 'upi' | string;
     mode?: string;
     status: string;
@@ -188,8 +195,31 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
       const doc = iframeRef.current.contentDocument;
       if (doc) {
         // Map props to match generateClinicalReceiptHtml expectations
+        const pAny = patient as any;
+        const aAny = appointment as any;
+        const payAny = payment as any;
+        const mrnCandidates = [
+          pAny?.mrn,
+          pAny?.mrnNumber,
+          pAny?.medicalRecordNumber,
+          pAny?.patientId,
+          pAny?.uhid,
+          pAny?.user?.mrn,
+          pAny?.user?.patientId,
+          aAny?.mrn,
+          aAny?.patientDetails?.mrn,
+          aAny?.patientMrn,
+          payAny?.mrn,
+          payAny?.patientMrn,
+          payAny?.referenceNode,
+          payAny?.referenceId,
+          aAny?.referenceNode
+        ];
+        const resolvedPatientMrn = mrnCandidates.find(c => c && typeof c === 'string' && c.trim() !== '' && c.trim() !== 'N/A' && c.trim() !== 'Resolving...' && c.trim() !== '-' && !c.includes('undefined')) || (patient.mrn && patient.mrn !== 'Resolving...' ? patient.mrn : "N/A");
+
         const mappedPatient = {
           ...patient,
+          mrn: resolvedPatientMrn,
           name: sanitizePatientName(patient.name),
           dob: patient.dateOfBirth || patient.dob, // crucial mapping
           vitals: patient.vitals ? {
@@ -244,6 +274,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
               patient: mappedPatient,
               appointment,
               payment,
+              registrationType: (payment.isDischarge || payment.isDischargeTransaction || appointment.specialization?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('SETTLEMENT') || (patient.dischargeType && patient.dischargeType.toUpperCase() !== 'NONE')) ? 'DISCHARGE' : isOPDOrReg ? 'OPD' : 'IPD',
               headerHtml,
               footerHtml,
               showGuardianDetails,
@@ -258,7 +289,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
                 notes: patient.symptoms || appointment.notes
               },
               payment,
-              registrationType: isOPDOrReg ? 'OPD' : (appointment.specialization?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('DISCHARGE')) ? 'DISCHARGE' : 'IPD',
+              registrationType: (payment.isDischarge || payment.isDischargeTransaction || appointment.specialization?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('SETTLEMENT') || (patient.dischargeType && patient.dischargeType.toUpperCase() !== 'NONE')) ? 'DISCHARGE' : isOPDOrReg ? 'OPD' : 'IPD',
               headerHtml,
               footerHtml,
               returnUrl: '#',
@@ -315,12 +346,17 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
             
             /* Print specific fixes */
             @media print {
-              .receipt-container { padding: 5mm !important; }
+              .receipt-container { padding: 0 5mm !important; }
               .section { page-break-inside: auto !important; }
               .section-header { -webkit-print-color-adjust: exact; }
-              tr { page-break-inside: avoid !important; }
-              .print-header-spacer { margin-bottom: 0 !important; height: 160px !important; }
-              .print-footer-spacer { margin-top: 0 !important; height: 180px !important; }
+              .print-table { width: 100% !important; page-break-inside: auto !important; }
+              .print-table > tbody > tr { page-break-inside: auto !important; }
+              .print-table > tbody > tr > td { page-break-inside: auto !important; }
+              .data-grid tr, .payment-table tr, .vitals-grid tr { page-break-inside: avoid !important; }
+              .header-wrapper { position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; background: white !important; z-index: 1000 !important; }
+              .footer-wrapper { position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; background: white !important; z-index: 1000 !important; }
+              .print-header-spacer { margin-bottom: 0 !important; height: 135px !important; }
+              .print-footer-spacer { margin-top: 0 !important; height: 125px !important; }
             }
           </style>
         </head>`);
@@ -533,6 +569,7 @@ Thank you for choosing ${hospital.name}. Stay Healthy.`;
                     <WhatsAppSendButton
                       ref={whatsAppButtonRef}
                       hospitalId={hospitalId}
+                      department={isLab ? 'lab' : 'frontdesk'}
                       targetRef={iframeRef}
                       phoneNumber={patient.mobile}
                       documentName={isLab ? `Lab_Receipt_${fullPatientName.replace(/\s+/g, '_')}.pdf` : `Appointment_Receipt_${fullPatientName.replace(/\s+/g, '_')}.pdf`}
