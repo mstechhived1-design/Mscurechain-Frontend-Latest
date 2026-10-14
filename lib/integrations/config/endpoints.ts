@@ -68,6 +68,13 @@ export const ADMIN_ENDPOINTS = {
   HOSPITAL_PERSONNEL: (id: string) => `/super-admin/hospitals/${id}/personnel`,
   BULK_HOSPITALS: "/super-admin/hospitals/upload",
 
+  // SaaS Telemetry, Health & Hospital Permissions
+  REALTIME_PULSE: "/super-admin/realtime/pulse",
+  REALTIME_INFRASTRUCTURE: "/super-admin/realtime/infrastructure",
+  REALTIME_WHATSAPP: "/super-admin/realtime/whatsapp",
+  HOSPITAL_INFRASTRUCTURE: (id: string) => `/super-admin/hospitals/${id}/infrastructure`,
+  UPDATE_HOSPITAL_PERMISSIONS: (id: string) => `/super-admin/hospitals/${id}/permissions`,
+
   // Legacy/Compatibility
   DOCTORS: "/super-admin/users?role=doctor",
   PATIENTS: "/super-admin/users?role=patient",

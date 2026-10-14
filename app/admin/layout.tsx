@@ -9,7 +9,7 @@ import {
     LayoutDashboard, PieChart, Users, Building2, Stethoscope, 
     UserRound, Headset, Briefcase, Shield, Key, UserPlus, 
     UserCog, Pill, FlaskConical, Ambulance, Contact, 
-    PlusSquare, UserCheck, Globe, FileText, Quote, Menu, QrCode
+    PlusSquare, UserCheck, Globe, FileText, Quote, Menu, QrCode, Activity
 } from "lucide-react";
 import LogoutModal from "@/components/auth/LogoutModal";
 import NotificationCenter from "@/components/navbar/NotificationCenter";
@@ -20,6 +20,7 @@ import SharedSidebar from "@/components/navbar/SharedSidebar";
 
 const adminMenuItems: any[] = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
+    { icon: Activity, label: "Realtime Telemetry", path: "/admin/realtime" },
     { icon: PieChart, label: "Analytics", path: "/admin/analytics" },
     { icon: Users, label: "All Users", path: "/admin/users" },
     { icon: Building2, label: "Hospitals", path: "/admin/hospitals" },

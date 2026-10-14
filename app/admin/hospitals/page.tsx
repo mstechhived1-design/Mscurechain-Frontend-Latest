@@ -18,7 +18,14 @@ import {
   Bed, 
   ShieldCheck, 
   CheckCircle,
-  Edit
+  Edit,
+  Camera,
+  Mic,
+  Fingerprint,
+  Lock,
+  Save,
+  MessageSquare,
+  Radio
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminService } from '@/lib/integrations';
@@ -40,6 +47,19 @@ const HospitalsList = () => {
     const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
+    const [hospitalInfra, setHospitalInfra] = useState<any>(null);
+    const [infraLoading, setInfraLoading] = useState(false);
+    const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+    const [permissions, setPermissions] = useState({
+      camera: true,
+      location: true,
+      microphone: false,
+      biometrics: false,
+      hwidLock: false,
+      radiusMeters: 500,
+      geofenceEnabled: false,
+    });
+
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         title: "",
@@ -49,6 +69,65 @@ const HospitalsList = () => {
         type: "danger" as "danger" | "warning" | "info" | "success",
         onConfirm: () => {}
     });
+
+    const loadHospitalInfra = async (hId: string) => {
+      setInfraLoading(true);
+      try {
+        const res = await adminService.getHospitalInfrastructureClient(hId);
+        if (res && res.success) {
+          setHospitalInfra(res);
+          const p = res.hospital?.devicePermissions || {};
+          const g = res.hospital?.geofenceSettings || {};
+          setPermissions({
+            camera: p.camera ?? true,
+            location: p.location ?? true,
+            microphone: p.microphone ?? false,
+            biometrics: p.biometrics ?? false,
+            hwidLock: p.hwidLock ?? false,
+            radiusMeters: g.radiusMeters || 500,
+            geofenceEnabled: g.enabled ?? false,
+          });
+        }
+      } catch (e: any) {
+        console.warn("Could not load hospital infra:", e);
+      } finally {
+        setInfraLoading(false);
+      }
+    };
+
+    const handleOpenInfrastructure = (hospital: Hospital) => {
+      setSelectedHospital(hospital);
+      setHospitalInfra(null);
+      loadHospitalInfra(hospital._id);
+    };
+
+    const handleSavePermissions = async () => {
+      if (!selectedHospital) return;
+      setIsSavingPermissions(true);
+      try {
+        const payload = {
+          devicePermissions: {
+            camera: permissions.camera,
+            location: permissions.location,
+            microphone: permissions.microphone,
+            biometrics: permissions.biometrics,
+            hwidLock: permissions.hwidLock,
+          },
+          geofenceSettings: {
+            enabled: permissions.geofenceEnabled,
+            radiusMeters: permissions.radiusMeters,
+          },
+        };
+        const res = await adminService.updateHospitalPermissionsClient(selectedHospital._id, payload);
+        if (res && res.success) {
+          toast.success("Hospital permissions & infrastructure updated!");
+        }
+      } catch (e: any) {
+        toast.error(e.message || "Failed to update permissions");
+      } finally {
+        setIsSavingPermissions(false);
+      }
+    };
 
     useEffect(() => {
       if (isAuthenticated) {
@@ -257,7 +336,7 @@ const HospitalsList = () => {
                     <div className="p-4 pt-0 mt-auto flex flex-col gap-2">
                         <div className="flex gap-2">
                             <button
-                                onClick={() => setSelectedHospital(hospital)}
+                                onClick={() => handleOpenInfrastructure(hospital)}
                                 className="flex-1 bg-gray-100 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800 text-[10px] font-bold py-2 rounded-xl flex items-center justify-center gap-2 group/btn"
                             >
                                 <Eye size={12} className="group-hover/btn:scale-110 text-blue-500" /> Infrastructure
@@ -424,7 +503,133 @@ const HospitalsList = () => {
                </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
+            {/* ─── Hardware & Device Permissions (Live) ─────────────────────────── */}
+            <div className="pt-4 border-t space-y-3" style={{ borderColor: 'var(--border-color)' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <Radio size={14} className="text-blue-500" />
+                    Device Permissions & Geofencing (Node Policy)
+                  </h3>
+                  <p className="text-[10px] text-gray-400">
+                    Control hardware access and geofenced operations for this hospital
+                  </p>
+                </div>
+                {infraLoading && (
+                  <span className="text-[10px] text-blue-500 animate-pulse font-bold">Fetching live state...</span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                {/* Camera Permission */}
+                <div className="p-3 rounded-2xl bg-gray-50/70 dark:bg-gray-900/70 border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${permissions.camera ? 'bg-blue-500/10 text-blue-600' : 'bg-gray-200 text-gray-400'}`}>
+                      <Camera size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold">Camera</p>
+                      <p className="text-[9px] text-gray-400">Teleconsult & Scans</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={permissions.camera}
+                    onChange={(e) => setPermissions({ ...permissions, camera: e.target.checked })}
+                    className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                {/* Location / Geofence */}
+                <div className="p-3 rounded-2xl bg-gray-50/70 dark:bg-gray-900/70 border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${permissions.location ? 'bg-emerald-500/10 text-emerald-600' : 'bg-gray-200 text-gray-400'}`}>
+                      <MapPin size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold">GPS Geofence</p>
+                      <p className="text-[9px] text-gray-400">{permissions.radiusMeters}m radius</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={permissions.location}
+                    onChange={(e) => setPermissions({ ...permissions, location: e.target.checked })}
+                    className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                {/* Microphone */}
+                <div className="p-3 rounded-2xl bg-gray-50/70 dark:bg-gray-900/70 border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${permissions.microphone ? 'bg-purple-500/10 text-purple-600' : 'bg-gray-200 text-gray-400'}`}>
+                      <Mic size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold">Microphone</p>
+                      <p className="text-[9px] text-gray-400">Audio dictation</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={permissions.microphone}
+                    onChange={(e) => setPermissions({ ...permissions, microphone: e.target.checked })}
+                    className="w-4 h-4 accent-purple-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                {/* Biometrics / HWID */}
+                <div className="p-3 rounded-2xl bg-gray-50/70 dark:bg-gray-900/70 border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${permissions.hwidLock ? 'bg-amber-500/10 text-amber-600' : 'bg-gray-200 text-gray-400'}`}>
+                      <Lock size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold">HWID Lock</p>
+                      <p className="text-[9px] text-gray-400">Device binding</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={permissions.hwidLock}
+                    onChange={(e) => setPermissions({ ...permissions, hwidLock: e.target.checked })}
+                    className="w-4 h-4 accent-amber-600 rounded cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ─── WhatsApp Communication State (Live) ───────────────────────── */}
+            <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <MessageSquare size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    WhatsApp Gateway: {hospitalInfra?.whatsapp?.connectedNumber ? `+${hospitalInfra.whatsapp.connectedNumber}` : "Not linked"}
+                  </p>
+                  <p className="text-[10px] text-gray-400 font-mono">
+                    Device: {hospitalInfra?.whatsapp?.deviceName || "Unbound"}
+                  </p>
+                </div>
+              </div>
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${hospitalInfra?.whatsapp?.status === 'CONNECTED' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>
+                {hospitalInfra?.whatsapp?.status || "DISCONNECTED"}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center gap-3 pt-2">
+               <button
+                 type="button"
+                 onClick={handleSavePermissions}
+                 disabled={isSavingPermissions}
+                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50 transition-all"
+               >
+                 <Save size={14} />
+                 {isSavingPermissions ? "Saving..." : "Save Infrastructure Policy"}
+               </button>
+
                <Button variant="ghost" onClick={() => setSelectedHospital(null)} className="px-6 py-2 h-auto text-sm">
                   Dismiss
                </Button>

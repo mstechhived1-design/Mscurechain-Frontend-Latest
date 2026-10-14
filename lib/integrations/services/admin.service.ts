@@ -310,5 +310,29 @@ export const adminService = {
     apiClient<{ leave: any }>(`/leaves/${id}`),
 
   getMyLeavesClient: () => apiClient<{ leaves: any[] }>("/leaves/my"),
+
+  // ─── Realtime Telemetry & Infrastructure Health ──────────────────────────
+  /** GET /super-admin/realtime/pulse */
+  getRealtimePulseClient: () =>
+    apiClient<any>(ADMIN_ENDPOINTS.REALTIME_PULSE),
+
+  /** GET /super-admin/realtime/infrastructure */
+  getRealtimeInfrastructureClient: () =>
+    apiClient<any>(ADMIN_ENDPOINTS.REALTIME_INFRASTRUCTURE),
+
+  /** GET /super-admin/realtime/whatsapp */
+  getRealtimeWhatsAppClient: () =>
+    apiClient<any>(ADMIN_ENDPOINTS.REALTIME_WHATSAPP),
+
+  /** GET /super-admin/hospitals/:id/infrastructure */
+  getHospitalInfrastructureClient: (id: string) =>
+    apiClient<any>(ADMIN_ENDPOINTS.HOSPITAL_INFRASTRUCTURE(id)),
+
+  /** PATCH /super-admin/hospitals/:id/permissions */
+  updateHospitalPermissionsClient: (id: string, data: any) =>
+    apiClient<any>(ADMIN_ENDPOINTS.UPDATE_HOSPITAL_PERMISSIONS(id), {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 };
 
