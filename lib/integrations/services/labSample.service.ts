@@ -27,13 +27,23 @@ export const LabSampleService = {
         return Array.isArray(response?.data) ? response.data.length : 0;
     },
 
-    getSamplesPaginated: async (page: number = 1, limit: number = 10, status: string = 'All Samples'): Promise<{ samples: LabSample[], totalPages: number, currentPage: number, totalSamples: number }> => {
-        const response: any = await apiClient(`${LAB_ENDPOINTS.SAMPLES.BASE}?status=${status}&page=${page}&limit=${limit}`);
+    getSamplesPaginated: async (
+        page: number = 1,
+        limit: number = 10,
+        status: string = 'All Samples',
+        search?: string,
+        skipCache: boolean = true
+    ): Promise<{ samples: LabSample[]; totalPages: number; currentPage: number; totalSamples: number }> => {
+        let url = `${LAB_ENDPOINTS.SAMPLES.BASE}?status=${encodeURIComponent(status)}&page=${page}&limit=${limit}`;
+        if (search && search.trim()) {
+            url += `&search=${encodeURIComponent(search.trim())}`;
+        }
+        const response: any = await apiClient(url, { skipCache });
         return {
             samples: response.data || [],
             totalPages: response.totalPages || 1,
             currentPage: response.currentPage || 1,
-            totalSamples: response.total || 0
+            totalSamples: response.total ?? (response.data ? response.data.length : 0)
         };
     },
 

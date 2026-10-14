@@ -21,6 +21,9 @@ export default function LabResultsEntryPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<TabType>((((searchParams?.get('tab') ?? null) ?? null) as TabType) || 'pending');
     const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const itemsPerPage = 15; // Items per page for submitted results
 
     // Billing Type Filter state
@@ -50,17 +53,57 @@ export default function LabResultsEntryPage() {
         }
     }, [searchParams]);
 
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+            setCurrentPage(1);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Reset page to 1 when changing active tab
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab]);
+
+    const fetchSamples = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            const statusToFetch = activeTab === 'pending' ? 'In Processing' : 'Completed';
+            const result = await LabSampleService.getSamplesPaginated(
+                currentPage,
+                itemsPerPage,
+                statusToFetch,
+                debouncedSearch,
+                true
+            );
+
+            if (activeTab === 'pending') {
+                const pending = result.samples.filter(s =>
+                    s.tests.some(test => !test.resultValue || test.resultValue.trim() === '')
+                );
+                setPendingSamples(pending);
+            } else {
+                setSubmittedSamples(result.samples);
+            }
+
+            setTotalPages(result.totalPages || 1);
+            setTotalRecords(result.totalSamples || (result.samples ? result.samples.length : 0));
+        } catch (error) {
+            console.error('Failed to fetch samples:', error);
+            toast.error('Failed to load results');
+        } finally {
+            setLoading(false);
+        }
+    }, [activeTab, currentPage, debouncedSearch]);
+
     useEffect(() => {
         fetchSamples();
 
-        const handleRefresh = () => {
-            fetchSamples();
-        };
-
+        const handleRefresh = () => fetchSamples();
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                fetchSamples();
-            }
+            if (document.visibilityState === 'visible') fetchSamples();
         };
 
         window.addEventListener('refresh-lab-data', handleRefresh);
@@ -70,57 +113,13 @@ export default function LabResultsEntryPage() {
             window.removeEventListener('refresh-lab-data', handleRefresh);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, []);
-
-    const fetchSamples = async () => {
-        setLoading(true);
-        try {
-            // Fetch "In Processing" samples (pending results) - Force fresh fetch
-            const processing = await LabSampleService.getSamples('In Processing', true);
-
-            // Filter samples that need results entry (no results entered yet)
-            const pending = processing.filter(s =>
-                s.tests.some(test => !test.resultValue || test.resultValue.trim() === '')
-            );
-
-            // Fetch "Completed" samples (submitted results) - Force fresh fetch
-            const completed = await LabSampleService.getSamples('Completed', true);
-
-            setPendingSamples(pending.sort((a, b) =>
-                new Date(b.collectionDate || b.createdAt || '').getTime() -
-                new Date(a.collectionDate || a.createdAt || '').getTime()
-            ));
-
-            setSubmittedSamples(completed.sort((a, b) =>
-                new Date(b.reportDate || b.createdAt || '').getTime() -
-                new Date(a.reportDate || a.createdAt || '').getTime()
-            ));
-        } catch (error) {
-            console.error('Failed to fetch samples:', error);
-            toast.error('Failed to load results');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [fetchSamples]);
 
     const displaySamples = activeTab === 'pending' ? pendingSamples : submittedSamples;
 
-    const filteredSamples = displaySamples
-        .filter(sample => typeFilter === 'all' || getSamplePatientType(sample) === typeFilter)
-        .filter(sample =>
-            sample.patientDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (sample.patientDetails.originalPatientName && sample.patientDetails.originalPatientName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            sample.sampleId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (sample.patientDetails.mobile && sample.patientDetails.mobile.includes(searchQuery))
-        );
-
-    // Calculate total pages
-    const totalPages = Math.ceil(filteredSamples.length / itemsPerPage);
-
-    // Reset to page 1 when switching tabs or search changes
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [activeTab, searchQuery]);
+    const filteredSamples = displaySamples.filter(
+        sample => typeFilter === 'all' || getSamplePatientType(sample) === typeFilter
+    );
 
     if (loading) {
         return (
@@ -263,7 +262,7 @@ export default function LabResultsEntryPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-gray-700">
-                                    {filteredSamples.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((sample) => (
+                                    {filteredSamples.map((sample) => (
                                         <tr key={sample._id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors">
                                             <td className="px-4 md:px-6 py-3 md:py-4">
                                                 <div className="flex items-center gap-3">
@@ -375,7 +374,7 @@ export default function LabResultsEntryPage() {
                         {totalPages > 1 && (
                             <div className="px-4 md:px-6 py-3 md:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0 border-t border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900/30">
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredSamples.length)}</span> of <span className="font-medium">{filteredSamples.length}</span> pending results
+                                    Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalRecords)}</span> of <span className="font-medium">{totalRecords}</span> pending results
                                 </p>
                                 <div className="flex items-center gap-2">
                                     <button
@@ -426,7 +425,7 @@ export default function LabResultsEntryPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-gray-700">
-                                    {filteredSamples.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((sample) => (
+                                    {filteredSamples.map((sample) => (
                                         <tr key={sample._id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors">
                                             <td className="px-4 md:px-6 py-3 md:py-4">
                                                 <div className="flex items-center gap-3">
@@ -541,7 +540,7 @@ export default function LabResultsEntryPage() {
                         {totalPages > 1 && (
                             <div className="px-4 md:px-6 py-3 md:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0 border-t border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900/30">
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredSamples.length)}</span> of <span className="font-medium">{filteredSamples.length}</span> submitted results
+                                    Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalRecords)}</span> of <span className="font-medium">{totalRecords}</span> submitted results
                                 </p>
                                 <div className="flex items-center gap-2">
                                     <button
