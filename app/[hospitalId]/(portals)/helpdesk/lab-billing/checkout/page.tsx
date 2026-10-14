@@ -29,13 +29,14 @@ function HelpdeskLabBillingCheckoutPage() {
     const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
     const [autoWhatsApp, setAutoWhatsApp] = useState(() => {
         if (typeof window !== 'undefined') {
-            return localStorage.getItem('msc_auto_whatsapp_lab') === 'true';
+            return localStorage.getItem('msc_auto_whatsapp') === 'true' || localStorage.getItem('msc_auto_whatsapp_lab') === 'true';
         }
         return false;
     });
     const handleToggleAutoWhatsApp = (val: boolean) => {
         setAutoWhatsApp(val);
         if (typeof window !== 'undefined') {
+            localStorage.setItem('msc_auto_whatsapp', String(val));
             localStorage.setItem('msc_auto_whatsapp_lab', String(val));
         }
     };

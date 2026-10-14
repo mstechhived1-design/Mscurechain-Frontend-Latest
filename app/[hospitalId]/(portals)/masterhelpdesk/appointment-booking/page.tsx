@@ -1157,6 +1157,7 @@ export default function MasterAppointmentBooking() {
 
             {previewReceiptData && (
                 <ClinicalReceipt
+                    isBooking={true}
                     hospital={previewReceiptData.hospital}
                     patient={previewReceiptData.patient}
                     appointment={previewReceiptData.appointment}

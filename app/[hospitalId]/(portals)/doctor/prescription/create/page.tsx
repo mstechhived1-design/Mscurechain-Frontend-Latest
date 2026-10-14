@@ -3436,7 +3436,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
 
         // Submit the prescription and send to pharma
         setIsSending(true);
-        await executeSubmit(true, true);
+        await executeSubmit(true, false);
         setIsSending(false);
         setSentToPharma(true);
     };
@@ -3600,12 +3600,24 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 billing: billingHtml
             });
 
-            setIsSubmitted(true);
+            if (!sendToPharmaFlag) {
+                setIsSubmitted(true);
+            }
 
-            // Auto-send WhatsApp if toggle is active
-            if (autoWhatsApp) {
-                setTriggerWhatsApp(true);
-                setTimeout(() => setTriggerWhatsApp(false), 500);
+            // Auto-send WhatsApp if toggle is active ONLY on Finalize & Print (NOT when sending to Pharma)
+            if (autoWhatsApp && !sendToPharmaFlag) {
+                if (printIframeRef.current) {
+                    const doc = printIframeRef.current.contentDocument;
+                    if (doc) {
+                        doc.open();
+                        doc.write(prescriptionHtml);
+                        doc.close();
+                    }
+                }
+                setTimeout(() => {
+                    setTriggerWhatsApp(true);
+                    setTimeout(() => setTriggerWhatsApp(false), 800);
+                }, 300);
             }
 
             if (showSuccessModal) {
@@ -4392,10 +4404,10 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                         <button
                             onClick={handleSendToPharma}
                             disabled={isSaving || isSending || sentToPharma}
-                            className={`flex-[1.5] sm:flex-none px-2 sm:px-12 py-2 sm:py-4 rounded-2xl font-black uppercase text-[8px] sm:text-xs tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1 sm:gap-3 ${sentToPharma ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/10'}`}
+                            className={`flex-[1.5] sm:flex-none px-2 sm:px-12 py-2 sm:py-4 rounded-2xl font-black uppercase text-[8px] sm:text-xs tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1 sm:gap-3 ${sentToPharma ? 'bg-emerald-100 text-emerald-700 cursor-not-allowed opacity-80' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/10'}`}
                         >
                             {isSending ? <Loader2 className="animate-spin" size={14} /> : (sentToPharma ? <CheckCircle2 size={14} /> : <Pill size={14} />)}
-                            <span className="truncate">{sentToPharma ? 'Pharma' : 'Pharma'}</span>
+                            <span className="truncate">{sentToPharma ? 'Sent to Pharma' : 'Pharma'}</span>
                         </button>
                         <WhatsAppSendButton
                             hospitalId={hospitalId}

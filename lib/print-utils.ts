@@ -1405,38 +1405,71 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
         }
         html, body {
           min-height: 100vh;
-          height: 100%;
           margin: 0;
           padding: 0;
-          position: relative;
+          display: flex;
+          flex-direction: column;
+          background: white;
+          box-sizing: border-box;
+        }
+        .clinical-workspace {
+          flex: 1;
+          min-height: 40px;
         }
         .footer-wrapper {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          background: white;
+          width: 100%;
           padding: 0 20px;
           box-sizing: border-box;
-          z-index: 1000;
+          margin-top: auto;
+          page-break-inside: avoid;
         }
         .footer-spacer {
-          height: 220px;
+          display: none;
         }
         @media print {
-          body { padding: 0; margin: 0; }
+          @page {
+            size: A4 portrait;
+            margin: 6mm 10mm;
+          }
+          html, body {
+            min-height: 100% !important;
+            height: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .header-wrapper {
+            position: relative !important;
+            top: auto !important;
+            left: auto !important;
+            right: auto !important;
+            width: 100% !important;
+            page-break-inside: avoid !important;
+          }
+          .patient-grid, .grid-row, .divider-thick, .divider-thin {
+            page-break-inside: avoid !important;
+          }
+          .clinical-workspace {
+            min-height: 40px !important;
+            page-break-inside: avoid !important;
+          }
           .footer-wrapper {
-            position: fixed;
-            bottom: 1px;
-            left: 0;
-            right: 0;
-            background: white;
-            padding: 0 5mm;
-            box-sizing: border-box;
-            z-index: 1000;
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            padding: 0 5mm !important;
+            box-sizing: border-box !important;
+            background: white !important;
+            z-index: 1000 !important;
+            page-break-inside: avoid !important;
           }
           .footer-spacer {
-            height: 220px; /* Reserve space equal to footer height + gap */
+            display: none !important;
+            height: 0 !important;
           }
         }
       </style>
@@ -1667,12 +1700,10 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
       </div>
       <div class="divider-thin"></div>
 
-      <div class="clinical-workspace" style="min-height: 300px;">
+      <div class="clinical-workspace" style="min-height: 80px;">
         <!-- Open space for doctor prescription notes -->
       </div>
 
-      <!-- Reserve bottom space for fixed footer -->
-      <div class="footer-spacer"></div>
       ${footerHtml ? `
       <div class="footer-wrapper">
         ${footerHtml}

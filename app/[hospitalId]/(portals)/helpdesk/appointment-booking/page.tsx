@@ -2578,6 +2578,7 @@ export default function AppointmentBooking() {
 
             {showReceiptPreview && previewReceiptData && (
                 <ClinicalReceipt
+                    isBooking={true}
                     hospital={previewReceiptData.hospital}
                     patient={previewReceiptData.patient}
                     appointment={previewReceiptData.appointment}

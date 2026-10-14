@@ -105,10 +105,14 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     };
 
     const triggerPrintAndWhatsApp = () => {
-        handlePrint();
         if (autoWhatsApp) {
             setTriggerWhatsApp(true);
-            setTimeout(() => setTriggerWhatsApp(false), 500);
+            setTimeout(() => {
+                setTriggerWhatsApp(false);
+                handlePrint();
+            }, 800);
+        } else {
+            handlePrint();
         }
     };
 
