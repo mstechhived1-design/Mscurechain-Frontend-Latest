@@ -3,11 +3,48 @@ import { useWhatsAppSender } from './useWhatsAppSender';
 import { MessageCircle, Check, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export const READ_MORE = String.fromCharCode(8206).repeat(4001);
 export const WA_DIVIDER = '━━━━━━━━━━━━━━━━━━';
+
+/**
+ * Dynamic WhatsApp Read More Formatter
+ * Dynamically computes and inserts the exact number of invisible formatting markers
+ * (\u200E) between the visible summary card and the collapsible instructions/details.
+ * 
+ * Works dynamically across ALL portals (Helpdesk, Pharma, Lab, Discharge, Doctor)
+ * so short cards always reach the fold threshold and trigger "... Read more",
+ * while long cards automatically throttle markers so total characters stay safely under limit.
+ */
+export function formatDynamicWhatsAppCaption(
+  primaryContent: string,
+  collapsibleContent?: string,
+  targetFoldThreshold: number = 780,
+  maxTotalChars: number = 920
+): string {
+  const primary = (primaryContent || '').trim();
+  const collapsible = (collapsibleContent || '').trim();
+
+  if (!collapsible) {
+    return primary;
+  }
+
+  const baseChars = primary.length + collapsible.length + 2;
+  const needed = Math.max(0, targetFoldThreshold - baseChars);
+  const maxPossible = Math.max(0, maxTotalChars - baseChars);
+
+  // Dynamically allocate markers based on card length
+  const markerCount = Math.min(Math.max(needed, 280), maxPossible);
+  const readMoreMarkers = String.fromCharCode(8206).repeat(markerCount);
+
+  return `${primary}\n${readMoreMarkers}\n${collapsible}`;
+}
+
+export const READ_MORE = String.fromCharCode(8206).repeat(280);
 
 export interface WhatsAppAppointmentDetails {
   patientName?: string;
+  tokenNo?: string;
+  tokenNumber?: string;
+  token_number?: string;
   mrn?: string;
   appointmentId?: string;
   doctorName?: string;
@@ -17,6 +54,7 @@ export interface WhatsAppAppointmentDetails {
   hospitalName?: string;
   fee?: number | string;
   paymentStatus?: string;
+  paymentMode?: string;
 }
 
 export interface WhatsAppSendButtonHandle {
@@ -60,7 +98,7 @@ export const WhatsAppSendButton = React.forwardRef<WhatsAppSendButtonHandle, Wha
   department,
 }, ref) => {
   const { captureAndSend, isSending } = useWhatsAppSender({ hospitalId, department });
-  
+
   // Auto WhatsApp State
   const [internalAutoSend, setInternalAutoSend] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -70,7 +108,7 @@ export const WhatsAppSendButton = React.forwardRef<WhatsAppSendButtonHandle, Wha
   });
 
   const autoSend = propAutoSend !== undefined ? propAutoSend : internalAutoSend;
-  
+
   const hasAutoSent = useRef(false);
   const prevTriggerRef = useRef(false);
 
@@ -121,28 +159,33 @@ export const WhatsAppSendButton = React.forwardRef<WhatsAppSendButtonHandle, Wha
       const dateStr = appointmentDetails.date || 'Scheduled Date';
       const timeStr = appointmentDetails.timeSlot || 'Scheduled Time';
       const feeStr = appointmentDetails.fee !== undefined ? `₹${appointmentDetails.fee}` : 'Paid';
-      const statusStr = appointmentDetails.paymentStatus || 'Confirmed';
 
-      return `*${hospName.toUpperCase()}*
-${WA_DIVIDER}
-*APPOINTMENT CONFIRMATION & RECEIPT*
+      const rawStatus = (appointmentDetails.paymentStatus || 'PAID').toUpperCase();
+      const isPaid = /PAID|COMPLETED/i.test(rawStatus) || (rawStatus !== 'UNPAID' && rawStatus !== 'PENDING' && Number(appointmentDetails.fee) > 0);
+      const paymentStatusDisplay = isPaid ? 'PAID' : 'UNPAID';
 
-*Patient Name:* ${pName}
-*MRN / Token ID:* ${idStr}
-*Doctor Name:* ${docName}
-*Specialty:* ${spec}
-*Appointment Date:* ${dateStr}
-*Time Slot:* ${timeStr}
-*Consultation Fee:* ${feeStr} (${statusStr.toUpperCase()})
+      const rawToken = appointmentDetails.tokenNo || appointmentDetails.tokenNumber || appointmentDetails.token_number;
+      const tokenDisplay = rawToken ? (!isNaN(Number(rawToken)) ? `#${String(rawToken).padStart(2, '0')}` : (String(rawToken).startsWith('#') ? rawToken : `#${rawToken}`)) : null;
+
+      const primary = `*${hospName.toUpperCase()}*
 ${WA_DIVIDER}
-${READ_MORE}
-*Important Patient Instructions:*
-• Please arrive 15 minutes before your scheduled appointment time.
-• Show this token / e-receipt at the Front Desk upon arrival.
-• Bring all previous medical records, prescriptions, and lab reports.
-• Contact ${hospName} Helpdesk for any queries or rescheduling.
+📋 *APPOINTMENT RECEIPT*
+*Patient:* ${pName}
+*Token No:* ${tokenDisplay || 'N/A'} | *MR No:* ${idStr}
+*Doctor:* ${docName} (${spec})
+*Date & Time:* ${dateStr} • ${timeStr}
+*Payment:* ${feeStr} (${paymentStatusDisplay}${appointmentDetails.paymentMode ? ` - ${appointmentDetails.paymentMode}` : ''})
+${WA_DIVIDER}`;
+
+      const instructions = `📌 *Important Patient Instructions:*
+• Arrive 15 mins before scheduled time.
+• Show this token/receipt at Front Desk.
+• Bring previous records & prescriptions.
+• Contact ${hospName} for queries.
 
 Thank you for choosing ${hospName}. Stay Healthy.`;
+
+      return formatDynamicWhatsAppCaption(primary, instructions);
     }
     return 'Hello, please find your document attached.';
   };
@@ -150,12 +193,14 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
   const [isSent, setIsSent] = useState(false);
 
   const handleSend = async (): Promise<boolean> => {
-    if (!isValidPhone(phoneNumber)) {
+    let clean = (phoneNumber || '').replace(/[^0-9]/g, '');
+    if (clean.length === 12 && clean.startsWith('91')) clean = clean.slice(2);
+    if (clean.length !== 10) {
       toast.error('Invalid patient phone number. Must be 10 digits.');
       return false;
     }
     const finalCaption = buildFinalCaption();
-    const success = await captureAndSend(targetRef, phoneNumber, documentName, finalCaption, department);
+    const success = await captureAndSend(targetRef, clean, documentName, finalCaption, department);
     if (success) {
       setIsSent(true);
       setTimeout(() => setIsSent(false), 2500);
@@ -192,7 +237,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
             <span>Auto WhatsApp</span>
           </label>
         )}
-        
+
         <button
           onClick={handleSend}
           disabled={isSending || !isValid}
@@ -233,7 +278,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
           <span>Auto WhatsApp</span>
         </label>
       )}
-      
+
       <button
         onClick={handleSend}
         disabled={isSending || !isValid}

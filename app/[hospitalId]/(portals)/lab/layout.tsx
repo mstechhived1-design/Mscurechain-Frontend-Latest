@@ -16,9 +16,9 @@ import { useRealtime } from '@/hooks/useRealtime';
 import SharedSidebar from "@/components/navbar/SharedSidebar";
 import LabNotificationPanel from "@/components/lab/LabNotificationPanel";
 import { LabSampleService } from "@/lib/integrations/services";
+import WhatsAppStatusIndicator from "@/components/WhatsApp/WhatsAppStatusIndicator";
 
 // Menu links will be generated dynamically to include the pending count
-
 
 const LabLayout = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
@@ -261,6 +261,7 @@ const LabLayout = ({ children }: { children: React.ReactNode }) => {
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-4">
+                        <WhatsAppStatusIndicator department="lab" variant="navbar" />
                         <LabNotificationPanel />
                         
                         <div className="hidden sm:flex items-center gap-3">

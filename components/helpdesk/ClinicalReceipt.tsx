@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from "react";
 import { X, Printer } from "lucide-react";
-import { generateClinicalReceiptHtml, generateOPDRegistrationSlipHtml, generateLabReceiptHtml } from "@/lib/print-utils";
+import { generateClinicalReceiptHtml, generateOPDRegistrationSlipHtml, generateLabReceiptHtml, formatReceiptPaymentMode } from "@/lib/print-utils";
 import { renderToStaticMarkup } from "react-dom/server";
 import MainHeader from "../printers/MainHeader";
 import MainFooter from "../printers/MainFooter";
 import { hospitalAdminService } from "@/lib/integrations/services/hospitalAdmin.service";
 import { sanitizePatientName, formatPatientNameWithPrefix } from "@/lib/utils/name-utils";
 import { usePrintStore } from "@/stores/printStore";
-import { WhatsAppSendButton, WhatsAppSendButtonHandle } from "../WhatsApp/WhatsAppSendButton";
+import { WhatsAppSendButton, WhatsAppSendButtonHandle, formatDynamicWhatsAppCaption } from "../WhatsApp/WhatsAppSendButton";
 import { useParams } from "next/navigation";
 
 interface ReceiptProps {
@@ -40,7 +40,9 @@ interface ReceiptProps {
     dob?: string;
     allergies?: string;
     medicalHistory?: string;
-    symptoms?: string;
+    symptoms?: string | string[];
+    chiefComplaint?: string;
+    reason?: string;
     diagnosis?: string;
     provisionalDiagnosis?: string;
     treatmentGiven?: string;
@@ -85,6 +87,9 @@ interface ReceiptProps {
     doctorReference?: string;
     stayDuration?: string;
     notes?: string;
+    symptoms?: string | string[];
+    reason?: string;
+    chiefComplaint?: string;
     tests?: any[];
     testName?: string;
   };
@@ -131,7 +136,14 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
   const [dataLoaded, setDataLoaded] = React.useState(false);
   const { printWithHeader, setPrintWithHeader } = usePrintStore();
   const params = useParams();
-  const hospitalId = (params?.hospitalId as string) || '';
+  const getHospitalIdFromPath = () => {
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/([a-f0-9]{24})\b/i);
+      if (match) return match[1];
+    }
+    return '';
+  };
+  const hospitalId = (params?.hospitalId as string) || (propHospital as any)?._id || (propHospital as any)?.id || (propHospital as any)?.hospitalId || getHospitalIdFromPath() || '';
 
   const isLab = Boolean(
     propIsLab ||
@@ -560,26 +572,23 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
                     false
                   );
 
-                  const labWhatsAppCaption = `*${(hospital.name || 'HOSPITAL').toUpperCase()}*
-───────────────────────────
-*LAB BILL & RECEIPT*
+                  const labWhatsAppCaption = formatDynamicWhatsAppCaption(
+                    `*${(hospital.name || 'HOSPITAL').toUpperCase()}*
+━━━━━━━━━━━━━━━━━━
+🔬 *LAB BILL & RECEIPT*
+*Patient:* ${fullPatientName}
+*Token / MRN:* ${patient.mrn || appointment.appointmentId || 'N/A'}
+*Doctor:* ${appointment.doctorName ? (appointment.doctorName.startsWith('Dr.') ? appointment.doctorName : `Dr. ${appointment.doctorName}`) : 'Dr. Attending Specialist'}
+*Service:* Lab Diagnostic (${testsSummary})
+*Paid:* ₹${Math.round(payment.amount || 0).toLocaleString('en-IN')} (${(payment.status || 'PAID').toUpperCase()} - ${formatReceiptPaymentMode(payment, appointment)})
+━━━━━━━━━━━━━━━━━━`,
+                    `📌 *Important Instructions:*
+• Present this receipt at laboratory to collect reports.
+• Reports verified by pathologist before release.
+• Contact ${hospital.name} helpdesk for assistance.
 
-*Patient Name:* ${fullPatientName}
-*MRN / Sample ID:* ${patient.mrn || appointment.appointmentId || 'N/A'}
-*Referred Doctor:* ${appointment.doctorName ? (appointment.doctorName.startsWith('Dr.') ? appointment.doctorName : `Dr. ${appointment.doctorName}`) : 'Dr. Attending Specialist'}
-*Service Type:* Lab Diagnostic
-*Investigation(s):* ${testsSummary}
-*Invoice / Ref No:* ${payment.receiptNumber || appointment.appointmentId || 'N/A'}
-*Receipt Date:* ${appointment.date}
-*Paid Amount:* ₹${Math.round(payment.amount || 0).toLocaleString('en-IN')} (${(payment.status || 'PAID').toUpperCase()})
-*Payment Mode:* ${(payment.mode || payment.method || 'CASH').toUpperCase()}
-───────────────────────────
-*Important Instructions:*
-• Present this receipt at the laboratory to collect test reports.
-• Reports will be verified by the pathologist before release.
-• Contact ${hospital.name} helpdesk for any assistance.
-
-Thank you for choosing ${hospital.name}. Stay Healthy.`;
+Thank you for choosing ${hospital.name}. Stay Healthy.`
+                  );
 
                   return (
                     <WhatsAppSendButton
@@ -597,6 +606,7 @@ Thank you for choosing ${hospital.name}. Stay Healthy.`;
                       caption={isLab ? labWhatsAppCaption : undefined}
                       appointmentDetails={isLab ? undefined : {
                         patientName: fullPatientName,
+                        tokenNo: (appointment as any).token_number || (appointment as any).tokenNo || (appointment as any).tokenNumber || (appointment as any).token || (appointment as any).dailyTokenNumber || (appointment as any).queueNumber,
                         mrn: patient.mrn,
                         appointmentId: appointment.appointmentId,
                         doctorName: appointment.doctorName,
@@ -605,7 +615,8 @@ Thank you for choosing ${hospital.name}. Stay Healthy.`;
                         timeSlot: appointment.time,
                         hospitalName: hospital.name,
                         fee: payment.amount,
-                        paymentStatus: payment.status
+                        paymentStatus: payment.status || 'PAID',
+                        paymentMode: formatReceiptPaymentMode(payment, appointment),
                       }}
                       className="px-4 sm:px-5 py-2 sm:py-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-all text-[11px] sm:text-xs uppercase tracking-wider disabled:opacity-50 h-full"
                     />

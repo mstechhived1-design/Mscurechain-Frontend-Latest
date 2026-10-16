@@ -136,11 +136,11 @@ function AppointmentsQueueDynamic({ onStatsChange, consultationDuration, visitTy
   todayObj.setMinutes(todayObj.getMinutes() - todayObj.getTimezoneOffset());
   const todayStr = todayObj.toISOString().split('T')[0];
 
-  // Filter: Show all appointments except completed, cancelled, and paused ones
-  // Also show appointments with status "Booked", "confirmed", "scheduled", etc.
+  // Filter: Show active waiting appointments. 
+  // Online bookings with status 'scheduled' are awaiting Frontdesk Check-In and do not clutter doctor queue.
   const queueAppointments = appointments.filter(apt => {
     const status = apt.status?.toLowerCase();
-    const isExcluded = status === 'completed' || status === 'cancelled' || (apt as any).isPaused === true;
+    const isExcluded = status === 'completed' || status === 'cancelled' || (apt as any).isPaused === true || (apt.type?.toLowerCase() === 'online' && status === 'scheduled');
     
     // Filter by Visit Type
     if (visitTypeFilter !== 'all') {
@@ -450,10 +450,11 @@ function AppointmentsQueueDynamic({ onStatsChange, consultationDuration, visitTy
                   <React.Fragment key={apt.id}>
                     {/* Desktop View Card (sm and up) */}
                     <div className="hidden sm:grid grid-cols-12 items-center gap-4 p-4 bg-secondary-theme dark:bg-secondary-theme rounded-xl hover:opacity-100 transition-all border border-transparent hover:border-primary-theme/20 hover:shadow-md group">
-                      <div className="col-span-1 flex justify-center">
-                        <div className="shrink-0 w-8 h-8 lg:w-10 lg:h-10 bg-primary-theme rounded-full flex items-center justify-center text-primary-theme-foreground font-black text-xs">
-                          {idx + 1}
+                      <div className="col-span-1 flex flex-col items-center justify-center">
+                        <div className="shrink-0 w-8 h-8 lg:w-10 lg:h-10 bg-primary-theme rounded-xl flex items-center justify-center text-primary-theme-foreground font-black text-xs shadow-sm">
+                          {(apt as any).token_number ? `#${String((apt as any).token_number).padStart(2, '0')}` : `#${idx + 1}`}
                         </div>
+                        <span className="text-[8px] font-black uppercase tracking-tight text-muted mt-0.5">TOKEN</span>
                       </div>
                       
                       <div className="col-span-3 lg:col-span-4 min-w-0">
@@ -517,8 +518,8 @@ function AppointmentsQueueDynamic({ onStatsChange, consultationDuration, visitTy
                     <div className="sm:hidden flex flex-col gap-2 p-3 bg-secondary-theme rounded-xl border border-border-theme/50 relative">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-2.5 min-w-0 pr-2">
-                          <div className="shrink-0 w-8 h-8 bg-primary-theme rounded-full flex items-center justify-center text-primary-theme-foreground font-black text-[11px]">
-                            {idx + 1}
+                          <div className="shrink-0 w-8 h-8 bg-primary-theme rounded-xl flex items-center justify-center text-primary-theme-foreground font-black text-[11px] shadow-xs">
+                            {(apt as any).token_number ? `#${(apt as any).token_number}` : `#${idx + 1}`}
                           </div>
                           <div className="min-w-0">
                             <p className="text-[12px] font-black text-foreground truncate">{apt.patientName}</p>

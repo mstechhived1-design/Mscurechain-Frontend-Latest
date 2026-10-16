@@ -205,6 +205,17 @@ export const helpdeskService = {
     apiClient<any>(`${HELPDESK_ENDPOINTS.APPOINTMENTS}/${appointmentId}`),
 
   /**
+   * Update appointment details (edit booking)
+   * @param appointmentId Appointment ID
+   * @param data Edit fields
+   */
+  updateAppointment: (appointmentId: string, data: any) =>
+    apiClient<any>(`${HELPDESK_ENDPOINTS.APPOINTMENTS}/${appointmentId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  /**
    * Get doctor availability for a specific hospital and date
    * @param doctorId Doctor ID
    * @param hospitalId Hospital ID
@@ -276,11 +287,12 @@ export const helpdeskService = {
     return apiClient<any>(query);
   },
 
-  checkFollowUpEligibility: (patientId: string, doctorId?: string, type?: string, date?: string) => {
+  checkFollowUpEligibility: (patientId: string, doctorId?: string, type?: string, date?: string, excludeAppointmentId?: string) => {
     let url = `/bookings/check-follow-up?patientId=${patientId}`;
     if (doctorId) url += `&doctorId=${doctorId}`;
     if (type) url += `&type=${type}`;
     if (date) url += `&date=${date}`;
+    if (excludeAppointmentId) url += `&excludeAppointmentId=${excludeAppointmentId}`;
     return apiClient<any>(url);
   },
 

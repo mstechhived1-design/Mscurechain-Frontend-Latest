@@ -1,4 +1,4 @@
-﻿'use server';
+'use server';
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
@@ -31,7 +31,8 @@ export async function getDoctorCalendarStatsAction(params: {
 export async function updateDoctorAvailabilityAction(availability: any[]) {
     try {
         const cookieStore = await cookies();
-        const token = cookieStore.get('token')?.value;
+        const token = cookieStore.get('accessToken')?.value || 
+                      cookieStore.get('token')?.value;
 
         if (!token) {
             return { success: false, error: 'Authentication required' };

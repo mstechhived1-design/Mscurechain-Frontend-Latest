@@ -75,6 +75,38 @@ export const formatTime12Hr = (time: any): string => {
   }
 };
 
+export const formatReceiptPaymentMode = (payment: any = {}, appointment: any = {}): string => {
+  const rawMode = String(payment?.method || payment?.mode || appointment?.paymentMethod || appointment?.paymentMode || 'CASH').toUpperCase();
+  if (rawMode === 'MIXED') {
+    const detailsObj = payment?.paymentDetails || 
+                      appointment?.payment?.paymentDetails || 
+                      appointment?.paymentDetails || 
+                      payment?.transaction?.paymentDetails || 
+                      appointment?.transaction?.paymentDetails || 
+                      {};
+    const cash = Number(detailsObj.cash) || 0;
+    const upi = Number(detailsObj.upi) || 0;
+    const card = Number(detailsObj.card) || 0;
+    const bank = Number(detailsObj.bankTransfer || detailsObj.bank) || 0;
+
+    const parts: string[] = [];
+    if (cash > 0) parts.push(`Cash: ₹${cash.toLocaleString('en-IN')}`);
+    if (upi > 0) parts.push(`UPI: ₹${upi.toLocaleString('en-IN')}`);
+    if (card > 0) parts.push(`Card: ₹${card.toLocaleString('en-IN')}`);
+    if (bank > 0) parts.push(`Bank: ₹${bank.toLocaleString('en-IN')}`);
+
+    if (parts.length > 0) {
+      return `MIXED (${parts.join(', ')})`;
+    }
+
+    const paidAmt = Number(payment?.amount != null ? payment?.amount : (payment?.paidAmount || appointment?.amount || 0));
+    if (paidAmt > 0) {
+      return `MIXED (Paid: ₹${paidAmt.toLocaleString('en-IN')})`;
+    }
+  }
+  return rawMode;
+};
+
 export const generatePayslipHtml = (data: any) => {
   const { payroll, hospital } = data;
   const staff = data.staff || payroll?.user || {};
@@ -785,7 +817,7 @@ export const generateLabReceiptHtml = (data: any) => {
   const discountAmount = Number(payment.discount || payment.discountAmount || appointment.discount || 0);
   const paidAmount = Number(payment.amount != null ? payment.amount : (payment.paidAmount || 0));
   const balanceAmount = Number(payment.balance || (totalAmount - discountAmount - paidAmount > 0 ? totalAmount - discountAmount - paidAmount : 0));
-  const paymentMode = (payment.mode || payment.method || 'CASH').toUpperCase();
+  const paymentMode = formatReceiptPaymentMode(payment, appointment);
   const receiptNo = payment.receiptNumber || payment.receiptNo || appointment.appointmentId || appointment.sampleId || 'REC-N/A';
 
   return `
@@ -1173,7 +1205,7 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
     appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific || patient.honorific || patient.profile?.honorific || patient.honorificTitle || patient.patientHonorific
   );
   
-  const rawToken = appointment.tokenNo || appointment.tokenNumber || appointment.token || appointment.queueNumber || appointment.dailyTokenNumber || (appointment.queuePosition !== undefined ? appointment.queuePosition : undefined) || (() => {
+  const rawToken = appointment.token_number || appointment.tokenNo || appointment.tokenNumber || appointment.token || appointment.queueNumber || appointment.dailyTokenNumber || (appointment.queuePosition !== undefined ? appointment.queuePosition : undefined) || (() => {
     const refStr = String(appointment.appointmentId || patient.mrn || "10");
     const digits = refStr.replace(/\D/g, "");
     const num = parseInt(digits.slice(-3) || "10", 10);
@@ -1187,12 +1219,13 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
     return '';
   };
   const symptomDisplay = getSymptomsText(patient.symptoms) || 
-                         getSymptomsText(patient.chiefComplaint) || 
                          getSymptomsText(appointment.symptoms) || 
                          getSymptomsText(appointment.reason) || 
+                         getSymptomsText(patient.chiefComplaint) || 
                          getSymptomsText(appointment.notes) || 
                          getSymptomsText(appointment.chiefComplaint) || 
                          getSymptomsText(appointment.reasonForVisit) || 
+                         getSymptomsText(payment.reason) || 
                          "N/A";
   
   const isDischargeTx = Boolean(
@@ -1626,7 +1659,7 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
               </div>
               <div>
                 <div style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Payment Mode</div>
-                <div style="font-size: 11px; font-weight: 800; color: #334155; margin-top: 2px;">${(payment.method || payment.mode || 'CASH').toUpperCase()}</div>
+                <div style="font-size: 11px; font-weight: 800; color: #334155; margin-top: 2px;">${formatReceiptPaymentMode(payment, appointment)}</div>
               </div>
             </div>`;
           }
@@ -1657,8 +1690,23 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
             <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
               <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">Payment Mode</span>
               <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
-              <span style="font-size: 10px; font-weight: 800; color: #1e293b;">${(payment.method || 'CASH').toUpperCase()}</span>
+              <span style="font-size: 10px; font-weight: 800; color: #1e293b;">${formatReceiptPaymentMode(payment, appointment)}</span>
             </div>
+            ${(() => {
+              const aptStat = String(appointment.paymentStatus || '').toUpperCase();
+              const payStat = String(payment.status || payment.paymentStatus || '').toUpperCase();
+              const isPaid = aptStat === 'PAID' || payStat === 'PAID' || /PAID|COMPLETED/i.test(aptStat) || /PAID|COMPLETED/i.test(payStat);
+              const statusText = isPaid ? 'PAID' : 'UNPAID';
+              const badgeColor = isPaid ? '#15803d' : '#b91c1c';
+              const badgeBg = isPaid ? '#f0fdf4' : '#fef2f2';
+              const badgeBorder = isPaid ? '#bbf7d0' : '#fecaca';
+              return `
+            <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
+              <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">Payment Status</span>
+              <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
+              <span style="font-size: 10px; font-weight: 900; color: ${badgeColor}; background: ${badgeBg}; border: 1px solid ${badgeBorder}; padding: 1px 6px; border-radius: 4px; text-transform: uppercase;">${statusText}</span>
+            </div>`;
+            })()}
           </div>`;
         })()}
 

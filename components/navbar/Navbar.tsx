@@ -37,6 +37,8 @@ interface NavbarProps {
 
 import NotificationCenter from './NotificationCenter';
 import LogoutModal from '../auth/LogoutModal';
+import WhatsAppStatusIndicator from '@/components/WhatsApp/WhatsAppStatusIndicator';
+import { usePathname } from 'next/navigation';
 
 function Navbar({
     title = "MScurechain",
@@ -59,7 +61,20 @@ function Navbar({
     const dropdownRef = useRef<HTMLDivElement>(null);
     const { logout, user: authUser } = useAuthStore();
     const router = useRouter();
+    const pathname = usePathname() as string;
     const { getPath } = useTenantLink();
+
+    const isExcluded = Boolean(
+        pathname?.includes('/hr') ||
+        pathname?.includes('/patient') ||
+        pathname?.includes('/emergency') ||
+        pathname?.includes('/discharge') ||
+        pathname?.includes('/nurse') ||
+        authUser?.role === 'hr' ||
+        authUser?.role === 'patient' ||
+        authUser?.role === 'emergency' ||
+        authUser?.role === 'nurse'
+    );
 
     const user = propUser || (authUser ? {
         name: authUser.name,
@@ -113,6 +128,13 @@ function Navbar({
                 {/* Custom Actions */}
                 {actions && <div className="flex items-center gap-2">{actions}</div>}
 
+                {/* WhatsApp Status Indicator (Desktop) */}
+                {!isExcluded && (
+                    <div className="hidden sm:block">
+                        <WhatsAppStatusIndicator department={user?.role?.toLowerCase()} variant="navbar" />
+                    </div>
+                )}
+
                 {/* Notifications */}
                 <NotificationCenter showAuditHistory={user?.role?.toLowerCase() !== 'doctor'} />
 
@@ -143,11 +165,18 @@ function Navbar({
 
                         {/* Dropdown Menu */}
                         {isProfileOpen && (
-                            <div className="absolute right-0 mt-2 w-56 bg-card rounded-2xl shadow-2xl border border-border-theme z-50 overflow-hidden p-2 transform">
+                            <div className="absolute right-0 mt-2 w-64 bg-card rounded-2xl shadow-2xl border border-border-theme z-50 overflow-hidden p-2 transform">
                                 <div className="px-4 py-3 mb-2 border-b border-gray-50 dark:border-gray-800">
-
                                     <p className="text-sm font-black text-gray-900 dark:text-white truncate uppercase">{user?.name}</p>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">{user?.role || "Staff Access"}</p>
                                 </div>
+
+                                {/* Mobile WhatsApp Status Badge in Profile Dropdown */}
+                                {!isExcluded && (
+                                    <div className="p-2 sm:hidden mb-2">
+                                        <WhatsAppStatusIndicator department={user?.role?.toLowerCase()} variant="profile-dropdown" />
+                                    </div>
+                                )}
 
                                 <Link
                                     href={profileHref || getPath(`/${user?.role?.toLowerCase()}/profile`)}

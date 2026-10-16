@@ -17,7 +17,8 @@ import {
   Layers,
   RefreshCw,
   Star,
-  MapPin
+  MapPin,
+  Clock
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
@@ -27,6 +28,7 @@ import { ipdService } from '@/lib/integrations/services/ipd.service';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { WhatsAppSettingsHub } from '@/components/WhatsApp/WhatsAppSettingsHub';
+import ClockTimePicker from '@/components/ui/ClockTimePicker';
 
 const HospitalDetailsPage = () => {
   const [hospital, setHospital] = useState<any>(null);
@@ -34,6 +36,38 @@ const HospitalDetailsPage = () => {
   const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [formData, setFormData] = useState<any>({});
+  const [activeTimePicker, setActiveTimePicker] = useState<'morningStart' | 'morningEnd' | 'eveningStart' | 'eveningEnd' | null>(null);
+
+  const parseTimeToH24 = (timeStr?: string) => {
+    if (!timeStr) return { hour24: 9, minute: 0 };
+    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) return { hour24: 9, minute: 0 };
+    let h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const period = match[3]?.toUpperCase();
+    if (period === 'PM' && h < 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    return { hour24: h, minute: m };
+  };
+
+  const formatH24To12h = (h24: number, min: number) => {
+    const period = h24 >= 12 ? 'PM' : 'AM';
+    let h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+    const mm = String(min).padStart(2, '0');
+    const hh = String(h12).padStart(2, '0');
+    return `${hh}:${mm} ${period}`;
+  };
+
+  const handleClockSave = (h24: number, min: number) => {
+    if (!activeTimePicker) return;
+    const formatted = formatH24To12h(h24, min);
+    setFormData((prev: any) => ({
+      ...prev,
+      [activeTimePicker]: formatted
+    }));
+    setActiveTimePicker(null);
+  };
 
   const params = useParams();
   const hospitalId = params?.hospitalId as string;
@@ -76,7 +110,12 @@ const HospitalDetailsPage = () => {
         establishedYear: enrichedHospital.establishedYear || '',
         gstNumber: enrichedHospital.gstNumber || '',
         rating: enrichedHospital.rating || '',
-        operatingHours: enrichedHospital.operatingHours || '24/7',
+        operatingHours: enrichedHospital.operatingHours || '09:00 AM - 09:00 PM',
+        bookingWindowDays: enrichedHospital.appointmentSettings?.bookingWindowDays ?? 10,
+        morningStart: enrichedHospital.appointmentSettings?.allowedSessions?.morning?.start || '09:00 AM',
+        morningEnd: enrichedHospital.appointmentSettings?.allowedSessions?.morning?.end || '01:00 PM',
+        eveningStart: enrichedHospital.appointmentSettings?.allowedSessions?.evening?.start || '05:00 PM',
+        eveningEnd: enrichedHospital.appointmentSettings?.allowedSessions?.evening?.end || '09:00 PM',
         ambulanceAvailability: enrichedHospital.ambulanceAvailability || false,
         specialities: enrichedHospital.specialities?.join(', ') || '',
         services: enrichedHospital.services?.join(', ') || '',
@@ -104,6 +143,22 @@ const HospitalDetailsPage = () => {
       console.log("[HospitalDetailsPage] Saving form data:", formData);
       const payload = {
         ...formData,
+        operatingHours: formData.operatingHours || '09:00 AM - 09:00 PM',
+        appointmentSettings: {
+          bookingWindowDays: Number(formData.bookingWindowDays) || 10,
+          allowedSessions: {
+            morning: {
+              start: formData.morningStart || '09:00 AM',
+              end: formData.morningEnd || '01:00 PM',
+              available: true,
+            },
+            evening: {
+              start: formData.eveningStart || '05:00 PM',
+              end: formData.eveningEnd || '09:00 PM',
+              available: true,
+            },
+          },
+        },
         specialities: typeof formData.specialities === 'string' ? formData.specialities.split(',').map((s: string) => s.trim()).filter(Boolean) : formData.specialities,
         services: typeof formData.services === 'string' ? formData.services.split(',').map((s: string) => s.trim()).filter(Boolean) : formData.services,
         rating: Number(formData.rating) || 0,
@@ -472,6 +527,139 @@ const HospitalDetailsPage = () => {
                 </div>
               </div>
             </div>
+
+            {/* Section: Hospital OPD Working Hours & Public Appointment Engine */}
+            <div className="p-2 md:p-4 md:p-8 border-t border-slate-100 bg-emerald-50/20">
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 mb-8">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                  <Clock size={16} className="text-emerald-700" />
+                </div>
+                Hospital OPD Operating Hours & Appointment Engine
+              </h3>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormInput
+                    label="Hospital OPD Operating Hours Window"
+                    value={formData.operatingHours}
+                    onChange={(e) => setFormData({ ...formData, operatingHours: e.target.value })}
+                    readOnly={!isEdit}
+                    placeholder="e.g. 09:00 AM - 09:00 PM or 24/7 (Emergency)"
+                    className={!isEdit ? "bg-transparent border-none p-0 font-bold text-slate-800" : ""}
+                  />
+                  <FormInput
+                    label="Public Booking Window (Max Days Ahead)"
+                    value={formData.bookingWindowDays ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, bookingWindowDays: val === '' ? ('' as any) : Number(val) });
+                    }}
+                    onWheel={(e) => e.preventDefault()}
+                    readOnly={!isEdit}
+                    type="number" min={1} max={30}
+                    placeholder="e.g. 10"
+                    className={!isEdit ? "bg-transparent border-none p-0 font-bold text-slate-800" : ""}
+                  />
+                </div>
+
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-4">
+                  <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                    Institutional Consultation Sessions (Public Booking Portal)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Morning Session */}
+                    <div className="space-y-3 p-3 bg-slate-50/60 rounded-xl border border-slate-100">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                        Morning Session Slot
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 mb-1 block">Start Time</label>
+                          {isEdit ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTimePicker('morningStart')}
+                              className="w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-300 hover:border-emerald-500 hover:ring-2 hover:ring-emerald-100 rounded-xl text-sm font-bold text-slate-800 transition-all shadow-sm group"
+                            >
+                              <span>{formData.morningStart || '09:00 AM'}</span>
+                              <Clock className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5 py-1 text-sm font-bold text-slate-800">
+                              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>{formData.morningStart || '09:00 AM'}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 mb-1 block">End Time</label>
+                          {isEdit ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTimePicker('morningEnd')}
+                              className="w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-300 hover:border-emerald-500 hover:ring-2 hover:ring-emerald-100 rounded-xl text-sm font-bold text-slate-800 transition-all shadow-sm group"
+                            >
+                              <span>{formData.morningEnd || '01:00 PM'}</span>
+                              <Clock className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5 py-1 text-sm font-bold text-slate-800">
+                              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>{formData.morningEnd || '01:00 PM'}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Evening Session */}
+                    <div className="space-y-3 p-3 bg-slate-50/60 rounded-xl border border-slate-100">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700">
+                        Evening Session Slot
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 mb-1 block">Start Time</label>
+                          {isEdit ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTimePicker('eveningStart')}
+                              className="w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-300 hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 rounded-xl text-sm font-bold text-slate-800 transition-all shadow-sm group"
+                            >
+                              <span>{formData.eveningStart || '05:00 PM'}</span>
+                              <Clock className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5 py-1 text-sm font-bold text-slate-800">
+                              <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>{formData.eveningStart || '05:00 PM'}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 mb-1 block">End Time</label>
+                          {isEdit ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTimePicker('eveningEnd')}
+                              className="w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-300 hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 rounded-xl text-sm font-bold text-slate-800 transition-all shadow-sm group"
+                            >
+                              <span>{formData.eveningEnd || '09:00 PM'}</span>
+                              <Clock className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5 py-1 text-sm font-bold text-slate-800">
+                              <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>{formData.eveningEnd || '09:00 PM'}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Card>
 
           {/* WhatsApp Settings Configuration Hub */}
@@ -712,6 +900,17 @@ const HospitalDetailsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Interactive Clock Time Picker Modal */}
+      {activeTimePicker && (
+        <ClockTimePicker
+          isOpen={true}
+          initialHour24={parseTimeToH24(formData[activeTimePicker]).hour24}
+          initialMinute={parseTimeToH24(formData[activeTimePicker]).minute}
+          onSave={handleClockSave}
+          onClose={() => setActiveTimePicker(null)}
+        />
+      )}
     </div>
   );
 };

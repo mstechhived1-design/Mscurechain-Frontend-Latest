@@ -26,7 +26,8 @@ function deg2rad(deg: number) {
 export default function GeofenceGuard({ children }: { children: React.ReactNode }) {
   const { user, isInitialized } = useAuthStore();
   const pathname = usePathname() as string;
-  const [status, setStatus] = useState<'checking' | 'allowed' | 'denied' | 'error'>('checking');
+  // Initialize to 'allowed' consistently on both server and client to prevent React hydration mismatch
+  const [status, setStatus] = useState<'checking' | 'allowed' | 'denied' | 'error'>('allowed');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -34,7 +35,23 @@ export default function GeofenceGuard({ children }: { children: React.ReactNode 
 
     if (!user) {
       setStatus('allowed'); // Let normal auth guard handle unauthenticated state
+      if (typeof window !== 'undefined') {
+        try { sessionStorage.removeItem('geofence_verified'); } catch {}
+      }
       return;
+    }
+
+    const userId = (user as any)._id || user.id || 'current';
+    const sessionKey = `geofence_verified_${userId}`;
+
+    // 1. If already verified in this browser session, allow immediately
+    if (typeof window !== 'undefined') {
+      try {
+        if (sessionStorage.getItem(sessionKey) === 'true' || sessionStorage.getItem('geofence_verified') === 'true') {
+          setStatus('allowed');
+          return;
+        }
+      } catch {}
     }
 
     const isHospitalAdminPortal = pathname?.includes('/hospital-admin') || pathname?.includes('/masterhelpdesk');
@@ -42,6 +59,9 @@ export default function GeofenceGuard({ children }: { children: React.ReactNode 
     // Admin is completely exempt
     if (isHospitalAdminPortal) {
       setStatus('allowed');
+      if (typeof window !== 'undefined') {
+        try { sessionStorage.setItem(sessionKey, 'true'); } catch {}
+      }
       return;
     }
 
@@ -51,6 +71,9 @@ export default function GeofenceGuard({ children }: { children: React.ReactNode 
     // If geofencing is not enabled or location not set, allow access
     if (!settings?.enabled || !location?.lat || !location?.lng) {
       setStatus('allowed');
+      if (typeof window !== 'undefined') {
+        try { sessionStorage.setItem(sessionKey, 'true'); } catch {}
+      }
       return;
     }
 
@@ -81,17 +104,29 @@ export default function GeofenceGuard({ children }: { children: React.ReactNode 
         } else {
           setStatus('allowed'); // Do not restrict the portal even if far
         }
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(sessionKey, 'true');
+            sessionStorage.setItem('geofence_verified', 'true');
+          } catch {}
+        }
       },
       (error) => {
         setStatus('allowed'); // Do not restrict the portal on error
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(sessionKey, 'true');
+            sessionStorage.setItem('geofence_verified', 'true');
+          } catch {}
+        }
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+        enableHighAccuracy: false,
+        timeout: 6000,
+        maximumAge: 300000 // Cache coordinates for 5 minutes
       }
     );
-  }, [user, pathname, isInitialized]);
+  }, [user, isInitialized]);
 
   if (status === 'checking') {
     return (

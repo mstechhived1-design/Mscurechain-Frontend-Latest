@@ -1727,6 +1727,8 @@ export default function TransactionsPage() {
                             guardianMobile: activeProfile?.GuardianMobile || activeProfile?.guardianMobile || activePatient?.guardianMobile || previewTx.patientDetails?.GuardianMobile || previewTx.patientDetails?.guardianMobile || '',
                             dischargeType: isDischargeTx ? (apptData.dischargeType || 'Regular') : undefined,
                             conditionAtDischarge: isDischargeTx ? apptData.conditionAtDischarge : undefined,
+                            symptoms: previewTx.symptoms || apptData.symptoms || previewTx.reason || apptData.reason || activePatient?.symptoms,
+                            chiefComplaint: previewTx.reason || apptData.reason || previewTx.symptoms || apptData.symptoms,
                         }}
                         appointment={{
                             appointmentId: previewTx.referenceId?.appointmentId || previewTx.referenceId?.admissionId || previewTx.referenceId?.sampleId || previewTx.transactionId || previewTx.receiptNumber || 'N/A',
@@ -1735,6 +1737,9 @@ export default function TransactionsPage() {
                             time: previewTx.appointmentTime || previewTx.time || '10:00 AM',
                             doctorName: previewTx.referenceId?.primaryDoctor || previewTx.referenceId?.suggestedDoctorName || previewTx.referenceId?.doctorName || 'Doctor',
                             specialization: isDischargeTx ? 'IPD DISCHARGE' : (previewTx.type || 'Consultation'),
+                            symptoms: previewTx.symptoms || apptData.symptoms || previewTx.reason || apptData.reason,
+                            reason: previewTx.reason || apptData.reason || (Array.isArray(previewTx.symptoms) ? previewTx.symptoms.join(', ') : previewTx.symptoms),
+                            notes: previewTx.notes || apptData.notes || previewTx.reason || apptData.reason,
                         }}
                         payment={{
                             amount: isDischargeTx ? settlementPaid : Number(previewTx.amount || previewTx.payment?.amount || 0),

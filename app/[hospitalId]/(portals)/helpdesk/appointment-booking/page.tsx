@@ -47,6 +47,10 @@ export default function AppointmentBooking() {
     const router = useRouter();
     const searchParams = useSearchParams() as any;
     const patientIdFromQuery = ((searchParams?.get('patientId') ?? null) ?? null);
+    const editAppointmentId = ((searchParams?.get('editId') ?? searchParams?.get('appointmentId') ?? null) ?? null);
+
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editingAppointmentId, setEditingAppointmentId] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -305,8 +309,24 @@ export default function AppointmentBooking() {
         }
     };
 
+    const prevDoctorIdRef = React.useRef<string | null>(null);
+
+    const handleSelectDoctor = (doc: HelpdeskDoctor) => {
+        setSelectedDoctor(doc);
+        const docFee = doc.consultationFee ?? (doc as any).hospitals?.[0]?.consultationFee ?? 0;
+        if (appointmentType === 'follow-up' && followUpStatus?.eligible) {
+            setCustomClinicalFee('0');
+        } else {
+            setCustomClinicalFee(docFee.toString());
+        }
+    };
+
     useEffect(() => {
         if (selectedDoctor) {
+            const currentDocId = String(selectedDoctor._id || (selectedDoctor as any).id);
+            const isDoctorSwitched = prevDoctorIdRef.current !== null && prevDoctorIdRef.current !== currentDocId;
+            prevDoctorIdRef.current = currentDocId;
+
             if (appointmentType === 'follow-up') {
                 if (followUpStatus && followUpStatus.eligible === false) {
                     const fee = selectedDoctor.consultationFee ?? (selectedDoctor as any).hospitals?.[0]?.consultationFee ?? 0;
@@ -315,13 +335,15 @@ export default function AppointmentBooking() {
                     setCustomClinicalFee('0');
                 }
             } else {
-                const fee = selectedDoctor.consultationFee ?? (selectedDoctor as any).hospitals?.[0]?.consultationFee ?? 0;
-                setCustomClinicalFee(fee.toString());
+                if (!isEditMode || isDoctorSwitched || !customClinicalFee || customClinicalFee === '0') {
+                    const fee = selectedDoctor.consultationFee ?? (selectedDoctor as any).hospitals?.[0]?.consultationFee ?? 0;
+                    setCustomClinicalFee(fee.toString());
+                }
             }
         } else {
-            setCustomClinicalFee('0');
+            if (!isEditMode) setCustomClinicalFee('0');
         }
-    }, [selectedDoctor, appointmentType, followUpStatus]);
+    }, [selectedDoctor, appointmentType, followUpStatus, isEditMode]);
 
     const [roomSearch, setRoomSearch] = useState("");
     const [showRoomSelect, setShowRoomSelect] = useState(false);
@@ -416,7 +438,7 @@ export default function AppointmentBooking() {
 
     // Restoration Effect
     useEffect(() => {
-        if (loading || isDraftLoaded) return;
+        if (loading || isDraftLoaded || editAppointmentId) return;
 
         try {
             const key = getDraftKey(profile?.hospital?._id);
@@ -704,6 +726,115 @@ export default function AppointmentBooking() {
                         console.error("Error fetching patient by ID", e);
                     }
                 }
+                if (editAppointmentId) {
+                    try {
+                        const aptRes = await helpdeskService.getAppointmentById(editAppointmentId);
+                        const apt = aptRes?.appointment || aptRes?.data || aptRes;
+                        if (apt) {
+                            const status = (apt.status || '').toLowerCase();
+                            if (status === 'in-progress' || status === 'completed') {
+                                toast.error('Cannot edit appointment. Doctor has already started or completed consultation.');
+                                router.push(`/helpdesk`);
+                                return;
+                            }
+                            setIsEditMode(true);
+                            setEditingAppointmentId(editAppointmentId);
+
+                            const pat = apt.patient || {};
+                            const patDetails = apt.patientDetails || {};
+                            const patientName = pat.name || patDetails.name || apt.name || '';
+                            const patientMobile = pat.mobile || patDetails.phone || apt.phone || '';
+                            const patientGender = patDetails.gender || pat.gender || apt.gender || 'Male';
+                            const patientAge = patDetails.age || pat.age || apt.age || '';
+                            const patientHonorific = patDetails.honorific || apt.honorific || pat.honorific || 'Mr.';
+
+                            const transformedPatient = {
+                                _id: pat._id || apt.patientId || apt.patient || editAppointmentId,
+                                id: pat._id || apt.patientId || apt.patient || editAppointmentId,
+                                patientId: pat._id || apt.patientId || apt.patient || editAppointmentId,
+                                name: patientName,
+                                mobile: patientMobile,
+                                phone: patientMobile,
+                                mrn: pat.mrn || 'CC-' + String(editAppointmentId).slice(-6).toUpperCase(),
+                                gender: patientGender,
+                                age: patientAge,
+                                honorific: patientHonorific,
+                                profile: patDetails,
+                                bloodGroup: apt.bloodGroup || pat.bloodGroup || patDetails.bloodGroup,
+                                address: apt.address || pat.address || patDetails.address,
+                                emergencyContact: apt.emergencyContact || pat.emergencyContact || patDetails.alternateNumber,
+                            };
+                            setSelectedPatient(transformedPatient);
+                            setConfirmedHonorific(patientHonorific);
+
+                            const aptDocId = apt.doctor?._id || apt.doctor || apt.doctorId;
+                            const matchedDoctor = validDocs.find((d: any) => d._id === aptDocId || (d as any).id === aptDocId);
+                            if (matchedDoctor) {
+                                setSelectedDoctor(matchedDoctor);
+                            }
+
+                            if (apt.date) {
+                                setSelectedDate(new Date(apt.date).toISOString().split('T')[0]);
+                            }
+                            if (apt.appointmentTime || apt.time || apt.startTime) {
+                                setSelectedTime(apt.appointmentTime || apt.time || apt.startTime);
+                            }
+
+                            if (apt.notes || apt.reason) {
+                                setNotes(apt.notes || apt.reason);
+                            }
+
+                            const gName = patDetails.guardianName || apt.guardianName || apt.fatherName || '';
+                            const gRelation = patDetails.guardianRelation || apt.guardianRelation || '';
+                            const gMobile = patDetails.guardianMobile || apt.guardianMobile || '';
+                            const dRef = patDetails.doctorReference || apt.doctorReference || '';
+                            setAdditionalDetails({
+                                guardianName: gName,
+                                guardianRelation: gRelation,
+                                guardianMobile: gMobile,
+                                doctorReference: dRef
+                            });
+                            if (gName || gRelation || gMobile || dRef) {
+                                setGuardianMode('previous');
+                            }
+
+                            // Load fee, discount and engagement type from existing appointment
+                            const loadedFee = apt.fee !== undefined ? apt.fee : (apt.amount !== undefined ? apt.amount : (apt.payment?.fee ?? apt.payment?.amount ?? matchedDoctor?.consultationFee ?? 0));
+                            setCustomClinicalFee(String(loadedFee));
+
+                            const loadedDiscount = apt.discount !== undefined ? apt.discount : (apt.payment?.discount ?? 0);
+                            setDiscountAmount(String(loadedDiscount));
+                            if (apt.discountType || apt.payment?.discountType) {
+                                setDiscountType(apt.discountType || apt.payment?.discountType);
+                            }
+
+                            if (apt.type) {
+                                setAppointmentType(apt.type.toLowerCase() === 'ipd' ? 'consultation' : apt.type);
+                            }
+
+                            if (apt.vitals) {
+                                setVitals({
+                                    height: apt.vitals.height || '',
+                                    weight: apt.vitals.weight || '',
+                                    bp: apt.vitals.bloodPressure || apt.vitals.bp || '',
+                                    temperature: apt.vitals.temperature || '',
+                                    pulse: apt.vitals.pulse || '',
+                                    spo2: apt.vitals.spO2 || apt.vitals.spo2 || '',
+                                    glucose: apt.vitals.glucose || apt.vitals.sugar || ''
+                                });
+                            }
+
+                            setPaymentStatus(apt.paymentStatus === 'paid' ? 'paid' : 'unpaid');
+                            if (apt.paymentMethod || apt.paymentMode) {
+                                setPaymentMethod((apt.paymentMethod || apt.paymentMode).toLowerCase());
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Error fetching appointment for edit", e);
+                        toast.error("Failed to load appointment details for editing");
+                    }
+                }
+
                 if (registrationTypeFromQuery === 'IPD') {
                     // Handled by the registrationType useEffect now to avoid duplication
                     // Extraction of departments is still needed here OR in the other effect
@@ -798,6 +929,10 @@ export default function AppointmentBooking() {
                 const activeStatuses = ['pending', 'confirmed', 'in-progress', 'waiting', 'booked', 'scheduled', 'arrived', 'checked-in'];
 
                 const existing = appointmentsList.find((apt: any) => {
+                    const currentEditId = editAppointmentId || editingAppointmentId;
+                    if (currentEditId && (String(apt._id) === String(currentEditId) || String(apt.id) === String(currentEditId))) {
+                        return false;
+                    }
                     const aptStatus = String(apt.status || '').toLowerCase();
                     const aptHospitalId = apt.hospital?._id || apt.hospital || apt.hospitalId;
                     
@@ -866,24 +1001,35 @@ export default function AppointmentBooking() {
                 return;
             }
             try {
-                console.log(`[FOLLOWUP] Calling eligibility: pId=${pId} doctorId=${selectedDoctor?._id} type=${registrationType} date=${selectedDate}`);
-                const res = await helpdeskService.checkFollowUpEligibility(pId, selectedDoctor?._id || undefined, registrationType, selectedDate);
+                const currentEditId = editAppointmentId || editingAppointmentId;
+                console.log(`[FOLLOWUP] Calling eligibility: pId=${pId} doctorId=${selectedDoctor?._id} type=${registrationType} date=${selectedDate} excludeId=${currentEditId}`);
+                const res = await helpdeskService.checkFollowUpEligibility(
+                    pId, 
+                    selectedDoctor?._id || undefined, 
+                    registrationType, 
+                    selectedDate,
+                    currentEditId || undefined
+                );
                 console.log(`[FOLLOWUP] Response:`, res);
                 setFollowUpStatus(res);
                 if (res?.eligible) {
-                    setAppointmentType("follow-up");
-                    setCustomClinicalFee("0");
-                    toast.success(
-                        res.enableExpiry 
-                            ? `Eligible for Free Follow-up! (Remaining: ${res.remainingDays} days)`
-                            : `Eligible for Free Follow-up! (Expiry check disabled)`,
-                        { id: "follow-up-eligibility" }
-                    );
+                    if (!isEditMode) {
+                        setAppointmentType("follow-up");
+                        setCustomClinicalFee("0");
+                        toast.success(
+                            res.enableExpiry 
+                                ? `Eligible for Free Follow-up! (Remaining: ${res.remainingDays} days)`
+                                : `Eligible for Free Follow-up! (Expiry check disabled)`,
+                            { id: "follow-up-eligibility" }
+                        );
+                    }
                 } else {
-                    setAppointmentType("consultation");
-                    if (selectedDoctor) {
-                        const fee = selectedDoctor.consultationFee ?? (selectedDoctor as any).hospitals?.[0]?.consultationFee ?? 0;
-                        setCustomClinicalFee(fee.toString());
+                    if (!isEditMode) {
+                        setAppointmentType("consultation");
+                        if (selectedDoctor) {
+                            const fee = selectedDoctor.consultationFee ?? (selectedDoctor as any).hospitals?.[0]?.consultationFee ?? 0;
+                            setCustomClinicalFee(fee.toString());
+                        }
                     }
                 }
             } catch (e) {
@@ -891,7 +1037,7 @@ export default function AppointmentBooking() {
             }
         };
         checkFollowUp();
-    }, [selectedPatient, selectedDoctor, registrationType, selectedDate]);
+    }, [selectedPatient, selectedDoctor, registrationType, selectedDate, editAppointmentId, editingAppointmentId, isEditMode]);
 
     // Patient Search Logic
     useEffect(() => {
@@ -1029,6 +1175,12 @@ export default function AppointmentBooking() {
                 }
             }
             toast.error("Please correct the highlighted errors and fill all required fields.");
+            return;
+        }
+
+        // If in edit mode, execute update immediately
+        if (isEditMode) {
+            executeBooking();
             return;
         }
 
@@ -1192,6 +1344,69 @@ export default function AppointmentBooking() {
             const backendPaymentStatus = paymentStatus === 'unpaid' ? 'pending' : 'paid';
             const finalAppHonorific = confirmedHonorific || selectedPatient.honorific || selectedPatient.profile?.honorific;
 
+            const baseAmount = registrationType === 'IPD' ? parseFloat(ipdFee || '0') : parseFloat(customClinicalFee || '0');
+            const discountValue = parseFloat(discountAmount || '0');
+            const discount = discountType === 'percentage' ? (baseAmount * discountValue / 100) : discountValue;
+            const finalAmount = Math.max(0, baseAmount - discount);
+
+            // Handle Edit Mode execution
+            if (isEditMode && editingAppointmentId) {
+                const updatePayload = {
+                    patientName: selectedPatient.name,
+                    phone: selectedPatient.mobile || selectedPatient.phone,
+                    gender: selectedPatient.gender,
+                    age: selectedPatient.age,
+                    dob: selectedPatient.dob,
+                    fatherName: additionalDetails.guardianName,
+                    guardianName: additionalDetails.guardianName,
+                    guardianRelation: additionalDetails.guardianRelation,
+                    guardianMobile: additionalDetails.guardianMobile,
+                    doctorReference: additionalDetails.doctorReference,
+                    doctorId: selectedDoctor?._id || "",
+                    date: selectedDate,
+                    appointmentTime: bookingMode === 'slot' ? (selectedSlot || selectedTime) : selectedTime,
+                    reason: notes,
+                    notes: notes,
+                    symptoms: notes ? [notes] : [],
+                    honorific: finalAppHonorific,
+                    appointmentHonorific: finalAppHonorific,
+                    paymentStatus: backendPaymentStatus,
+                    paymentMethod: paymentMethod,
+                    fee: baseAmount,
+                    amount: finalAmount,
+                    discount: discount,
+                    discountType: discountType,
+                    type: appointmentType,
+                    bloodGroup: (selectedPatient.bloodGroup && selectedPatient.bloodGroup !== 'N/A') ? selectedPatient.bloodGroup : undefined,
+                    address: selectedPatient.address || selectedPatient.profile?.address,
+                    emergencyContact: selectedPatient.emergencyContact || selectedPatient.profile?.alternateNumber,
+                    vitals: showVitals ? {
+                        bp: vitals.bp || undefined,
+                        temperature: vitals.temperature || undefined,
+                        pulse: vitals.pulse || undefined,
+                        spo2: vitals.spo2 || undefined,
+                        height: vitals.height || undefined,
+                        weight: vitals.weight || undefined,
+                        glucose: vitals.glucose || undefined
+                    } : undefined
+                };
+                const res = await helpdeskService.updateAppointment(editingAppointmentId, updatePayload);
+                if (res && res.success !== false) {
+                    toast.success("Appointment updated successfully!");
+                    try {
+                        const key = getDraftKey(profile?.hospital?._id);
+                        localStorage.removeItem(key);
+                        setHasRestoredDraft(false);
+                    } catch (e) {}
+                    router.push('/helpdesk');
+                    return;
+                } else {
+                    toast.error(res?.message || "Failed to update appointment");
+                    setSubmitting(false);
+                    return;
+                }
+            }
+
             const payload = {
                 patientId: selectedPatient?._id || selectedPatient?.id || "",
                 doctorId: selectedDoctor?._id || "",
@@ -1245,11 +1460,6 @@ export default function AppointmentBooking() {
                     glucose: undefined
                 }
             };
-
-            const baseAmount = registrationType === 'IPD' ? parseFloat(ipdFee || '0') : parseFloat(customClinicalFee || '0');
-            const discountValue = parseFloat(discountAmount || '0');
-            const discount = discountType === 'percentage' ? (baseAmount * discountValue / 100) : discountValue;
-            const finalAmount = Math.max(0, baseAmount - discount);
 
             // 1. Create Appointment first
             const response = await helpdeskService.createAppointment({
@@ -1374,9 +1584,11 @@ export default function AppointmentBooking() {
                 {/* CENTER/TITLE: Title + Subtitle */}
                 <div className="sm:absolute sm:inset-0 flex flex-col items-center justify-center text-center sm:pointer-events-none">
                     <h1 className="text-lg md:text-xl lg:text-xl font-black text-slate-900 tracking-tight">
-                        {registrationType === 'IPD' ? 'IPD PATIENT ADMISSION' : 'SCHEDULE APPOINTMENT'}
+                        {isEditMode ? 'EDIT APPOINTMENT DETAILS' : (registrationType === 'IPD' ? 'IPD PATIENT ADMISSION' : 'SCHEDULE APPOINTMENT')}
                     </h1>
-                    <p className="hidden sm:block text-[9px] font-bold text-teal-600 uppercase tracking-[0.2em]">Clinical Manifest Gateway</p>
+                    <p className="hidden sm:block text-[9px] font-bold text-teal-600 uppercase tracking-[0.2em]">
+                        {isEditMode ? 'Correct Patient Information, Physician, or Schedule' : 'Clinical Manifest Gateway'}
+                    </p>
                 </div>
                 {/* RIGHT: CLEAR DRAFT BUTTON */}
                 <div className="flex items-center gap-2 z-10 sm:ml-auto">
@@ -1448,6 +1660,50 @@ export default function AppointmentBooking() {
                                                     </span>
                                                 )}
                                             </div>
+
+                                            {isEditMode && (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-slate-200/80">
+                                                    <div>
+                                                        <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Patient Name</label>
+                                                        <input
+                                                            type="text"
+                                                            value={selectedPatient.name || ''}
+                                                            onChange={(e) => setSelectedPatient((prev: any) => ({ ...prev, name: e.target.value }))}
+                                                            className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase focus:border-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Mobile Number</label>
+                                                        <input
+                                                            type="text"
+                                                            value={selectedPatient.mobile || selectedPatient.phone || ''}
+                                                            onChange={(e) => setSelectedPatient((prev: any) => ({ ...prev, mobile: e.target.value, phone: e.target.value }))}
+                                                            className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Age (Years)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={selectedPatient.age || ''}
+                                                            onChange={(e) => setSelectedPatient((prev: any) => ({ ...prev, age: e.target.value }))}
+                                                            className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Gender</label>
+                                                        <select
+                                                            value={selectedPatient.gender || 'Male'}
+                                                            onChange={(e) => setSelectedPatient((prev: any) => ({ ...prev, gender: e.target.value }))}
+                                                            className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase focus:border-teal-500 outline-none"
+                                                        >
+                                                            <option value="Male">Male</option>
+                                                            <option value="Female">Female</option>
+                                                            <option value="Other">Other</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* HONORIFIC CONFIRMATION BLOCK */}
@@ -1837,7 +2093,7 @@ export default function AppointmentBooking() {
                                             <button
                                                 key={doc._id}
                                                 disabled={isOfflineToday}
-                                                onClick={() => setSelectedDoctor(doc)}
+                                                onClick={() => handleSelectDoctor(doc)}
                                                 className={`p-3.5 rounded-[16px] border-2 text-left flex items-center gap-3 transition-all ${
                                                     isOfflineToday
                                                         ? 'border-slate-100 bg-slate-50/50 opacity-60 cursor-not-allowed'
@@ -2324,15 +2580,15 @@ export default function AppointmentBooking() {
                                             <button
                                                 onClick={() => handleBooking(false)}
                                                 disabled={submitting || !isBookingValid()}
-                                                title="Print Clinical Prescription Slip & Finalize"
-                                                className="w-full py-4 bg-teal-500 text-slate-900 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-teal-400 transition-all shadow-xl shadow-teal-500/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
+                                                title={isEditMode ? "Update Appointment Details" : "Print Clinical Prescription Slip & Finalize"}
+                                                className="w-full py-4 bg-teal-500 text-slate-900 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-teal-400 transition-all shadow-xl shadow-teal-500/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 group cursor-pointer"
                                             >
                                                 {submitting ? (
                                                     <Loader2 size={16} className="animate-spin" />
                                                 ) : (
                                                     <>
                                                         <FileText size={18} className="shrink-0" />
-                                                        <span className="truncate">Save & Print Preview</span>
+                                                        <span className="truncate">{isEditMode ? 'Update Appointment' : 'Save & Print Preview'}</span>
                                                     </>
                                                 )}
                                             </button>

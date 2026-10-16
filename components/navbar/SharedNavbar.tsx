@@ -16,6 +16,8 @@ import NotificationCenter from "./NotificationCenter";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { PrefetchLink } from "@/components/ui/PrefetchLink";
 import { usePrefetchDashboard } from "@/lib/integrations/hooks/useUnifiedDashboard";
+import WhatsAppStatusIndicator from "@/components/WhatsApp/WhatsAppStatusIndicator";
+import { usePathname } from "next/navigation";
 
 interface SharedNavbarProps {
     onMenuClick?: () => void;
@@ -45,11 +47,24 @@ const SharedNavbar: React.FC<SharedNavbarProps> = ({
     hideMenuButton = false,
 }) => {
     const router = useRouter();
+    const pathname = usePathname() as string;
     const { user, logout } = useAuthStore();
     const { getPath } = useTenantLink();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const isExcluded = Boolean(
+        pathname?.includes('/hr') ||
+        pathname?.includes('/patient') ||
+        pathname?.includes('/emergency') ||
+        pathname?.includes('/discharge') ||
+        pathname?.includes('/nurse') ||
+        user?.role === 'hr' ||
+        user?.role === 'patient' ||
+        user?.role === 'emergency' ||
+        user?.role === 'nurse'
+    );
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -109,6 +124,13 @@ const SharedNavbar: React.FC<SharedNavbarProps> = ({
             <div className="flex items-center gap-3">
                 {actions && <div className="flex items-center gap-2">{actions}</div>}
 
+                {/* WhatsApp Status Indicator (Desktop) */}
+                {!isExcluded && (
+                    <div className="hidden sm:block">
+                        <WhatsAppStatusIndicator department={user?.role?.toLowerCase()} variant="navbar" />
+                    </div>
+                )}
+
                 {showNotificationCenter && (
                     <div className="flex items-center gap-2">
                         <NotificationCenter />
@@ -147,7 +169,14 @@ const SharedNavbar: React.FC<SharedNavbarProps> = ({
                     </button>
 
                     {isProfileDropdownOpen && (
-                        <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-xl border border-slate-200 bg-white z-40 overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-1">
+                        <div className="absolute right-0 mt-2 w-64 rounded-2xl shadow-xl border border-slate-200 bg-white z-40 overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-2">
+                            {/* Mobile WhatsApp Status in Profile Dropdown */}
+                            {!isExcluded && (
+                                <div className="p-1 sm:hidden mb-2">
+                                    <WhatsAppStatusIndicator department={user?.role?.toLowerCase()} variant="profile-dropdown" />
+                                </div>
+                            )}
+
                             {profileLinks?.map((link: any, index: number) => (
                                 <PrefetchLink
                                     key={link.key || link.path || `link-${index}`}

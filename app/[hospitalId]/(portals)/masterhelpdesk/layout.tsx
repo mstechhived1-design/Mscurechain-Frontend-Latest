@@ -26,6 +26,7 @@ import AIAssistantModal from "@/components/masterhelpdesk/AIAssistantModal";
 import MasterHelpdeskQuickActions from "./components/MasterHelpdeskQuickActions";
 import NotificationCenter from "@/components/navbar/NotificationCenter";
 import LicenseLock from "@/components/License/LicenseLock";
+import WhatsAppStatusIndicator from "@/components/WhatsApp/WhatsAppStatusIndicator";
 
 const masterhelpdeskMenu: any[] = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/masterhelpdesk" },
@@ -188,7 +189,8 @@ export function MasterHelpdeskLayout({ children }: { children: React.ReactNode }
                         <MasterHelpdeskQuickActions startTransition={startTransition} />
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <WhatsAppStatusIndicator department="frontdesk" variant="navbar" />
                         <NotificationCenter hospitalId={currentHospitalId} />
                         <div className="h-6 w-px bg-slate-200"></div>
                         <div className="flex items-center gap-3">

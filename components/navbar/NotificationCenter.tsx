@@ -127,21 +127,15 @@ function NotificationCenter({ showAuditHistory = true, hospitalId }: Notificatio
 
               // 🎵 Play notification sound
               try {
-                // Check if this is an appointment-related notification
-                const isAppointment = normalizedNotif.type?.toLowerCase().includes('appointment') ||
-                  normalizedNotif.message?.toLowerCase().includes('appointment');
+                let soundFile = '/assets/nurse.mp3';
 
-                if (!isAppointment) {
-                  let soundFile = '/assets/nurse.mp3';
-
-                  // Use emergency sound for critical alerts and hospital-wide announcements
-                  if (['emergency_alert', 'critical_vitals', 'abnormal_vitals', 'hospital_announcement'].includes(normalizedNotif.type)) {
-                    soundFile = '/assets/emergency.mp3';
-                  }
-
-                  const audio = new Audio(soundFile);
-                  audio.play().catch(e => console.warn('Audio play failed:', e));
+                // Use emergency sound for critical alerts and hospital-wide announcements
+                if (['emergency_alert', 'critical_vitals', 'abnormal_vitals', 'hospital_announcement'].includes(normalizedNotif.type)) {
+                  soundFile = '/assets/emergency.mp3';
                 }
+
+                const audio = new Audio(soundFile);
+                audio.play().catch(e => console.warn('Audio play failed:', e));
               } catch (e) {
                 console.error('Audio initialization failed:', e);
               }

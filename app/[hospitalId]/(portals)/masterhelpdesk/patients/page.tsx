@@ -233,6 +233,9 @@ export default function MasterPatientsPage() {
                     discount: Number(appt.payment?.discount ?? appt.discount ?? 0),
                     fee: Number(appt.payment?.fee ?? appt.fee ?? 0),
                     amount: Number(appt.payment?.amount ?? appt.amount ?? 0),
+                    paymentDetails: appt.payment?.paymentDetails || appt.paymentDetails || appt.transaction?.paymentDetails,
+                    paymentMethod: appt.payment?.paymentMethod || appt.paymentMethod || 'cash',
+                    paymentMode: appt.payment?.paymentMethod || appt.paymentMethod || 'cash',
                 },
                 payment: {
                     amount: Number(appt.payment?.amount ?? appt.amount ?? 0),
@@ -247,7 +250,9 @@ export default function MasterPatientsPage() {
                     paidAmount: Number(appt.payment?.paidAmount ?? appt.paidAmount ?? appt.payment?.amount ?? appt.amount ?? 0),
                     advanceAmount: Number(appt.payment?.advanceAmount ?? appt.advanceAmount ?? (appt.type === 'IPD' ? (appt.payment?.amount ?? appt.amount ?? 0) : 0)),
                     method: appt.payment?.paymentMethod || appt.paymentMethod || 'cash',
-                    status: appt.payment?.paymentStatus || appt.paymentStatus || 'not_required',
+                    mode: appt.payment?.paymentMethod || appt.paymentMethod || 'cash',
+                    paymentDetails: appt.payment?.paymentDetails || appt.paymentDetails || appt.transaction?.paymentDetails,
+                    status: (appt.paymentStatus === 'paid' || appt.payment?.paymentStatus === 'paid' || appt.payment?.status === 'paid') ? 'paid' : (appt.payment?.paymentStatus || appt.paymentStatus || 'not_required'),
                     receiptNumber: appt.payment?.transactionId || appt.payment?.receiptNumber || appt.transactionId || appt.appointmentId || `REC-${Date.now().toString().slice(-6)}`
                 }
             };

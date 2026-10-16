@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
     Users,
     Calendar,
@@ -12,10 +12,23 @@ import {
     CheckCircle2,
     LogIn,
     LogOut,
-    FileText
+    FileText,
+    Globe,
+    UserCheck,
+    Pencil,
+    X,
+    CreditCard,
+    Wallet,
+    Banknote,
+    Clock,
+    Building2,
+    Layers,
+    Smartphone
 } from "lucide-react";
+import { apiClient } from "@/lib/integrations/api/apiClient";
 import { generateBlankLetterheadHtml } from "@/lib/print-utils";
 import Link from "next/link";
+import { useRouter, useParams } from "next/navigation";
 import CurechainPagination from "@/components/common/CurechainPagination";
 import { toast } from "react-hot-toast";
 import {
@@ -59,6 +72,7 @@ function HelpdeskDashboard() {
     const [activeTab, setActiveTab] = useState('active');
     const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
     const [visitTypeFilter, setVisitTypeFilter] = useState<'all' | 'opd' | 'ipd'>('all');
+    const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all');
     const [startDateFilter, setStartDateFilter] = useState<string>(() => {
         const today = new Date();
         today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
@@ -72,6 +86,140 @@ function HelpdeskDashboard() {
     const [historyPage, setHistoryPage] = useState(1);
     const [itemsPerPage] = useState(6);
     const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+
+    const router = useRouter();
+    const params = useParams() as any;
+    const hospitalId = params?.hospitalId || '';
+
+    // Live IST Date & Time (12-hour AM/PM format)
+    const [liveDateTime, setLiveDateTime] = useState<{ time: string; date: string }>({
+        time: '',
+        date: ''
+    });
+
+    useEffect(() => {
+        const updateISTTime = () => {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            }).toUpperCase();
+
+            const dateStr = now.toLocaleDateString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                weekday: 'short',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+
+            setLiveDateTime({ time: timeStr, date: dateStr });
+        };
+
+        updateISTTime();
+        const intervalId = setInterval(updateISTTime, 1000);
+        return () => clearInterval(intervalId);
+    }, []);
+
+    // Route to Appointment Booking page in edit mode
+    const handleOpenEdit = useCallback((apt: any) => {
+        const status = (apt.status || '').toLowerCase();
+        if (status === 'in-progress' || status === 'completed') {
+            toast.error('Cannot edit appointment. Doctor has already started or completed consultation.');
+            return;
+        }
+        const aptId = apt.id || apt._id;
+        const hId = hospitalId || apt.hospitalId || apt.hospital || '69a7b003c84f8f6e66180872';
+        router.push(`/${hId}/helpdesk/appointment-booking?editId=${aptId}`);
+    }, [hospitalId, router]);
+
+    // Check-In with Payment State
+    const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+    const [checkingInApt, setCheckingInApt] = useState<any | null>(null);
+    const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card' | 'bank_transfer' | 'mixed' | 'unpaid'>('cash');
+    const [mixedPayments, setMixedPayments] = useState<{
+        cash: string;
+        card: string;
+        upi: string;
+        bankTransfer: string;
+    }>({ cash: '', card: '', upi: '', bankTransfer: '' });
+    const [isSubmittingCheckIn, setIsSubmittingCheckIn] = useState(false);
+
+    const handleOpenCheckIn = useCallback((apt: any) => {
+        setCheckingInApt(apt);
+        setPaymentMode('cash');
+        const defaultFee = apt.fee || apt.amount || 300;
+        setMixedPayments({ cash: String(defaultFee), card: '', upi: '', bankTransfer: '' });
+        setIsCheckInModalOpen(true);
+    }, []);
+
+    const updateMixedPayment = (field: 'cash' | 'card' | 'upi' | 'bankTransfer', rawValue: string) => {
+        // Strip out any minus signs or negative indicators, allow only numbers and decimal point
+        const cleaned = rawValue.replace(/[^0-9.]/g, '');
+        const parts = cleaned.split('.');
+        const sanitized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
+        setMixedPayments(prev => ({ ...prev, [field]: sanitized }));
+    };
+
+    const handleConfirmCheckIn = async () => {
+        if (!checkingInApt) return;
+        const aptId = checkingInApt.id || checkingInApt._id;
+        const totalFee = Number(checkingInApt.fee || checkingInApt.amount || 300);
+
+        let parsedPaymentDetails: any = undefined;
+        let amountPaid = totalFee;
+
+        if (paymentMode === 'mixed') {
+            const c = Math.max(0, Number(mixedPayments.cash || 0));
+            const crd = Math.max(0, Number(mixedPayments.card || 0));
+            const u = Math.max(0, Number(mixedPayments.upi || 0));
+            const bt = Math.max(0, Number(mixedPayments.bankTransfer || 0));
+            const sum = c + crd + u + bt;
+            if (sum <= 0) {
+                toast.error('Please enter amount for at least one payment method');
+                return;
+            }
+            parsedPaymentDetails = { cash: c, card: crd, upi: u, bankTransfer: bt };
+            amountPaid = sum;
+        } else if (paymentMode === 'unpaid') {
+            amountPaid = 0;
+        } else {
+            parsedPaymentDetails = {
+                cash: paymentMode === 'cash' ? totalFee : 0,
+                upi: paymentMode === 'upi' ? totalFee : 0,
+                card: paymentMode === 'card' ? totalFee : 0,
+                bankTransfer: paymentMode === 'bank_transfer' ? totalFee : 0,
+            };
+        }
+
+        setIsSubmittingCheckIn(true);
+        try {
+            const res = await apiClient<any>(`/helpdesk/appointments/${aptId}/check-in`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    paymentMode,
+                    paymentStatus: paymentMode === 'unpaid' ? 'pending' : 'paid',
+                    amountPaid,
+                    paymentDetails: parsedPaymentDetails,
+                }),
+            });
+            if (res && res.success !== false) {
+                toast.success('Patient checked in! Dispatched to Doctor Queue.');
+                setIsCheckInModalOpen(false);
+                setCheckingInApt(null);
+                refetchDashboard();
+            } else {
+                toast.error(res?.message || 'Check-in failed');
+            }
+        } catch (err: any) {
+            toast.error(err.message || 'Check-in error');
+        } finally {
+            setIsSubmittingCheckIn(false);
+        }
+    };
 
     // ✅ Smart Date Handlers: Prevent Start > End or End < Start gracefully
     const handleStartDateChange = (val: string) => {
@@ -204,8 +352,43 @@ function HelpdeskDashboard() {
             });
         }
 
+        // 5. Filter by Source Channel (All / Online Web / Offline Walk-in)
+        if (sourceFilter === 'online') {
+            list = list.filter((apt: any) => apt.type?.toLowerCase() === 'online');
+        } else if (sourceFilter === 'offline') {
+            list = list.filter((apt: any) => apt.type?.toLowerCase() !== 'online');
+        }
+
         return list;
-    }, [dashboardData, appointmentsData, selectedDoctorId, startDateFilter, endDateFilter, visitTypeFilter]);
+    }, [dashboardData, appointmentsData, selectedDoctorId, startDateFilter, endDateFilter, visitTypeFilter, sourceFilter]);
+
+    // Live counts for source switcher
+    const sourceCounts = useMemo(() => {
+        let list: any[] = [];
+        if (Array.isArray(appointmentsData)) list = appointmentsData;
+        else if (appointmentsData?.appointments && Array.isArray(appointmentsData.appointments)) list = appointmentsData.appointments;
+        else if (appointmentsData?.data && Array.isArray(appointmentsData.data)) list = appointmentsData.data;
+        else if (dashboardData?.appointments) list = dashboardData.appointments;
+
+        if (startDateFilter || endDateFilter) {
+            list = list.filter((apt: any) => {
+                const aptDateStr = apt.date ? new Date(apt.date).toISOString().split('T')[0] : '';
+                if (!aptDateStr) return false;
+                let isValid = true;
+                if (startDateFilter && aptDateStr < startDateFilter) isValid = false;
+                if (endDateFilter && aptDateStr > endDateFilter) isValid = false;
+                return isValid;
+            });
+        }
+
+        const online = list.filter((a: any) => a.type?.toLowerCase() === 'online').length;
+        const total = list.length;
+        return {
+            all: total,
+            online,
+            offline: Math.max(0, total - online)
+        };
+    }, [appointmentsData, dashboardData, startDateFilter, endDateFilter]);
 
     const historyAppointments = useMemo(() => {
         return appointments.filter(a => ['completed', 'cancelled', 'no-show', 'rejected'].includes(a.status?.toLowerCase()));
@@ -601,14 +784,31 @@ function HelpdeskDashboard() {
                         </button>
                     )}
                     
-                    <button
-                        onClick={handlePrintLetterhead}
-                        className="flex items-center gap-0.5 sm:gap-2 px-2 sm:px-5 py-1.5 sm:py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg sm:rounded-xl text-[7.5px] sm:text-[10px] font-bold uppercase tracking-widest hover:border-teal-500 hover:text-teal-600 shadow-sm"
-                    >
-                        <FileText size={10} className="sm:size-[16px]" />
-                        <span className="hidden md:inline">Print Letterhead</span>
-                        <span className="md:hidden">Template</span>
-                    </button>
+                    {/* Live IST Time & Date Indicator with Small Animation */}
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3 py-1 sm:py-2 bg-white border border-slate-200/90 rounded-lg sm:rounded-xl shadow-xs group hover:border-teal-400 transition-all">
+                        <div className="relative flex items-center justify-center shrink-0">
+                            <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 transition-transform group-hover:scale-105">
+                                <Clock size={11} className="sm:size-[14px] text-teal-600 animate-pulse" />
+                            </div>
+                            <span className="absolute -top-0.5 -right-0.5 flex h-1.5 w-1.5 sm:h-2 sm:w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-emerald-500"></span>
+                            </span>
+                        </div>
+                        <div className="flex flex-col justify-center leading-none">
+                            <div className="flex items-center gap-1">
+                                <span className="text-[8px] sm:text-[11px] font-black text-slate-800 tracking-tight tabular-nums">
+                                    {liveDateTime.time || '--:--:-- --'}
+                                </span>
+                                <span className="text-[6px] sm:text-[7.5px] font-black uppercase tracking-wider text-teal-700 bg-teal-50 px-1 py-0.2 rounded border border-teal-200/60">
+                                    IST
+                                </span>
+                            </div>
+                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                                {liveDateTime.date || '------'}
+                            </span>
+                        </div>
+                    </div>
                     <Link
                         href="/helpdesk/patient-registration"
                         className="flex items-center gap-0.5 sm:gap-2 px-2 sm:px-5 py-1.5 sm:py-2.5 bg-teal-600 text-white rounded-lg sm:rounded-xl text-[7.5px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-teal-700 shadow-lg shadow-teal-900/20"
@@ -750,6 +950,34 @@ function HelpdeskDashboard() {
                                     </button>
                                 </div>
 
+                                {/* Online (Web) vs Offline (Desk) Source Switcher */}
+                                <div className="flex items-center gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSourceFilter('all')}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sourceFilter === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                                    >
+                                        All ({sourceCounts.all})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSourceFilter('online')}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${sourceFilter === 'online' ? 'bg-cyan-600 text-white shadow-sm' : 'text-cyan-700 bg-cyan-50/70 hover:bg-cyan-100/70'}`}
+                                        title="View appointments booked via Hospital Website"
+                                    >
+                                        <Globe size={11} className={sourceFilter === 'online' ? 'animate-spin' : ''} />
+                                        Website ({sourceCounts.online})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSourceFilter('offline')}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sourceFilter === 'offline' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                                        title="View counter walk-in appointments"
+                                    >
+                                        Offline ({sourceCounts.offline})
+                                    </button>
+                                </div>
+
                                 {/* Date Filter */}
                                 <div className="flex items-center bg-white px-2 py-1.5 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-teal-500/50 transition-all flex-wrap gap-y-2 gap-x-3 w-full sm:w-auto">
                                     <div className="flex items-center gap-1.5 flex-1 sm:flex-none min-w-[130px] sm:min-w-0">
@@ -836,10 +1064,13 @@ function HelpdeskDashboard() {
                                             <div key={idx} className="group relative">
                                                 {/* Desktop View (Table Layout) */}
                                                 <div className="hidden sm:grid grid-cols-12 items-center gap-3 p-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 rounded-xl transition-all">
-                                                    <div className="col-span-1 border-r border-slate-100">
-                                                        <span className="text-xs font-black text-slate-300">
-                                                            {activeTab === 'active' ? (idx + 1).toString().padStart(2, '0') : ((historyPage - 1) * itemsPerPage + idx + 1).toString().padStart(2, '0')}
+                                                    <div className="col-span-1 border-r border-slate-100 flex flex-col justify-center">
+                                                        <span className="text-xs font-black text-slate-800">
+                                                            #{(apt as any).token_number ? String((apt as any).token_number).padStart(2, '0') : (activeTab === 'active' ? (idx + 1).toString().padStart(2, '0') : ((historyPage - 1) * itemsPerPage + idx + 1).toString().padStart(2, '0'))}
                                                         </span>
+                                                        {(apt as any).token_number && (
+                                                            <span className="text-[7.5px] font-bold text-teal-600 uppercase tracking-tighter">Token</span>
+                                                        )}
                                                     </div>
 
                                                     <div className="col-span-3 flex items-center gap-4 min-w-0">
@@ -867,9 +1098,24 @@ function HelpdeskDashboard() {
                                                     </div>
 
                                                     <div className="col-span-1 flex justify-center">
-                                                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block ${(apt as any).type === 'EMERGENCY' ? 'bg-rose-50 text-rose-600 border border-rose-100' : (apt as any).type === 'IPD' ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                                                            {(apt as any).type?.toUpperCase() === 'CONSULTATION' ? 'OPD' : ((apt as any).type || 'OPD')}
-                                                        </span>
+                                                        {(apt as any).type?.toLowerCase() === 'online' ? (
+                                                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1 bg-cyan-50 text-cyan-700 border border-cyan-200 shadow-xs">
+                                                                <Globe size={9} className="text-cyan-600 shrink-0" />
+                                                                Online
+                                                            </span>
+                                                        ) : (apt as any).type === 'EMERGENCY' ? (
+                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block bg-rose-50 text-rose-600 border border-rose-100">
+                                                                Emergency
+                                                            </span>
+                                                        ) : (apt as any).type === 'IPD' ? (
+                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block bg-purple-50 text-purple-600 border border-purple-100">
+                                                                IPD
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block bg-slate-100 text-slate-600 border border-slate-200">
+                                                                Offline
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     <div className="col-span-2 min-w-0">
@@ -881,13 +1127,25 @@ function HelpdeskDashboard() {
                                                         </div>
                                                     </div>
 
-                                                    <div className="col-span-3 flex items-center gap-3 justify-end pr-2">
-                                                        {['Booked', 'pending'].includes(apt.status) ? (
+                                                    <div className="col-span-3 flex items-center gap-2 justify-end pr-2">
+                                                        {/* Edit Button: allowed for online & offline before doctor starts */}
+                                                        {!['in-progress', 'completed', 'cancelled'].includes(apt.status?.toLowerCase()) && (
                                                             <button
-                                                                onClick={() => handleUpdateStatus((apt as any).id || (apt as any)._id, 'confirmed')}
-                                                                className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-teal-700 shadow-md active:scale-95"
+                                                                onClick={() => handleOpenEdit(apt)}
+                                                                className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors border border-slate-200 cursor-pointer"
+                                                                title="Edit Appointment Details"
                                                             >
-                                                                Send
+                                                                <Pencil size={12} />
+                                                            </button>
+                                                        )}
+
+                                                        {['booked', 'pending', 'scheduled'].includes(apt.status?.toLowerCase()) ? (
+                                                            <button
+                                                                onClick={() => handleOpenCheckIn(apt)}
+                                                                className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-teal-700 shadow-sm active:scale-95 flex items-center gap-1 cursor-pointer"
+                                                                title="Patient arrived at Frontdesk"
+                                                            >
+                                                                <UserCheck size={12} /> {(apt as any).type?.toLowerCase() === 'online' ? 'Check-In' : 'Send'}
                                                             </button>
                                                         ) : (
                                                             <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border ${apt.status?.toLowerCase() === 'confirmed' ? 'bg-teal-50 text-teal-600 border-teal-100' :
@@ -912,7 +1170,9 @@ function HelpdeskDashboard() {
                                                     <div className="flex items-start justify-between">
                                                         <div className="flex items-center gap-3">
                                                             <div className="flex flex-col items-center">
-                                                                <span className="text-[10px] font-black text-slate-300 mb-1">#{activeTab === 'active' ? (idx + 1).toString().padStart(2, '0') : ((historyPage - 1) * itemsPerPage + idx + 1).toString().padStart(2, '0')}</span>
+                                                                <span className="text-[10px] font-black text-slate-400 mb-1">
+                                                                    #{(apt as any).token_number ? `T-${(apt as any).token_number}` : (activeTab === 'active' ? (idx + 1).toString().padStart(2, '0') : ((historyPage - 1) * itemsPerPage + idx + 1).toString().padStart(2, '0'))}
+                                                                </span>
                                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base bg-slate-900 text-white`}>
                                                             {formatPatientDisplayName(apt.patient, apt, true).charAt(0).toUpperCase()}
                                                                 </div>
@@ -921,9 +1181,21 @@ function HelpdeskDashboard() {
                                                                 <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight truncate max-w-[140px]">
                                                                 {formatPatientDisplayName(apt.patient, apt, true)}
                                                                 </h4>
-                                                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase mt-1 inline-block ${(apt as any).type === 'EMERGENCY' ? 'bg-rose-50 text-rose-600 border border-rose-100' : (apt as any).type === 'IPD' ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                                                                    {(apt as any).type?.toUpperCase() === 'CONSULTATION' ? 'OPD' : ((apt as any).type || 'OPD')}
-                                                                </span>
+                                                                <div className="mt-1 flex items-center gap-1">
+                                                                    {(apt as any).type?.toLowerCase() === 'online' ? (
+                                                                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-0.5 bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                                                            <Globe size={8} /> Online
+                                                                        </span>
+                                                                    ) : (apt as any).type === 'EMERGENCY' ? (
+                                                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block bg-rose-50 text-rose-600 border border-rose-100">
+                                                                            Emergency
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block bg-slate-100 text-slate-600 border border-slate-200">
+                                                                            Offline
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div className="flex flex-col items-end gap-1">
@@ -956,13 +1228,23 @@ function HelpdeskDashboard() {
                                                     {/* Row 3: Actions / Status */}
                                                     <div className="flex items-center justify-between pointer-events-auto">
                                                         <span className="text-[9px] font-bold text-slate-300 italic uppercase">Curechain Portal</span>
-                                                        <div className="flex items-center gap-3">
-                                                            {['Booked', 'pending'].includes(apt.status) ? (
+                                                        <div className="flex items-center gap-2">
+                                                            {!['in-progress', 'completed', 'cancelled'].includes(apt.status?.toLowerCase()) && (
                                                                 <button
-                                                                    onClick={() => handleUpdateStatus((apt as any).id || (apt as any)._id, 'confirmed')}
-                                                                    className="px-4 py-2 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-700 shadow-lg shadow-teal-500/20 active:scale-95"
+                                                                    onClick={() => handleOpenEdit(apt)}
+                                                                    className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg border border-slate-200 cursor-pointer"
+                                                                    title="Edit Appointment"
                                                                 >
-                                                                    Confirm Waiting
+                                                                    <Pencil size={11} />
+                                                                </button>
+                                                            )}
+
+                                                            {['booked', 'pending', 'scheduled'].includes(apt.status?.toLowerCase()) ? (
+                                                                <button
+                                                                    onClick={() => handleOpenCheckIn(apt)}
+                                                                    className="px-3 py-1.5 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-700 shadow-md active:scale-95 flex items-center gap-1 cursor-pointer"
+                                                                >
+                                                                    <UserCheck size={11} /> {(apt as any).type?.toLowerCase() === 'online' ? 'Check-In' : 'Confirm'}
                                                                 </button>
                                                             ) : (
                                                                 <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${apt.status?.toLowerCase() === 'confirmed' ? 'bg-teal-50 text-teal-600 border-teal-100' :
@@ -1007,6 +1289,207 @@ function HelpdeskDashboard() {
                 </div>
 
             </div>
+
+            {/* CHECK-IN PAYMENT & CONFIRMATION MODAL */}
+            {isCheckInModalOpen && checkingInApt && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+                    <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col my-auto">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-teal-600 to-teal-700 px-5 sm:px-6 py-4 text-white flex items-center justify-between shrink-0">
+                            <div>
+                                <h3 className="text-sm sm:text-base font-black uppercase tracking-wider">Frontdesk Check-In</h3>
+                                <p className="text-teal-100 text-xs font-medium mt-0.5">Collect consultation fee & dispatch to doctor</p>
+                            </div>
+                            <button
+                                onClick={() => setIsCheckInModalOpen(false)}
+                                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Content Body - Scrollable */}
+                        <div className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1 custom-scrollbar">
+                            {/* Patient Info Card */}
+                            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient</span>
+                                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200 uppercase">
+                                        {(checkingInApt as any).type?.toLowerCase() === 'online' ? 'Online Booking' : 'Offline Booking'}
+                                    </span>
+                                </div>
+                                <div className="text-xs sm:text-sm font-black text-slate-800 uppercase">
+                                    {formatPatientDisplayName(checkingInApt.patient, checkingInApt, true)}
+                                </div>
+                                <div className="flex items-center gap-3 text-[11px] font-medium text-slate-500">
+                                    <span>Phone: {checkingInApt.patient?.mobile || checkingInApt.patientDetails?.phone || checkingInApt.phone || 'N/A'}</span>
+                                    <span>Doctor: {formatDoctorName(checkingInApt.doctorName || checkingInApt.doctor?.user?.name || checkingInApt.doctor?.name) || 'Doctor'}</span>
+                                </div>
+                            </div>
+
+                            {/* Fee Card */}
+                            <div className="flex items-center justify-between p-3 bg-teal-50/50 rounded-2xl border border-teal-100">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center">
+                                        <Banknote size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Consultation Fee</p>
+                                        <p className="text-base font-black text-teal-800">₹{checkingInApt.fee || checkingInApt.amount || 300}</p>
+                                    </div>
+                                </div>
+                                <span className="text-[9px] font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md uppercase">
+                                    Status: Unpaid
+                                </span>
+                            </div>
+
+                            {/* Payment Mode Selection */}
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">Select Payment Mode</label>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    {[
+                                        { id: 'cash', label: 'Cash', icon: Banknote },
+                                        { id: 'upi', label: 'UPI / QR', icon: Smartphone },
+                                        { id: 'card', label: 'Card', icon: CreditCard },
+                                        { id: 'bank_transfer', label: 'Bank Transfer', icon: Building2 },
+                                        { id: 'mixed', label: 'Mixed', icon: Layers },
+                                        { id: 'unpaid', label: 'Exempt / Free', icon: Clock },
+                                    ].map(mode => (
+                                        <button
+                                            key={mode.id}
+                                            type="button"
+                                            onClick={() => setPaymentMode(mode.id as any)}
+                                            className={`p-2.5 rounded-xl border flex items-center gap-2 transition-all text-xs font-bold cursor-pointer ${
+                                                paymentMode === mode.id
+                                                    ? 'border-teal-600 bg-teal-50 text-teal-900 ring-2 ring-teal-600/20 shadow-xs'
+                                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <mode.icon size={15} className={paymentMode === mode.id ? 'text-teal-600' : 'text-slate-400'} />
+                                            <span className="truncate">{mode.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Mixed Payment Split Options */}
+                                {paymentMode === 'mixed' && (
+                                    <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5 animate-in fade-in duration-150">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Mixed Breakdown</span>
+                                            <span className="text-[10px] font-bold text-slate-500">Total Due: ₹{checkingInApt.fee || checkingInApt.amount || 300}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Cash (₹)</label>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    value={mixedPayments.cash}
+                                                    onWheel={(e) => e.currentTarget.blur()}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                                                            e.preventDefault();
+                                                        }
+                                                    }}
+                                                    onChange={(e) => updateMixedPayment('cash', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-black text-slate-800 outline-none focus:border-teal-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-1">UPI / QR (₹)</label>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    value={mixedPayments.upi}
+                                                    onWheel={(e) => e.currentTarget.blur()}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                                                            e.preventDefault();
+                                                        }
+                                                    }}
+                                                    onChange={(e) => updateMixedPayment('upi', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-black text-slate-800 outline-none focus:border-teal-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Card (₹)</label>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    value={mixedPayments.card}
+                                                    onWheel={(e) => e.currentTarget.blur()}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                                                            e.preventDefault();
+                                                        }
+                                                    }}
+                                                    onChange={(e) => updateMixedPayment('card', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-black text-slate-800 outline-none focus:border-teal-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Bank Transfer (₹)</label>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    value={mixedPayments.bankTransfer}
+                                                    onWheel={(e) => e.currentTarget.blur()}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                                                            e.preventDefault();
+                                                        }
+                                                    }}
+                                                    onChange={(e) => updateMixedPayment('bankTransfer', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-black text-slate-800 outline-none focus:border-teal-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        {(() => {
+                                            const totalEntered = Math.max(0, Number(mixedPayments.cash || 0)) + Math.max(0, Number(mixedPayments.card || 0)) + Math.max(0, Number(mixedPayments.upi || 0)) + Math.max(0, Number(mixedPayments.bankTransfer || 0));
+                                            const required = Number(checkingInApt.fee || checkingInApt.amount || 300);
+                                            const diff = required - totalEntered;
+                                            return (
+                                                <div className={`flex items-center justify-between text-[10px] font-bold pt-1 border-t border-slate-200 ${diff === 0 ? 'text-teal-600' : diff > 0 ? 'text-amber-600' : 'text-rose-600'}`}>
+                                                    <span>Sum: ₹{totalEntered}</span>
+                                                    <span>{diff === 0 ? '✓ Balanced' : diff > 0 ? `Remaining: ₹${diff}` : `Over by: ₹${Math.abs(diff)}`}</span>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Pinned Footer Actions */}
+                        <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-white shrink-0 flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setIsCheckInModalOpen(false)}
+                                className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors uppercase cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmCheckIn}
+                                disabled={isSubmittingCheckIn}
+                                className="flex-1 py-2.5 bg-teal-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-teal-700 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                                {isSubmittingCheckIn ? (
+                                    <RefreshCw size={14} className="animate-spin" />
+                                ) : (
+                                    <UserCheck size={14} />
+                                )}
+                                Confirm Check-In
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {

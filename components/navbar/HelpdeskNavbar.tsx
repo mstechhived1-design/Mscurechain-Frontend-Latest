@@ -15,6 +15,7 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import { useTenantLink } from "@/hooks/useTenantLink";
 import { PrefetchLink } from "@/components/ui/PrefetchLink";
 import { usePrefetchDashboard } from "@/lib/integrations/hooks/useUnifiedDashboard";
+import WhatsAppStatusIndicator from "@/components/WhatsApp/WhatsAppStatusIndicator";
 
 interface HelpdeskNavbarProps {
     onMenuClick: () => void;
@@ -45,7 +46,11 @@ const HelpdeskNavbar: React.FC<HelpdeskNavbarProps> = ({ onMenuClick, onLogoutCl
             </div>
 
             <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
+                    {/* Desktop WhatsApp Gateway Live Status */}
+                    <div className="hidden sm:block">
+                        <WhatsAppStatusIndicator department="frontdesk" variant="navbar" />
+                    </div>
                     <NotificationCenter />
                 </div>
 
@@ -71,14 +76,19 @@ const HelpdeskNavbar: React.FC<HelpdeskNavbarProps> = ({ onMenuClick, onLogoutCl
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsProfileDropdownOpen(false)} />
                             <div className="absolute right-0 mt-4 w-72 rounded-[32px] shadow-2xl border border-slate-100 z-50 overflow-hidden bg-white animate-in fade-in slide-in-from-top-4 duration-300">
-                                <div className="p-8 border-b border-slate-50">
-                                    <div className="flex flex-col items-center gap-4">
-                                        <div className="w-20 h-20 rounded-3xl bg-slate-900 flex items-center justify-center text-white font-black text-3xl shadow-lg shadow-slate-200">
+                                <div className="p-6 border-b border-slate-50">
+                                    <div className="flex flex-col items-center gap-3.5">
+                                        <div className="w-16 h-16 rounded-2xl bg-slate-900 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-slate-200">
                                             {user?.name?.charAt(0)}
                                         </div>
                                         <div className="text-center">
                                             <p className="font-black text-slate-900 uppercase tracking-tight">{user?.name}</p>
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Secure Staff Access</p>
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Secure Staff Access</p>
+                                        </div>
+
+                                        {/* Mobile View WhatsApp Status Badge */}
+                                        <div className="w-full mt-1 sm:hidden">
+                                            <WhatsAppStatusIndicator department="frontdesk" variant="profile-dropdown" />
                                         </div>
                                     </div>
                                 </div>

@@ -1120,6 +1120,8 @@ export default function TransactionsPage() {
                             dateOfBirth: p.dob || p.dateOfBirth || pProfile.dob,
                             dischargeType: isDischargeTx ? (apptData.dischargeType || 'Regular') : undefined,
                             conditionAtDischarge: isDischargeTx ? apptData.conditionAtDischarge : undefined,
+                            symptoms: tx.symptoms || apptData.symptoms || tx.reason || apptData.reason,
+                            chiefComplaint: tx.reason || apptData.reason || tx.symptoms || apptData.symptoms,
                         }}
                         appointment={{
                             appointmentId: tx.referenceId?.appointmentId || tx.referenceId?.admissionId || tx.referenceId?.sampleId || tx.transactionId || tx.receiptNumber || 'N/A',
@@ -1128,6 +1130,9 @@ export default function TransactionsPage() {
                             time: tx.appointmentTime || tx.time || '10:00 AM',
                             doctorName: tx.referenceId?.primaryDoctor || tx.referenceId?.doctorName || 'Doctor',
                             specialization: isDischargeTx ? 'IPD DISCHARGE' : (tx.type || 'Consultation'),
+                            symptoms: tx.symptoms || apptData.symptoms || tx.reason || apptData.reason,
+                            reason: tx.reason || apptData.reason || (Array.isArray(tx.symptoms) ? tx.symptoms.join(', ') : tx.symptoms),
+                            notes: tx.notes || apptData.notes || tx.reason || apptData.reason,
                         }}
                         payment={{
                             amount: isDischargeTx ? settlementPaid : Number(tx.payment?.amount || tx.amount || 0),

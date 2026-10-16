@@ -143,9 +143,14 @@ export default function AppointmentHistoryModal({
                                                 <div className="text-xs font-black text-slate-900">
                                                     ₹ {apt.payment?.amount || apt.amount || 0}
                                                 </div>
-                                                <div className="text-[9px] font-bold text-emerald-600 uppercase">
-                                                    {apt.payment?.paymentStatus || apt.paymentStatus || 'Paid'}
-                                                </div>
+                                                {(() => {
+                                                    const isPaid = (apt.paymentStatus === 'paid' || apt.payment?.paymentStatus === 'paid' || apt.payment?.status === 'paid');
+                                                    return (
+                                                        <div className={`text-[9px] font-bold uppercase ${isPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                            {isPaid ? 'PAID' : (apt.payment?.paymentStatus || apt.paymentStatus || 'PENDING')}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
 
