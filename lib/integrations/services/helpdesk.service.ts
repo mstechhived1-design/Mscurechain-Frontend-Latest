@@ -397,11 +397,15 @@ export const helpdeskService = {
    */
   saveTransactionReport: (data: {
     patientId: string;
+    admissionId?: string;
+    admission?: string;
+    templateFormat?: string;
     reportData: any;
     totals: {
       grandTotal: number;
       totalPaid: number;
       balance: number;
+      discount?: number;
     };
     generatedBy?: string;
   }) =>
@@ -447,6 +451,47 @@ export const helpdeskService = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
+
+  /**
+   * Save dedicated DischargeSummary in database
+   */
+  saveDischargeSummary: (data: {
+    patientId: string;
+    admissionId?: string;
+    admission?: string;
+    reportId?: string;
+    dischargeData: any;
+    savedBy?: string;
+  }) =>
+    apiClient<any>("/reports/discharge-summary", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Get dedicated DischargeSummary from database for a patient and admission
+   */
+  getDischargeSummary: (patientId: string, admissionId?: string) =>
+    apiClient<{ success: boolean; data: any }>(
+      `/reports/discharge-summary/patient/${patientId}${admissionId ? `?admissionId=${encodeURIComponent(admissionId)}` : ""}`,
+      { skipCache: true, suppressErrorLog: true }
+    ),
+
+  /**
+   * Search hospital pharmacy medicines
+   */
+  searchMedicines: async (query: string) => {
+    try {
+      const res: any = await apiClient<any>(`/reports/medicines/search?query=${encodeURIComponent(query)}`);
+      if (res && res.success !== undefined) return res;
+      if (Array.isArray(res)) return { success: true, data: res };
+      return { success: true, data: res?.data || [] };
+    } catch {
+      // Fallback to doctor medicines search endpoint
+      const fallback: any = await apiClient<any>(`/doctor/medicines/search?query=${encodeURIComponent(query)}`);
+      return fallback;
+    }
+  },
 
   /**
    * Delete an existing transaction report

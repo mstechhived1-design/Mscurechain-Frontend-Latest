@@ -8,6 +8,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { generateTransactionReportHTML } from '@/lib/utils/print-transaction-report';
+import { generateDischargeSummaryHTML, DischargeSummaryData } from '@/lib/utils/print-discharge-summary';
+import DischargeSummaryView from '@/components/frontdesk/DischargeSummaryView';
+import ReportFormatToggle, { ReportTemplateFormat } from '@/components/frontdesk/ReportFormatToggle';
 import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -170,6 +173,7 @@ export default function TransactionReportsPage() {
     const searchParams = useSearchParams() as any;
     const patientId = ((searchParams?.get('patientId') ?? null) ?? null);
     const loadReportId = ((searchParams?.get('loadReport') ?? null) ?? null);
+    const formatParam = ((searchParams?.get('format') ?? null) as ReportTemplateFormat | null);
 
     const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
     const [printConfig, setPrintConfig] = useState({
@@ -199,6 +203,61 @@ export default function TransactionReportsPage() {
     const [totalAdmissionsCount, setTotalAdmissionsCount] = useState<number>(0);
     const [hasActiveAdmission, setHasActiveAdmission] = useState<boolean>(true);
     const [isLoadingActive, setIsLoadingActive] = useState<boolean>(false);
+
+    // Template Format & Discharge Summary State
+    const [templateFormat, setTemplateFormat] = useState<ReportTemplateFormat>(() => {
+        if (formatParam === 'discharge' || formatParam === 'standard') return formatParam;
+        if (typeof window !== 'undefined') {
+            const saved = (patientId ? localStorage.getItem(`frontdesk_txn_format_${patientId}`) : null) || localStorage.getItem('frontdesk_txn_format_last');
+            if (saved === 'discharge' || saved === 'standard') return saved as ReportTemplateFormat;
+        }
+        return 'standard';
+    });
+
+    const [dischargeData, setDischargeData] = useState<DischargeSummaryData>(() => {
+        if (typeof window !== 'undefined' && patientId) {
+            try {
+                const draft = localStorage.getItem(`discharge_draft_${patientId}`);
+                if (draft) {
+                    const parsed = JSON.parse(draft);
+                    if (parsed) return parsed;
+                }
+            } catch (e) {}
+        }
+        return { dischargeMedications: [] };
+    });
+
+    const handleFormatChange = useCallback((newFormat: ReportTemplateFormat) => {
+        setTemplateFormat(newFormat);
+        if (typeof window !== 'undefined') {
+            try {
+                if (patientId) localStorage.setItem(`frontdesk_txn_format_${patientId}`, newFormat);
+                localStorage.setItem('frontdesk_txn_format_last', newFormat);
+                const url = new URL(window.location.href);
+                url.searchParams.set('format', newFormat);
+                window.history.replaceState({}, '', url.toString());
+            } catch (e) {}
+        }
+    }, [patientId]);
+
+    useEffect(() => {
+        if (formatParam === 'discharge' || formatParam === 'standard') {
+            setTemplateFormat(formatParam);
+        } else if (typeof window !== 'undefined') {
+            const saved = (patientId ? localStorage.getItem(`frontdesk_txn_format_${patientId}`) : null) || localStorage.getItem('frontdesk_txn_format_last');
+            if (saved === 'discharge' || saved === 'standard') {
+                setTemplateFormat(saved as ReportTemplateFormat);
+            }
+        }
+    }, [formatParam, patientId]);
+
+    // Keep draft saved in real-time so page refresh NEVER erases entered text
+    useEffect(() => {
+        if (!patientId || !dischargeData) return;
+        try {
+            localStorage.setItem(`discharge_draft_${patientId}`, JSON.stringify(dischargeData));
+        } catch (e) {}
+    }, [patientId, dischargeData]);
 
     // Edit Doctor State
     const [showDoctorModal, setShowDoctorModal] = useState(false);
@@ -273,6 +332,22 @@ export default function TransactionReportsPage() {
 
     // Persistence: Load from localStorage
     useEffect(() => {
+        if (patientId) {
+            try {
+                const cachedDischarge = localStorage.getItem(`discharge_data_${patientId}`);
+                if (cachedDischarge) {
+                    const parsed = JSON.parse(cachedDischarge);
+                    if (Array.isArray(parsed?.dischargeMedications)) {
+                        parsed.dischargeMedications = parsed.dischargeMedications.filter((m: any) =>
+                            !['Tab. Paracetamol 650 mg', 'Tab. Amoxicillin + Clavulanate 625 mg', 'Tab. Pantoprazole 40 mg'].includes(m.medicineName) || m.id?.startsWith('custom_')
+                        );
+                    }
+                    setDischargeData(parsed);
+                }
+            } catch (e) {
+                console.error("Failed to parse cached discharge data:", e);
+            }
+        }
         const saved = localStorage.getItem(`txn_report_${patientId || 'draft'}`);
         if (saved) {
             try {
@@ -328,6 +403,25 @@ export default function TransactionReportsPage() {
                     setPay([]);
                     setDiscount(0);
                 }
+
+                // Query dedicated DischargeSummary database model for this patient and admission
+                const targetAdm = ipdRecord || availableEncounters.ipd;
+                helpdeskService.getDischargeSummary(patientId, targetAdm?._id || targetAdm?.admissionId)
+                    .then(res => {
+                        if (res?.data && (res.data.dischargeMedications?.length || res.data.finalDiagnosis || res.data.treatmentAndCourse)) {
+                            setDischargeData(prev => {
+                                const draftStr = typeof window !== 'undefined' ? localStorage.getItem(`discharge_draft_${patientId}`) : null;
+                                if (draftStr) {
+                                    try {
+                                        const draft = JSON.parse(draftStr);
+                                        return { ...res.data, ...draft };
+                                    } catch (e) {}
+                                }
+                                return res.data;
+                            });
+                        }
+                    })
+                    .catch(() => {});
             } catch (err) {
                 console.error("Failed to load IPD bill:", err);
             } finally {
@@ -451,8 +545,39 @@ export default function TransactionReportsPage() {
                         ]);
                         setPay(r.reportData?.payments || []);
                         setDiscount(r.totals?.discount || 0);
-                        if (r.reportData?.printConfig) setPrintConfig(prev => ({ ...prev, ...r.reportData.printConfig }));
+                        if (r.reportData?.dischargeData) {
+                            setDischargeData(r.reportData.dischargeData);
+                        } else if (r.dischargeData) {
+                            setDischargeData(r.dischargeData);
+                        }
+
+                        // Load from dedicated DischargeSummary database model
+                        const admId = r.admission?._id || r.admissionId || r.reportData?.admissionId || r.reportData?.admission?._id;
+                        if (patientId) {
+                            helpdeskService.getDischargeSummary(patientId, admId)
+                                .then(res => {
+                                    if (res?.data && (res.data.dischargeMedications?.length || res.data.finalDiagnosis || res.data.treatmentAndCourse)) {
+                                        setDischargeData(res.data);
+                                    } else {
+                                        try {
+                                            const cached = (admId && localStorage.getItem(`discharge_data_${admId}`)) || localStorage.getItem(`discharge_data_${patientId}`);
+                                            if (cached) setDischargeData(JSON.parse(cached));
+                                        } catch (e) {}
+                                    }
+                                })
+                                .catch(() => {
+                                    try {
+                                        const cached = (admId && localStorage.getItem(`discharge_data_${admId}`)) || localStorage.getItem(`discharge_data_${patientId}`);
+                                        if (cached) setDischargeData(JSON.parse(cached));
+                                    } catch (e) {}
+                                });
+                        }
+                        if (!formatParam) {
+                            if (r.reportData?.templateFormat) setTemplateFormat(r.reportData.templateFormat);
+                            else if (r.templateFormat) setTemplateFormat(r.templateFormat);
+                        }
                         if (r.admission) setAdmission(r.admission);
+                        else if (r.reportData?.admission) setAdmission(r.reportData.admission);
                         toast.success("Report data loaded from history!");
                     } else {
                         toast.error("Could not find the specified report.");
@@ -526,9 +651,13 @@ export default function TransactionReportsPage() {
             payments: printConfig.receipts ? payments : [],
             doctorReference: docRef,
             referredBy: docRef,
+            dischargeData,
         };
         const totals = { grandTotal: grand, totalPaid: activeTotPaid, balance: balance, discount: discount };
-        const html = generateTransactionReportHTML(h, patient || {}, currentAdm, reportData, totals, printConfig);
+
+        const html = templateFormat === 'discharge'
+            ? generateDischargeSummaryHTML(h, patient || {}, currentAdm, reportData, dischargeData)
+            : generateTransactionReportHTML(h, patient || {}, currentAdm, reportData, totals, printConfig);
 
         win.document.write(html);
         win.document.close();
@@ -562,12 +691,17 @@ export default function TransactionReportsPage() {
                 admission?.referredBy ||
                 '';
 
+            const currentAdm = admission || availableEncounters.ipd;
             const reportData = {
                 doctors, admissions, meds, services, diags, payments,
                 isOPD: patientType === 'OPD',
                 printConfig,
                 doctorReference: docRef,
                 referredBy: docRef,
+                templateFormat,
+                dischargeData,
+                admission: currentAdm,
+                admissionId: currentAdm?.admissionId || currentAdm?._id || '',
             };
             const totals = { grandTotal: grand, totalPaid: activeTotPaid, balance: balance, discount: discount };
 
@@ -575,16 +709,46 @@ export default function TransactionReportsPage() {
                 await helpdeskService.updateTransactionReport(loadReportId, {
                     reportData,
                     totals,
+                    admissionId: currentAdm?.admissionId || currentAdm?._id,
+                    admission: currentAdm?._id,
+                    templateFormat,
                 });
                 toast.success("Transaction report updated successfully!");
             } else {
                 await helpdeskService.saveTransactionReport({
                     patientId,
+                    admissionId: currentAdm?.admissionId || currentAdm?._id,
+                    admission: currentAdm?._id,
                     reportData,
                     totals,
+                    templateFormat,
                     generatedBy: "frontdesk"
                 });
                 toast.success("Transaction report saved successfully!");
+            }
+
+            // Store discharge summary in dedicated DischargeSummary database model
+            try {
+                await helpdeskService.saveDischargeSummary({
+                    patientId,
+                    admissionId: currentAdm?.admissionId || currentAdm?._id,
+                    admission: currentAdm?._id,
+                    reportId: isManualReport ? loadReportId : undefined,
+                    dischargeData,
+                    savedBy: "frontdesk"
+                });
+            } catch (summaryErr) {
+                console.error("Failed to save to separate DischargeSummary model:", summaryErr);
+            }
+
+            // Cache per admission and patient for instant retrieval
+            if (currentAdm?._id) {
+                try {
+                    localStorage.setItem(`discharge_data_${currentAdm._id}`, JSON.stringify(dischargeData));
+                    if (currentAdm.admissionId) {
+                        localStorage.setItem(`discharge_data_${currentAdm.admissionId}`, JSON.stringify(dischargeData));
+                    }
+                } catch (e) {}
             }
 
             fetchHistory();
@@ -625,30 +789,41 @@ export default function TransactionReportsPage() {
         <div className="w-full max-w-[98%] mx-auto space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
             <div className="bg-white p-2.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5 sm:space-y-3.5">
-                {/* Main Top Row: Title, Badges, and Action Buttons Toolbar */}
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2 sm:gap-4">
-                    {/* Title & Badges */}
-                    <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
-                        <div className="w-8 h-8 sm:w-11 sm:h-11 bg-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-xs sm:shadow-md shadow-indigo-500/20 shrink-0">
-                            <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                {/* Row 1: Dedicated Heading Row */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+                        <div className="w-8 h-8 sm:w-11 sm:h-11 bg-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-xs sm:shadow-md shadow-indigo-500/20 shrink-0 text-white">
+                            <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
-                        <div className="min-w-0 flex flex-wrap items-center gap-1.5 sm:gap-2">
-                            <h1 className="text-xs sm:text-xl font-black text-slate-900 tracking-tight leading-none">Financial Statement</h1>
+                        <div className="min-w-0 flex flex-wrap items-center gap-2">
+                            <h1 className="text-base sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
+                                {templateFormat === 'discharge' ? 'Discharge Summary' : 'Financial Statement'}
+                            </h1>
                             {patient && (
-                                <span className="bg-indigo-50 text-indigo-700 px-1.5 sm:px-2.5 py-0.5 rounded-md text-[8px] sm:text-[10px] font-black uppercase tracking-wider border border-indigo-100/80">
+                                <span className="bg-indigo-50 text-indigo-700 px-2 sm:px-2.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-indigo-100/80">
                                     {formatPatientDisplayName(patient)}
                                 </span>
                             )}
                             {patientType && (
-                                <span className={`px-1.5 sm:px-2.5 py-0.5 rounded-md text-[8px] sm:text-[10px] font-black uppercase tracking-wider border ${patientType === 'IPD' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                <span className={`px-2 sm:px-2.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider border ${patientType === 'IPD' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
                                     {patientType}
                                 </span>
                             )}
                         </div>
                     </div>
 
-                    {/* Action Buttons Toolbar (PhonePe / Swiggy App Style Compact Pill Action Bar) */}
-                    <div className="flex flex-wrap items-center gap-1 sm:gap-2 py-0.5 w-full xl:w-auto shrink-0 relative z-30">
+                    {/* Mode Status Pill */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-400">
+                            Mode: <strong className="text-indigo-600">{templateFormat === 'discharge' ? 'Discharge Summary' : 'Detailed Bill'}</strong>
+                        </span>
+                    </div>
+                </div>
+
+                {/* Row 2: Action Buttons & Template Toggle Toolbar */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    {/* Left: Patient & Doctor Management Actions */}
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         {patientId && (
                             <button
                                 onClick={() => {
@@ -717,6 +892,15 @@ export default function TransactionReportsPage() {
                                 <span>Delete</span>
                             </button>
                         )}
+                    </div>
+
+                    {/* Right: Save, Format Toggle, Print */}
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        {/* Template Format Toggle (Standard Bill vs Discharge Summary) */}
+                        <ReportFormatToggle
+                            format={templateFormat}
+                            onChange={handleFormatChange}
+                        />
 
                         <button
                             onClick={handleSaveReport}
@@ -875,7 +1059,23 @@ export default function TransactionReportsPage() {
             )}
 
             {(hasActiveAdmission || !patientId) && !isLoadingActive && (
-                <div className="space-y-3 sm:space-y-4">
+                templateFormat === 'discharge' ? (
+                    <DischargeSummaryView
+                        data={dischargeData}
+                        onChange={(updated) => {
+                            setDischargeData(updated);
+                            if (patientId) {
+                                try {
+                                    localStorage.setItem(`discharge_data_${patientId}`, JSON.stringify(updated));
+                                } catch (e) {}
+                            }
+                        }}
+                        patient={patient}
+                        admission={admission || availableEncounters.ipd}
+                        reportData={{ doctors, admissions, meds, services, diags }}
+                    />
+                ) : (
+                    <div className="space-y-3 sm:space-y-4">
                     {/* Print Configuration Panel */}
                     <div className="bg-white p-2 sm:p-3 rounded-xl border border-slate-200/60 shadow-2xs flex flex-wrap gap-1.5 sm:gap-3 items-center">
                         <div className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest">Config:</div>
@@ -1115,7 +1315,8 @@ export default function TransactionReportsPage() {
                             </div>
                         </div>
                     </div>
-                </div>
+                    </div>
+                )
             )}
             
             {/* Inline Doctor Change Modal */}
@@ -1172,6 +1373,8 @@ export default function TransactionReportsPage() {
                     </div>
                 );
             })()}
+
+
         </div>
     );
 }

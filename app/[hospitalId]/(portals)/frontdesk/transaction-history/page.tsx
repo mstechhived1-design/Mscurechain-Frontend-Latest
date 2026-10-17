@@ -8,6 +8,8 @@ import { useHelpdeskPatients } from "@/lib/integrations";
 import { sanitizePatientName, formatPatientDisplayName } from "@/lib/utils/name-utils";
 import { calculateAge } from "@/lib/utils/date-utils";
 import { generateTransactionReportHTML } from '@/lib/utils/print-transaction-report';
+import { generateDischargeSummaryHTML, DischargeSummaryData } from '@/lib/utils/print-discharge-summary';
+import ReportFormatToggle, { ReportTemplateFormat } from '@/components/frontdesk/ReportFormatToggle';
 import { useWhatsAppSender } from '@/components/WhatsApp/useWhatsAppSender';
 import { WA_DIVIDER, READ_MORE } from '@/components/WhatsApp/WhatsAppSendButton';
 import { useRouter, useParams } from 'next/navigation';
@@ -105,6 +107,12 @@ export default function TransactionHistoryPage() {
     const whatsAppIframeRef = useRef<HTMLIFrameElement>(null);
     const { captureAndSend, isSending: isSendingWhatsApp } = useWhatsAppSender({ hospitalId: (params?.hospitalId as string) || '', department: 'frontdesk' });
 
+    // Template Format & Discharge Summary State
+    const [templateFormat, setTemplateFormat] = useState<ReportTemplateFormat>('standard');
+    const [dischargeData, setDischargeData] = useState<DischargeSummaryData>({
+        dischargeMedications: []
+    });
+
     useEffect(() => {
         hospitalAdminService.getHospital().then(res => setHospital(res?.hospital)).catch(() => { });
         fetchAllReports();
@@ -132,9 +140,13 @@ export default function TransactionHistoryPage() {
             pharmacy: true,
             receipts: true,
         };
-        const h = hospital || { name: 'HORIZIN HOSPITAL', address: 'Medical Plaza, Healthcare District', phone: '+91 98765 43211' };
+        const h = hospital || { name: 'DHRUVA MULTISPECIALITY HOSPITAL', address: 'Door No. 1/705, Dwaraka Nagar, Beside Raithu Bazar, Sandhya Circle, Kadapa', phone: '9959959694' };
+        if (templateFormat === 'discharge') {
+            const patientDischarge = r.reportData?.dischargeData || r.dischargeData || dischargeData;
+            return generateDischargeSummaryHTML(h, p, currentAdm, reportData, patientDischarge);
+        }
         return generateTransactionReportHTML(h, p, currentAdm, reportData, totals, printConfig);
-    }, [whatsAppModalReport, whatsAppPhone, hospital, selectedPatient]);
+    }, [whatsAppModalReport, whatsAppPhone, hospital, selectedPatient, templateFormat, dischargeData]);
 
     const handleOpenWhatsAppModal = (report: any) => {
         const rawPhone = (
@@ -150,6 +162,18 @@ export default function TransactionHistoryPage() {
         const num = clean.length === 12 && clean.startsWith('91') ? clean.slice(2) : clean;
         setWhatsAppPhone(num.slice(-10));
         setWhatsAppModalReport(report);
+        const pId = report.patient?._id || selectedPatient?._id || report.patientId;
+        if (report.reportData?.templateFormat) {
+            setTemplateFormat(report.reportData.templateFormat);
+        }
+        if (report.reportData?.dischargeData) {
+            setDischargeData(report.reportData.dischargeData);
+        } else if (pId) {
+            try {
+                const cached = localStorage.getItem(`discharge_data_${pId}`);
+                if (cached) setDischargeData(JSON.parse(cached));
+            } catch (e) {}
+        }
     };
 
     const handleSendWhatsApp = async () => {
@@ -616,7 +640,14 @@ Thank you for choosing ${hospName}.`;
                         </div>
                     </div>
                     
-                    {/* OPD/IPD Toggle */}
+                    {/* Template Format & OPD/IPD Toggles */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <ReportFormatToggle
+                            format={templateFormat}
+                            onChange={setTemplateFormat}
+                        />
+
+                        {/* OPD/IPD Toggle */}
                     <div className="flex items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200 shadow-inner">
                         {['ALL', 'OPD', 'IPD'].map((type) => (
                             <button
@@ -639,6 +670,7 @@ Thank you for choosing ${hospName}.`;
                             </button>
                         ))}
                     </div>
+                </div>
                 </div>
 
                 {isLoadingDisplay ? (
@@ -752,7 +784,8 @@ Thank you for choosing ${hospName}.`;
                                                             <button
                                                                 onClick={() => {
                                                                     const patientId = report.patient?._id || selectedPatient?._id || report.patientId;
-                                                                    router.push(`/${params.hospitalId}/frontdesk/transaction-reports?patientId=${patientId}&loadReport=${report._id}`);
+                                                                    const targetFormat = templateFormat || report.reportData?.templateFormat || report.templateFormat || 'standard';
+                                                                    router.push(`/${params.hospitalId}/frontdesk/transaction-reports?patientId=${patientId}&loadReport=${report._id}&format=${targetFormat}`);
                                                                 }}
                                                                 className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shadow-sm cursor-pointer"
                                                                 title="Open Report"
@@ -893,6 +926,14 @@ Thank you for choosing ${hospName}.`;
                                 </div>
                             </div>
 
+                            {/* Template Format Toggle Inside WhatsApp Modal */}
+                            <div className="shrink-0 flex items-center">
+                                <ReportFormatToggle
+                                    format={templateFormat}
+                                    onChange={setTemplateFormat}
+                                />
+                            </div>
+
                             {/* Manual Phone Input Field */}
                             <div className="shrink-0">
                                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
@@ -983,6 +1024,8 @@ Thank you for choosing ${hospName}.`;
                     </div>
                 </div>
             )}
+
+
         </div>
     );
 }
