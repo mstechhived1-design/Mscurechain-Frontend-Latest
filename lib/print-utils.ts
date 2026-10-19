@@ -2708,8 +2708,8 @@ export const generateClinicalReceiptHtml = (data: any) => {
                             : ""
                         }
                         <tr>
-                          <td style="font-weight: 700; color: #0f766e;">Settlement Paid Amount</td>
-                          <td style="text-align: right; font-weight: 800; color: #0f766e;">₹ ${Math.round(settlementPaid).toLocaleString('en-IN')}</td>
+                          <td style="font-weight: 700; color: #0f766e;">${settlementPaid === 0 && discount > 0 ? 'Discount / Concession' : 'Settlement Paid Amount'}</td>
+                          <td style="text-align: right; font-weight: 800; color: #0f766e;">₹ ${Math.round(settlementPaid === 0 && discount > 0 ? discount : settlementPaid).toLocaleString('en-IN')}</td>
                         </tr>
                         <tr class="total-row" style="background-color: #f1f5f9; border-top: 2px solid #0f172a;">
                           <td style="font-weight: 900; color: #0f172a;">TOTAL PAID AMOUNT</td>

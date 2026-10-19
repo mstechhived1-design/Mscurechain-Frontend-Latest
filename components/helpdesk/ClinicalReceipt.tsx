@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { X, Printer } from "lucide-react";
+import { X, Printer, Tag, Percent, Check, Edit2 } from "lucide-react";
 import { generateClinicalReceiptHtml, generateOPDRegistrationSlipHtml, generateLabReceiptHtml, formatReceiptPaymentMode } from "@/lib/print-utils";
 import { renderToStaticMarkup } from "react-dom/server";
 import MainHeader from "../printers/MainHeader";
@@ -164,6 +164,11 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
   );
   const [shouldPrintAfterUpdate, setShouldPrintAfterUpdate] = React.useState(false);
   const [showGuardianDetails, setShowGuardianDetails] = React.useState(true);
+  
+  // Manual discount / waiver adjustment before printing
+  const initialDiscount = Number(payment.discount || (appointment as any).discount || 0);
+  const [customDiscount, setCustomDiscount] = React.useState<number>(initialDiscount);
+  const [isEditingDiscount, setIsEditingDiscount] = React.useState(false);
 
   // Determine if any guardian/reference data exists to show the toggle
   const hasGuardianData = !!(appointment.guardianName || appointment.guardianRelation || appointment.guardianMobile || appointment.doctorReference || patient.guardianName || patient.guardianRelation || patient.guardianMobile || patient.doctorReference);
@@ -270,12 +275,38 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
           }} />
         );
 
+        // Calculate dynamic adjusted payment with customDiscount applied
+        const totalBillCalc = Number(payment.totalBillAmount || payment.grandTotal || (Number(payment.amount || 0) + Number(payment.advanceAmount || 0)));
+        const advanceAmountCalc = Number(payment.advanceAmount || 0);
+        const effectiveDiscount = Number(customDiscount || 0);
+        const afterDiscountCalc = Math.max(0, totalBillCalc - effectiveDiscount);
+        
+        let settlementPaidCalc = Number(payment.remainingPaid || payment.settlementAmount || payment.amount || 0);
+        if (payment.isDischarge && settlementPaidCalc === 0 && afterDiscountCalc > advanceAmountCalc) {
+          settlementPaidCalc = Math.max(0, afterDiscountCalc - advanceAmountCalc);
+        }
+        const totalPaidCalc = Number(payment.totalPaidAmount || (advanceAmountCalc + settlementPaidCalc));
+        const newBalanceCalc = Math.max(0, afterDiscountCalc - totalPaidCalc);
+
+        const mappedPayment = {
+          ...payment,
+          discount: effectiveDiscount,
+          balance: newBalanceCalc,
+          dueAmount: newBalanceCalc,
+        };
+
+        const mappedAppointment = {
+          ...appointment,
+          discount: effectiveDiscount,
+          notes: patient.symptoms || appointment.notes,
+        };
+
         const rawHtml = isLab || receiptFormat === 'lab_receipt'
           ? generateLabReceiptHtml({
               hospital,
               patient: mappedPatient,
-              appointment,
-              payment,
+              appointment: mappedAppointment,
+              payment: mappedPayment,
               headerHtml,
               footerHtml,
               labTests: propLabTests || appointment.tests || [],
@@ -286,8 +317,8 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
           ? generateOPDRegistrationSlipHtml({
               hospital,
               patient: mappedPatient,
-              appointment,
-              payment,
+              appointment: mappedAppointment,
+              payment: mappedPayment,
               registrationType: (payment.isDischarge || payment.isDischargeTransaction || appointment.specialization?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('SETTLEMENT') || (patient.dischargeType && patient.dischargeType.toUpperCase() !== 'NONE')) ? 'DISCHARGE' : isOPDOrReg ? 'OPD' : 'IPD',
               headerHtml,
               footerHtml,
@@ -298,11 +329,8 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
               forceDetailed: true,
               hospital,
               patient: mappedPatient,
-              appointment: {
-                ...appointment,
-                notes: patient.symptoms || appointment.notes
-              },
-              payment,
+              appointment: mappedAppointment,
+              payment: mappedPayment,
               registrationType: (payment.isDischarge || payment.isDischargeTransaction || appointment.specialization?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('SETTLEMENT') || (patient.dischargeType && patient.dischargeType.toUpperCase() !== 'NONE')) ? 'DISCHARGE' : isOPDOrReg ? 'OPD' : 'IPD',
               headerHtml,
               footerHtml,
@@ -421,7 +449,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
         }
       }
     }
-  }, [hospital, patient, appointment, payment, dataLoaded, receiptFormat, printWithHeader, shouldPrintAfterUpdate, isOPDOrReg, showGuardianDetails]);
+  }, [hospital, patient, appointment, payment, dataLoaded, receiptFormat, printWithHeader, shouldPrintAfterUpdate, isOPDOrReg, showGuardianDetails, customDiscount]);
 
   const whatsAppButtonRef = React.useRef<WhatsAppSendButtonHandle>(null);
   const [isConfirming, setIsConfirming] = React.useState(false);
@@ -559,6 +587,59 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
                   <span>Guardian Info</span>
                 </button>
               )}
+
+              {/* Discount / Balance Waiver Controls */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/80 rounded-lg text-[10px] font-bold">
+                <Tag size={13} className="text-amber-600" />
+                <span className="text-amber-800 uppercase tracking-wider font-extrabold hidden sm:inline">Discount:</span>
+                <div className="relative flex items-center">
+                  <span className="absolute left-1.5 text-slate-500 font-bold text-[10px]">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={customDiscount === 0 ? '' : customDiscount}
+                    onChange={(e) => {
+                      const val = Math.max(0, Number(e.target.value) || 0);
+                      setCustomDiscount(val);
+                    }}
+                    className="w-20 pl-4 pr-1 py-0.5 text-xs font-black text-slate-800 bg-white border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-inner"
+                  />
+                </div>
+                {/* Quick Waive Balance Button */}
+                {(() => {
+                  const billTot = Number(payment.totalBillAmount || payment.grandTotal || (Number(payment.amount || 0) + Number(payment.advanceAmount || 0)));
+                  const adv = Number(payment.advanceAmount || 0);
+                  const rem = Number(payment.remainingPaid || payment.settlementAmount || payment.amount || 0);
+                  const paid = Number(payment.totalPaidAmount || (adv + rem));
+                  const outstanding = Math.max(0, billTot - paid);
+                  if (outstanding > 0 && customDiscount < outstanding) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setCustomDiscount(outstanding)}
+                        title={`Waive remaining ₹${outstanding.toLocaleString('en-IN')} as discount`}
+                        className="px-2 py-0.5 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-bold rounded text-[9px] uppercase tracking-wider transition-all shadow-sm"
+                      >
+                        Waive Balance (₹{outstanding.toLocaleString('en-IN')})
+                      </button>
+                    );
+                  }
+                  if (customDiscount > 0) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setCustomDiscount(0)}
+                        title="Reset discount to 0"
+                        className="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded text-[9px] uppercase tracking-wider transition-all"
+                      >
+                        Clear
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                 {(() => {
