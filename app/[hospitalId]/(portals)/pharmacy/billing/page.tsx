@@ -15,7 +15,7 @@ import { patientService } from '@/lib/integrations/services/patient.service';
 import { pharmacyService } from '@/lib/integrations/services/pharmacy.service';
 import { usePrintStore } from '@/stores/printStore';
 import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
-import { formatPatientDisplayName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
+import { formatPatientDisplayName, formatPatientNameWithPrefix, HONORIFIC_OPTIONS, cleanPatientName } from '@/lib/utils/name-utils';
 
 const BillingPage = () => {
     const router = useRouter();
@@ -23,9 +23,10 @@ const BillingPage = () => {
     const hospitalId = params?.hospitalId as string;
     const { user } = useAuthStore();
     const { getPath } = useTenantLink();
-    const { printWithHeader, setPrintWithHeader } = usePrintStore();
+    const { printWithHeader, setPrintWithHeader, showHonorificInReceipts, setShowHonorificInReceipts } = usePrintStore();
 
     // State
+    const [patientHonorific, setPatientHonorific] = useState('');
     const [patientName, setPatientName] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
     const [doctorName, setDoctorName] = useState('');
@@ -140,8 +141,10 @@ const BillingPage = () => {
                         // Force update state from API
                         localStorage.removeItem('pharmacy_billing_draft'); // Clear stale draft
 
-                        const resolvedPatientName = formatPatientDisplayName(order.patient, order, true) || order.patient?.name || '';
-                        setPatientName(resolvedPatientName);
+                        const orderHonorific = (order.patient as any)?.honorific || (order as any).honorific || (order as any).patientHonorific || (order.patient as any)?.user?.honorific || '';
+                        const resolvedRawName = cleanPatientName(order.patient?.name || (order as any).patientName || '');
+                        setPatientHonorific(orderHonorific);
+                        setPatientName(resolvedRawName || order.patient?.name || '');
                         setMobileNumber(order.patient?.mobile || '');
                         setDoctorName(order.doctor?.user?.name || '');
                         setPatientMrn(order.patient?.mrn || order.mrn || '');
@@ -186,6 +189,7 @@ const BillingPage = () => {
 
                     // If draft matches the order, or there is NO order, load the draft
                     if (!orderId || (orderId && draft.orderId === orderId)) {
+                        setPatientHonorific(draft.patientHonorific || '');
                         setPatientName(draft.patientName || '');
                         setMobileNumber(draft.mobileNumber || '');
                         setDoctorName(draft.doctorName || '');
@@ -219,6 +223,7 @@ const BillingPage = () => {
         if (!isInitialized) return;
 
         const draft = {
+            patientHonorific,
             patientName,
             mobileNumber,
             doctorName,
@@ -235,7 +240,7 @@ const BillingPage = () => {
             orderId: orderId || undefined
         };
         localStorage.setItem('pharmacy_billing_draft', JSON.stringify(draft));
-    }, [isInitialized, patientName, mobileNumber, doctorName, patientMrn, patientAddress, patientType, cart, paymentMode, mixedPayments, status, discount, discountType, prescribedMedicines, orderId]);
+    }, [isInitialized, patientHonorific, patientName, mobileNumber, doctorName, patientMrn, patientAddress, patientType, cart, paymentMode, mixedPayments, status, discount, discountType, prescribedMedicines, orderId]);
 
     const clearDraft = () => {
         setIsInitialized(false);
@@ -244,6 +249,7 @@ const BillingPage = () => {
     // --- END PERSISTENCE ---
 
     const handleClear = () => {
+        setPatientHonorific('');
         setPatientName('');
         setMobileNumber('');
         setDoctorName('');
@@ -481,6 +487,7 @@ const BillingPage = () => {
         try {
             const payload: any = {
                 patientName,
+                honorific: patientHonorific || undefined,
                 customerPhone: mobileNumber,
                 patientAddress: patientAddress || undefined,
                 mrn: patientMrn || undefined,
@@ -581,6 +588,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
             invoiceId: 'INV-DRAFT',
             items: cart,
             patientName: patientName || 'Patient',
+            honorific: patientHonorific,
             customerPhone: mobileNumber,
             mrn: patientMrn || undefined,
             patientType: patientType || undefined,
@@ -602,7 +610,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
             updatedAt: new Date().toISOString() as any,
             pharmacyId: (user as any)?._id || 'PHARMACY'
         };
-    }, [tempBill, cart, patientName, mobileNumber, patientMrn, patientType, patientAddress, doctorName, subtotalMRP, taxableAmount, taxGST, totalDiscount, grandTotal, paidAmount, status, paymentMode, mixedPayments, user]);
+    }, [tempBill, cart, patientHonorific, patientName, mobileNumber, patientMrn, patientType, patientAddress, doctorName, subtotalMRP, taxableAmount, taxGST, totalDiscount, grandTotal, paidAmount, status, paymentMode, mixedPayments, user]);
 
     const handlePreview = () => {
         if (cart.length === 0) return toast.error('Cart is empty');
@@ -618,6 +626,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
             invoiceId: previewInvoiceId,
             items: cart,
             patientName,
+            honorific: patientHonorific,
             customerPhone: mobileNumber,
             mrn: patientMrn || undefined,
             patientType: patientType || undefined,
@@ -691,33 +700,46 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                     <span>Patient Name</span>
                                     {searchingPatients && <Loader2 size={12} className="animate-spin text-teal-600" />}
                                 </label>
-                                <input
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border-none rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-500"
-                                    value={patientName}
-                                    onChange={e => {
-                                        const val = e.target.value;
-                                        if (val === '' || /^[a-zA-Z\s]*$/.test(val)) {
-                                            setPatientName(val);
-                                            handlePatientNameSearch(val);
-                                        }
-                                        setShowSuggestions(true);
-                                    }}
-                                    onFocus={() => {
-                                        setShowSuggestions(true);
-                                        if (patientName) handlePatientNameSearch(patientName);
-                                    }}
-                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                    placeholder="Enter name..."
-                                    autoComplete="off"
-                                />
+                                <div className="flex gap-2">
+                                    <select
+                                        value={patientHonorific}
+                                        onChange={(e) => setPatientHonorific(e.target.value)}
+                                        className="w-28 sm:w-32 bg-gray-50 dark:bg-gray-700/50 border-none rounded-2xl px-3 py-4 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-500 dark:text-white cursor-pointer shrink-0"
+                                    >
+                                        <option value="">Title</option>
+                                        {HONORIFIC_OPTIONS.map((opt) => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        className="w-full min-w-0 bg-gray-50 dark:bg-gray-700/50 border-none rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-500"
+                                        value={patientName}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            if (val === '' || /^[a-zA-Z\s]*$/.test(val)) {
+                                                setPatientName(val);
+                                                handlePatientNameSearch(val);
+                                            }
+                                            setShowSuggestions(true);
+                                        }}
+                                        onFocus={() => {
+                                            setShowSuggestions(true);
+                                            if (patientName) handlePatientNameSearch(patientName);
+                                        }}
+                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                        placeholder="Enter name..."
+                                        autoComplete="off"
+                                    />
+                                </div>
                                 {showSuggestions && (hospitalPatients.length > 0 || filteredPatients.length > 0) && (
                                     <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
                                         {(() => {
                                             // Deduplicate suggestions by mobile number
-                                            const combined: Array<{ name: string; phone: string; source: string; mrn?: string; patientType?: string; doctorName?: string; address?: string }> = [];
+                                            const combined: Array<{ name: string; honorific?: string; phone: string; source: string; mrn?: string; patientType?: string; doctorName?: string; address?: string }> = [];
                                             hospitalPatients.forEach(p => {
-                                                const formattedName = formatPatientDisplayName(p, p, true) || p.name;
-                                                combined.push({ name: formattedName, phone: p.mobile, source: 'Hospital', mrn: p.mrn, patientType: p.patientType, doctorName: p.doctorName, address: p.address });
+                                                const rawName = cleanPatientName(p.name || (p as any).user?.name || '');
+                                                const hon = (p as any).honorific || (p as any).profile?.honorific || (p as any).user?.honorific || '';
+                                                combined.push({ name: rawName || p.name, honorific: hon, phone: p.mobile, source: 'Hospital', mrn: p.mrn, patientType: p.patientType, doctorName: p.doctorName, address: p.address });
                                             });
                                             filteredPatients.forEach(p => {
                                                 if (!combined.some(c => c.phone === p.phone)) {
@@ -731,6 +753,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                                     className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-700 last:border-none flex justify-between items-center transition-colors"
                                                     onClick={() => {
                                                         setPatientName(p.name);
+                                                        setPatientHonorific(p.honorific || '');
                                                         setMobileNumber(p.phone);
                                                         if (p.mrn && p.mrn !== 'N/A') setPatientMrn(p.mrn);
                                                         else setPatientMrn('');
@@ -1204,6 +1227,15 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                         className="cursor-pointer w-3.5 h-3.5 accent-teal-600"
                                     />
                                     <span>Header & Footer</span>
+                                </label>
+                                <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 transition-all select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={showHonorificInReceipts}
+                                        onChange={(e) => setShowHonorificInReceipts(e.target.checked)}
+                                        className="cursor-pointer w-3.5 h-3.5 accent-teal-600"
+                                    />
+                                    <span>Show Title</span>
                                 </label>
                                 <button onClick={closePreview} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-bold uppercase text-black">Close</button>
                                 <button onClick={handleSaveAndPrint} disabled={isGenerating} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold uppercase flex items-center gap-2 disabled:opacity-50">

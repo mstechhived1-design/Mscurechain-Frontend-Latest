@@ -30,7 +30,7 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState({
-    honorific: 'Mr',
+    honorific: '',
     name: '',
     mobile: '',
     email: '',
@@ -58,7 +58,7 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
       const exact = calculateExactAge(dobStr);
 
       setFormData({
-        honorific: data.profile?.honorific || 'Mr',
+        honorific: data.profile?.honorific || '',
         name: data.user?.name || '',
         mobile: data.user?.mobile || '',
         email: data.user?.email || '',
@@ -279,6 +279,7 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
               <ProfileField label="Honorific" editing={editing}>
                 <select name="honorific" value={formData.honorific} onChange={handleChange} className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-teal-500 focus:bg-white outline-none text-xs font-bold appearance-none">
+                  <option value="">NONE / NOT SET</option>
                   <option value="Mr">MR</option>
                   <option value="Mrs">MRS</option>
                   <option value="Ms">MS</option>

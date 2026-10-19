@@ -113,8 +113,15 @@ export const normalizeHonorific = (honorific: string | null | undefined): string
 export const formatPatientNameWithPrefix = (
   name: string | null | undefined,
   honorific: string | null | undefined,
-  uppercase: boolean = true
+  uppercase: boolean = true,
+  includeHonorific: boolean = true
 ): string => {
+  const cleaned = cleanPatientName(name, "Unnamed Patient");
+
+  if (!includeHonorific) {
+    return uppercase ? cleaned.toUpperCase() : cleaned;
+  }
+
   let normHonorific = normalizeHonorific(honorific);
 
   // If honorific was not explicitly passed, check if name already has an embedded honorific
@@ -125,8 +132,6 @@ export const formatPatientNameWithPrefix = (
       normHonorific = normalizeHonorific(match[1]);
     }
   }
-
-  const cleaned = cleanPatientName(name, "Unnamed Patient");
 
   if (normHonorific) {
     if (uppercase) {
@@ -147,7 +152,8 @@ export const formatPatientNameWithPrefix = (
 export const formatPatientDisplayName = (
   patient: any,
   appointment?: any,
-  uppercase: boolean = true
+  uppercase: boolean = true,
+  includeHonorific: boolean = true
 ): string => {
   if (!patient && !appointment) return "Unnamed Patient";
 
@@ -157,6 +163,11 @@ export const formatPatientDisplayName = (
     appointment?.patientDetails?.name || 
     appointment?.patientName || 
     "Unnamed Patient";
+
+  if (!includeHonorific) {
+    const cleaned = cleanPatientName(rawName, "Unnamed Patient");
+    return uppercase ? cleaned.toUpperCase() : cleaned;
+  }
 
   // 1. Check appointment honorific snapshot (highest priority for historical accuracy)
   const appHonorific = 
@@ -172,7 +183,7 @@ export const formatPatientDisplayName = (
     patient?.honorificTitle;
 
   const finalHonorific = appHonorific || patientHonorific;
-  return formatPatientNameWithPrefix(rawName, finalHonorific, uppercase);
+  return formatPatientNameWithPrefix(rawName, finalHonorific, uppercase, includeHonorific);
 };
 
 /**

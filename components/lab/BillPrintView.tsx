@@ -3,6 +3,7 @@ import { BillPayload } from '@/lib/integrations/types/labBilling';
 import Image from 'next/image';
 import { LabSettingsService, LabSettings } from '@/lib/integrations/services/labSettings.service';
 import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
+import { usePrintStore } from '@/stores/printStore';
 
 import HeaderPrint from './HeaderPrint';
 import FooterPrint from './FooterPrint';
@@ -19,6 +20,7 @@ interface BillPrintViewProps {
 // OR used in a modal that is then printed.
 
 const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date, patientType }) => {
+    const { showHonorificInReceipts } = usePrintStore();
     const currentDate = date || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     const effectiveType = patientType || billData.patientType || 'opd';
 
@@ -129,12 +131,12 @@ const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date
                                     <span className="font-semibold text-black">Name Lab:</span>
                                     <span>{billData.patientDetails.refDoctor || billData.patientDetails.name}</span>
                                     <span className="font-semibold text-black">Patient Name:</span>
-                                    <span className="font-bold text-black">{formatPatientNameWithPrefix(billData.patientDetails.refDoctor ? billData.patientDetails.name : (billData.patientDetails.originalPatientName || billData.patientDetails.name || 'N/A'), (billData.patientDetails as any).honorific, true)}</span>
+                                    <span className="font-bold text-black">{formatPatientNameWithPrefix(billData.patientDetails.refDoctor ? billData.patientDetails.name : (billData.patientDetails.originalPatientName || billData.patientDetails.name || 'N/A'), (billData.patientDetails as any).honorific, true, showHonorificInReceipts)}</span>
                                 </>
                             ) : (
                                 <>
                                     <span className="font-semibold text-black">Name:</span>
-                                    <span className="font-bold text-black">{formatPatientNameWithPrefix(billData.patientDetails.name, (billData.patientDetails as any).honorific, true)}</span>
+                                    <span className="font-bold text-black">{formatPatientNameWithPrefix(billData.patientDetails.name, (billData.patientDetails as any).honorific, true, showHonorificInReceipts)}</span>
                                     <span className="font-semibold text-black">MRN:</span>
                                     <span className="font-bold text-black">{billData.patientDetails.mrn || (billData as any).mrn || 'N/A'}</span>
                                 </>

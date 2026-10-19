@@ -36,7 +36,7 @@ import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/uti
 
 const TransactionsPage = () => {
     const { user } = useAuthStore();
-    const { printWithHeader, setPrintWithHeader } = usePrintStore();
+    const { printWithHeader, setPrintWithHeader, showHonorificInReceipts, setShowHonorificInReceipts } = usePrintStore();
     const [bills, setBills] = useState<PharmacyBill[]>([]);
     const [stats, setStats] = useState<PharmacyDashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -555,8 +555,20 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                         </button>
                     </div>
 
-                    {/* Actions: Export & Refresh */}
+                    {/* Actions: Title Toggle, Export & Refresh */}
                     <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setShowHonorificInReceipts(!showHonorificInReceipts)}
+                            className={`px-2 py-1.5 rounded-lg border text-[10px] md:text-xs font-bold transition-colors ${
+                                showHonorificInReceipts
+                                    ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:border-teal-700 dark:text-teal-300'
+                                    : 'bg-gray-50 text-gray-400 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                            }`}
+                            title={showHonorificInReceipts ? 'Patient Title/Honorific: Visible' : 'Patient Title/Honorific: Hidden'}
+                        >
+                            Title: {showHonorificInReceipts ? 'ON' : 'OFF'}
+                        </button>
                         <button
                             onClick={handleExportExcel}
                             disabled={isExporting}
@@ -694,7 +706,8 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                                                 honorific: (bill as any).honorific || (bill as any).patientHonorific || bill.patientDetails?.honorific || (typeof bill.patient === 'object' ? bill.patient?.honorific : undefined)
                                                             },
                                                             bill,
-                                                            true
+                                                            true,
+                                                            showHonorificInReceipts
                                                         )}
                                                     </p>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{bill.customerPhone || '-'}</p>
@@ -789,6 +802,23 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                         <span className={`ml-0.5 px-1.5 py-0.5 rounded text-[9px] font-black ${
                                             printWithHeader ? 'bg-indigo-200 text-indigo-700' : 'bg-gray-200 text-gray-500'
                                         }`}>{printWithHeader ? 'ON' : 'OFF'}</span>
+                                    </button>
+
+                                    {/* Title / Honorific Toggle */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowHonorificInReceipts(!showHonorificInReceipts)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                                            showHonorificInReceipts
+                                                ? 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100 dark:bg-teal-900/30'
+                                                : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                                        }`}
+                                        title={showHonorificInReceipts ? 'Patient Title/Honorific: Visible' : 'Patient Title/Honorific: Hidden'}
+                                    >
+                                        <span>Title</span>
+                                        <span className={`ml-0.5 px-1.5 py-0.5 rounded text-[9px] font-black ${
+                                            showHonorificInReceipts ? 'bg-teal-200 text-teal-800' : 'bg-gray-200 text-gray-500'
+                                        }`}>{showHonorificInReceipts ? 'ON' : 'OFF'}</span>
                                     </button>
 
                                     {/* Manual WhatsApp Button */}

@@ -38,7 +38,8 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
     const styles = {
         container: {
             width: '210mm',
-            minHeight: '290mm',
+            minHeight: '297mm',
+            height: '297mm',
             padding: '10mm',
             boxSizing: 'border-box' as const,
             backgroundColor: '#ffffff',
@@ -48,6 +49,9 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
             lineHeight: '1.4',
             margin: '0 auto',
             position: 'relative' as const,
+            display: 'flex',
+            flexDirection: 'column' as const,
+            justifyContent: 'space-between',
         },
         headerGrid: {
             display: 'grid',
@@ -268,7 +272,7 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
         }
     };
     
-    const { printWithHeader } = usePrintStore();
+    const { printWithHeader, showHonorificInReceipts } = usePrintStore();
 
     const termsToRender = shopDetails.pharmacyTerms || [];
 
@@ -309,25 +313,40 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
                 }
                 
                 @media print {
-                    @page { size: A4; margin: 0; }
+                    @page { 
+                        size: A4 portrait; 
+                        margin: 0; 
+                    }
                     html, body {
-                        height: 100vh;
+                        height: 100% !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                        overflow: hidden !important;
                         -webkit-print-color-adjust: exact;
                         print-color-adjust: exact;
                         background-color: white !important;
                     }
                     #printable-pharmacy-invoice { 
                         visibility: visible !important; 
-                        display: block !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        justify-content: space-between !important;
                         box-shadow: none !important; 
                         border: none !important; 
                         margin: 0 !important; 
+                        padding: 10mm !important;
                         width: 100% !important; 
+                        max-width: 210mm !important;
+                        height: 100% !important;
+                        max-height: 297mm !important;
+                        min-height: 297mm !important;
+                        box-sizing: border-box !important;
                         position: absolute !important;
                         left: 0 !important;
                         top: 0 !important;
+                        page-break-after: avoid !important;
+                        page-break-inside: avoid !important;
+                        break-inside: avoid !important;
                     }
                     #printable-pharmacy-invoice * {
                         visibility: visible !important;
@@ -345,13 +364,15 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
                 gstNumber: shopDetails.gstin !== '-' ? shopDetails.gstin : undefined
             }} />
 
-            {/* Invoice metadata & Bill To details on the same row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px', marginBottom: '25px', marginTop: '20px', alignItems: 'stretch' }}>
+            {/* Main printable body - flex-1 pushes footer to bottom */}
+            <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column' }}>
+                {/* Invoice metadata & Bill To details on the same row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px', marginBottom: '25px', marginTop: '20px', alignItems: 'stretch' }}>
                 {/* Bill To Section */}
                 <div style={{ ...styles.billToBox, marginBottom: 0 }}>
                     <div style={styles.billToHeader}>BILL TO</div>
                     <div style={styles.billToContent}>
-                        <h3 style={styles.patientName}>{formatPatientNameWithPrefix(billData.patientName, (billData as any).honorific || (billData as any).patient?.honorific, true)}</h3>
+                        <h3 style={styles.patientName}>{formatPatientNameWithPrefix(billData.patientName, (billData as any).honorific || (billData as any).patient?.honorific, true, showHonorificInReceipts)}</h3>
                         <div style={styles.patientMeta}>
                             <span>📞 +91 {billData.customerPhone}</span>
                             {billData.patientAddress ? (
@@ -518,9 +539,10 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
                     </div>
                 </div>
             </div>
+            </div>
 
-            {/* Footer note using MainFooter component */}
-            <div style={{ marginTop: '80px' }}>
+            {/* Footer note using MainFooter component - pinned to bottom */}
+            <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
                 <MainFooter
                     initialDetails={{
                         name: shopDetails.name || 'Pharma Store',

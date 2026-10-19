@@ -34,7 +34,7 @@ function MasterEditPatient() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState({
-    honorific: 'Mr',
+    honorific: '',
     name: '',
     mobile: '',
     email: '',
@@ -61,7 +61,7 @@ function MasterEditPatient() {
       const exact = calculateExactAge(dobStr);
 
       setFormData({
-        honorific: data.profile?.honorific || 'Mr',
+        honorific: data.profile?.honorific || '',
         name: data.user?.name || '',
         mobile: data.user?.mobile || '',
         email: data.user?.email || '',
@@ -293,10 +293,13 @@ function MasterEditPatient() {
                   onChange={handleChange}
                   className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-slate-50 border border-slate-100 focus:border-teal-500 focus:bg-white outline-none text-[10px] sm:text-[11px] font-black uppercase appearance-none transition-all cursor-pointer"
                 >
+                  <option value="">NONE / NOT SET</option>
                   <option value="Mr">MR</option>
                   <option value="Mrs">MRS</option>
                   <option value="Ms">MS</option>
                   <option value="Dr">DR</option>
+                  <option value="Master">MASTER</option>
+                  <option value="Baby of">BABY OF</option>
                 </select>
               </ProfileField>
 

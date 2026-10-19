@@ -41,7 +41,7 @@ const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
 }) => {
     const params = useParams() as any;
     const resolvedHospitalId = hospitalId || params?.hospitalId || '';
-    const { printWithHeader, setPrintWithHeader } = usePrintStore();
+    const { printWithHeader, setPrintWithHeader, showHonorificInReceipts, setShowHonorificInReceipts } = usePrintStore();
     const printRef = useRef<HTMLDivElement>(null);
     const whatsAppButtonRef = useRef<WhatsAppSendButtonHandle>(null);
     const [isAutoSendingWhatsApp, setIsAutoSendingWhatsApp] = useState(false);
@@ -151,44 +151,60 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
             <div className="relative w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 my-auto animate-in fade-in zoom-in-95 duration-200">
 
                 {/* ── Modal Header / Controls Bar ── */}
-                <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-2xl">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-2xl">
 
-                    {/* Left: Cancel */}
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-all"
-                    >
-                        <X size={14} />
-                        Cancel
-                    </button>
+                    {/* Left: Cancel & Invoice Info */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 transition-all shadow-xs"
+                        >
+                            <X size={12} />
+                            Cancel
+                        </button>
 
-                    {/* Center: Title + type badge + header toggle */}
-                    <div className="flex items-center gap-2 flex-1 justify-center">
-                        <Eye size={15} className="text-gray-500 dark:text-gray-400" />
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Invoice Preview</span>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${modeColors}`}>
-                            {modeLabel}
-                        </span>
-                        <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1" />
+                        <div className="flex items-center gap-1.5 pl-1">
+                            <Eye size={13} className="text-gray-500 dark:text-gray-400" />
+                            <span className="text-xs font-bold text-gray-800 dark:text-gray-200">Preview</span>
+                            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${modeColors}`}>
+                                {modeLabel}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Right: Aligned Compact Controls */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
                         {/* Header / Footer Toggle */}
                         <button
                             type="button"
                             onClick={() => setPrintWithHeader(!printWithHeader)}
                             title={printWithHeader ? 'Hide header & footer' : 'Show header & footer'}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border transition-all ${
                                 printWithHeader
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                    : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100'
                             }`}
                         >
-                            <LayoutTemplate size={13} />
-                            {printWithHeader ? 'Header ON' : 'Header OFF'}
+                            <LayoutTemplate size={11} />
+                            Header: {printWithHeader ? 'ON' : 'OFF'}
                         </button>
-                    </div>
 
-                    {/* Right: Actions */}
-                    <div className="flex items-center gap-2">
+                        {/* Title / Honorific Toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setShowHonorificInReceipts(!showHonorificInReceipts)}
+                            title={showHonorificInReceipts ? 'Hide title/honorific in receipt' : 'Show title/honorific in receipt'}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border transition-all ${
+                                showHonorificInReceipts
+                                    ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100'
+                            }`}
+                        >
+                            Title: {showHonorificInReceipts ? 'ON' : 'OFF'}
+                        </button>
+
+                        {/* WhatsApp Send Button */}
                         <WhatsAppSendButton
                             ref={whatsAppButtonRef}
                             hospitalId={resolvedHospitalId}
@@ -200,18 +216,21 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             autoSend={autoWhatsApp}
                             onAutoSendChange={handleToggleAutoWhatsApp}
                             triggerSend={triggerWhatsApp}
-                            className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs text-xs uppercase tracking-wider"
+                            containerClassName="inline-flex items-center gap-1.5"
+                            className="!px-2.5 !py-1 !text-[11px] !rounded-md !font-bold !shadow-xs"
                         />
+
+                        {/* Print & Save Button */}
                         <button
                             type="button"
                             onClick={handlePrintAndSave}
                             disabled={loading || isAutoSendingWhatsApp}
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white border border-indigo-600 transition-all shadow-sm shadow-indigo-200 dark:shadow-none"
+                            className="flex items-center gap-1 px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white border border-indigo-600 transition-all shadow-xs"
                         >
                             {loading || isAutoSendingWhatsApp ? (
-                                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
-                                <Printer size={13} />
+                                <Printer size={12} />
                             )}
                             {loading ? 'Saving...' : isAutoSendingWhatsApp ? 'Sending WA...' : 'Print & Save'}
                         </button>

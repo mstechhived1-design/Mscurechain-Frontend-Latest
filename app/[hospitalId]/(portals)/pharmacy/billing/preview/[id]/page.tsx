@@ -23,7 +23,7 @@ const InvoicePreviewPage = () => {
     const [bill, setBill] = useState<PharmacyBill | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const componentRef = useRef<HTMLDivElement>(null);
-    const { printWithHeader, setPrintWithHeader } = usePrintStore();
+    const { printWithHeader, setPrintWithHeader, showHonorificInReceipts, setShowHonorificInReceipts } = usePrintStore();
 
     const invoiceId = params?.id as string;
 
@@ -207,6 +207,16 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                     className="cursor-pointer w-4 h-4 accent-teal-600"
                                 />
                                 <span>Header & Footer</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 px-3 py-3.5 bg-slate-50 hover:bg-slate-100 dark:bg-gray-700/50 dark:hover:bg-gray-700 rounded-xl border border-slate-200 dark:border-gray-600 cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-gray-300 transition-all select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={showHonorificInReceipts}
+                                    onChange={(e) => setShowHonorificInReceipts(e.target.checked)}
+                                    className="cursor-pointer w-4 h-4 accent-teal-600"
+                                />
+                                <span>Show Title ({showHonorificInReceipts ? 'ON' : 'OFF'})</span>
                             </label>
 
                             <WhatsAppSendButton

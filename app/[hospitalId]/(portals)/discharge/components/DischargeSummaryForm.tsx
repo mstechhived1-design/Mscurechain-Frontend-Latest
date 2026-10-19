@@ -883,6 +883,7 @@ export function DischargeSummaryForm() {
                             onChange={handleChange}
                             className="border-gray-400 font-bold"
                             options={[
+                                { value: '', label: 'None / Select' },
                                 { value: 'Mr', label: 'Mr' },
                                 { value: 'Mrs', label: 'Mrs' },
                                 { value: 'Ms', label: 'Ms' },

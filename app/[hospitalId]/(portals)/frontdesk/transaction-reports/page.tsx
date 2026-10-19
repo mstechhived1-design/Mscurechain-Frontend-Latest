@@ -251,6 +251,14 @@ export default function TransactionReportsPage() {
         }
     }, [formatParam, patientId]);
 
+    useEffect(() => {
+        hospitalAdminService.getHospital()
+            .then(res => {
+                if (res?.hospital) setHospital(res.hospital);
+            })
+            .catch(() => {});
+    }, []);
+
     // Keep draft saved in real-time so page refresh NEVER erases entered text
     useEffect(() => {
         if (!patientId || !dischargeData) return;

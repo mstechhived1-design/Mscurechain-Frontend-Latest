@@ -12,8 +12,10 @@ import BillPrintView from '@/components/lab/BillPrintView';
 import { toast } from 'react-hot-toast';
 import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
+import { usePrintStore } from '@/stores/printStore';
 
 function TransactionsPage() {
+    const { showHonorificInReceipts, setShowHonorificInReceipts } = usePrintStore();
     const [bills, setBills] = useState<BillResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
@@ -587,6 +589,20 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             </button>
                         </div>
                     )}
+                    {/* Title/Honorific Visibility Toggle */}
+                    <button
+                        type="button"
+                        onClick={() => setShowHonorificInReceipts(!showHonorificInReceipts)}
+                        className={`px-2 py-1 rounded-md text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                            showHonorificInReceipts
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-700 dark:text-indigo-300'
+                                : 'bg-gray-50 text-gray-400 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                        }`}
+                        title={showHonorificInReceipts ? 'Patient Title/Honorific: Visible' : 'Patient Title/Honorific: Hidden'}
+                    >
+                        Title: {showHonorificInReceipts ? 'ON' : 'OFF'}
+                    </button>
+
                     {/* Billing Type Tabs */}
                     <div className="flex bg-slate-50 dark:bg-gray-900 p-0.5 rounded-lg border border-gray-100 dark:border-gray-800 gap-0.5">
                         {(['all', 'opd', 'ipd', 'lab'] as const).map((t) => (
@@ -725,7 +741,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                                         {bType === 'lab' ? (
                                                             <>
                                                                 <span className="font-bold text-gray-900 dark:text-white uppercase">
-                                                                    {formatPatientDisplayName(bill.patientDetails, bill, true)}
+                                                                    {formatPatientDisplayName(bill.patientDetails, bill, true, showHonorificInReceipts)}
                                                                 </span>
                                                                 <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded">
                                                                     {bill.patientDetails.refDoctor || 'Lab'}
@@ -734,15 +750,15 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                                         ) : (bill.patientDetails as any).originalPatientName ? (
                                                             <>
                                                                 <span className="font-bold text-gray-900 dark:text-white uppercase">
-                                                                    {formatPatientNameWithPrefix((bill.patientDetails as any).originalPatientName, (bill.patientDetails as any).honorific, true)}
+                                                                    {formatPatientNameWithPrefix((bill.patientDetails as any).originalPatientName, (bill.patientDetails as any).honorific, true, showHonorificInReceipts)}
                                                                 </span>
                                                                 <span className="px-1.5 py-0.5 text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 rounded font-semibold uppercase">
-                                                                    {formatPatientDisplayName(bill.patientDetails, bill, true)}
+                                                                    {formatPatientDisplayName(bill.patientDetails, bill, true, showHonorificInReceipts)}
                                                                 </span>
                                                             </>
                                                         ) : (
                                                             <span className="font-bold text-gray-900 dark:text-white uppercase">
-                                                                {formatPatientDisplayName(bill.patientDetails, bill, true)}
+                                                                {formatPatientDisplayName(bill.patientDetails, bill, true, showHonorificInReceipts)}
                                                             </span>
                                                         )}
                                                     </div>
@@ -800,7 +816,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-gray-900 w-full max-w-4xl max-h-[94vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-gray-800">
                         {/* Header Bar */}
-                        <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/80">
+                        <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/80 gap-2 flex-wrap">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 rounded-lg">
                                     <Eye size={18} />
@@ -815,12 +831,29 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                     <p className="text-[11px] font-mono text-gray-500">{selectedBill.invoiceId}</p>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => setShowPreview(false)}
-                                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+
+                            <div className="flex items-center gap-2">
+                                {/* Title / Honorific Toggle Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowHonorificInReceipts(!showHonorificInReceipts)}
+                                    title={showHonorificInReceipts ? 'Hide title/honorific in receipt' : 'Show title/honorific in receipt'}
+                                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all ${
+                                        showHonorificInReceipts
+                                            ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    Title: {showHonorificInReceipts ? 'ON' : 'OFF'}
+                                </button>
+
+                                <button
+                                    onClick={() => setShowPreview(false)}
+                                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors ml-1"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Paper Preview Body */}

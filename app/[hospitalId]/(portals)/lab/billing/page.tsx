@@ -17,7 +17,7 @@ import { LabSampleService } from '@/lib/integrations/services/labSample.service'
 import { apiClient, clearApiCache, invalidateCachePattern } from '@/lib/integrations/api/apiClient';
 import { patientService } from '@/lib/integrations/services/patient.service';
 import BillPrintView from '@/components/lab/BillPrintView';
-import { formatPatientDisplayName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
+import { formatPatientDisplayName, formatPatientNameWithPrefix, HONORIFIC_OPTIONS, cleanPatientName } from '@/lib/utils/name-utils';
 
 function LabBillingPage() {
     const router = useRouter();
@@ -91,9 +91,12 @@ function LabBillingPage() {
 
     // Select a patient from suggestions and auto-fill fields
     const handleSelectPatient = useCallback((p: { _id: string; name: string; mobile: string; email?: string; age?: number; ageUnit?: string; gender?: string; honorific?: string }) => {
+        const cleanedName = cleanPatientName(p.name);
+        const resolvedHonorific = p.honorific || '';
         setPatient(prev => ({
             ...prev,
-            name: formatPatientDisplayName(p, p, true) || p.name,
+            name: cleanedName || p.name,
+            honorific: resolvedHonorific,
             mobile: p.mobile || prev.mobile,
             age: p.age ?? prev.age,
             ageUnit: (p.ageUnit as any) || prev.ageUnit,
@@ -137,6 +140,7 @@ function LabBillingPage() {
     ----------------------------------------- */
     const [patient, setPatient] = useState<PatientDetails>({
         name: '',
+        honorific: '',
         age: 0,
         ageUnit: 'Years',
         gender: '' as any,
@@ -152,6 +156,7 @@ function LabBillingPage() {
         const mobile = ((searchParams?.get('mobile') ?? null) ?? null);
         const age = ((searchParams?.get('age') ?? null) ?? null);
         const gender = ((searchParams?.get('gender') ?? null) ?? null);
+        const honorific = ((searchParams?.get('honorific') ?? null) ?? null);
         const refDoctor = ((searchParams?.get('refDoctor') ?? null) ?? null);
         const sampleIdParam = ((searchParams?.get('sampleId') ?? null) ?? null);
         const patientType = ((searchParams?.get('patientType') ?? null) ?? null) as 'opd' | 'ipd' | 'lab' | null;
@@ -192,7 +197,8 @@ function LabBillingPage() {
             } else {
                 setPatient(prev => ({
                     ...prev,
-                    name: name || prev.name,
+                    name: name ? cleanPatientName(name) : prev.name,
+                    honorific: honorific || prev.honorific || '',
                     mobile: mobile || prev.mobile,
                     age: age ? parseInt(age) : prev.age,
                     gender: (normalizedGender as any) || prev.gender,
@@ -690,19 +696,32 @@ function LabBillingPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1.5 relative" ref={suggestionRef}>
                                 <label className="text-xs font-medium text-gray-500">Patient Name</label>
-                                <div className="relative">
-                                    <input
-                                        placeholder={billingMode === 'opd' ? "Enter patient name..." : "Search registered patient..."}
-                                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm font-medium"
-                                        value={patient.name}
-                                        onChange={e => handlePatientNameChange(e.target.value)}
-                                        onFocus={() => billingMode !== 'opd' && patient.name.length >= 2 && patientSuggestions.length > 0 && setShowSuggestions(true)}
-                                        autoComplete="off"
-                                    />
-                                    <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                                        {searchingPatients
-                                            ? <div className="w-4 h-4 border-2 border-indigo-400/40 border-t-indigo-500 rounded-full animate-spin" />
-                                            : <Search size={15} />}
+                                <div className="flex gap-2">
+                                    <select
+                                        value={patient.honorific || ''}
+                                        onChange={e => setPatient(prev => ({ ...prev, honorific: e.target.value }))}
+                                        className="w-28 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-xs font-semibold text-gray-700 dark:text-gray-200"
+                                        title="Patient Title/Honorific"
+                                    >
+                                        <option value="">Title</option>
+                                        {HONORIFIC_OPTIONS.map((opt) => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                    <div className="relative flex-1">
+                                        <input
+                                            placeholder={billingMode === 'opd' ? "Enter patient name..." : "Search registered patient..."}
+                                            className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm font-medium"
+                                            value={patient.name}
+                                            onChange={e => handlePatientNameChange(e.target.value)}
+                                            onFocus={() => billingMode !== 'opd' && patient.name.length >= 2 && patientSuggestions.length > 0 && setShowSuggestions(true)}
+                                            autoComplete="off"
+                                        />
+                                        <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                            {searchingPatients
+                                                ? <div className="w-4 h-4 border-2 border-indigo-400/40 border-t-indigo-500 rounded-full animate-spin" />
+                                                : <Search size={15} />}
+                                        </div>
                                     </div>
                                 </div>
                                 {showSuggestions && patientSuggestions.length > 0 && (

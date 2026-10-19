@@ -746,7 +746,7 @@ export default function AppointmentBooking() {
                             const patientMobile = pat.mobile || patDetails.phone || apt.phone || '';
                             const patientGender = patDetails.gender || pat.gender || apt.gender || 'Male';
                             const patientAge = patDetails.age || pat.age || apt.age || '';
-                            const patientHonorific = patDetails.honorific || apt.honorific || pat.honorific || 'Mr.';
+                            const patientHonorific = patDetails.honorific || apt.honorific || pat.honorific || '';
 
                             const transformedPatient = {
                                 _id: pat._id || apt.patientId || apt.patient || editAppointmentId,
@@ -1730,7 +1730,7 @@ export default function AppointmentBooking() {
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            onClick={() => { setIsEditingHonorific(true); setPendingHonorific(confirmedHonorific || 'Mr.'); }}
+                                                            onClick={() => { setIsEditingHonorific(true); setPendingHonorific(confirmedHonorific || ''); }}
                                                             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                                                         >
                                                             Edit Honorific
@@ -1739,10 +1739,11 @@ export default function AppointmentBooking() {
                                                 ) : (
                                                     <div className="flex items-center gap-2">
                                                         <select
-                                                            value={pendingHonorific === 'Mr' ? 'Mr.' : (pendingHonorific || 'Mr.')}
+                                                            value={pendingHonorific === 'Mr' ? 'Mr.' : (pendingHonorific || '')}
                                                             onChange={(e) => setPendingHonorific(e.target.value)}
                                                             className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold uppercase focus:border-teal-500 outline-none"
                                                         >
+                                                            <option value="">None / Not Set</option>
                                                             {HONORIFIC_OPTIONS.map((h) => (
                                                                 <option key={h} value={h}>{h}</option>
                                                             ))}

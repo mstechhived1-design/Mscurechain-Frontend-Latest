@@ -27,7 +27,7 @@ interface FieldError {
 const SPELL_FIELDS: (keyof typeof INITIAL_FORM)[] = ["name", "address", "allergies", "medicalHistory"];
 
 const INITIAL_FORM = {
-    honorific: 'Mr',
+    honorific: '',
     name: '',
     age: '',
     dob: '',
@@ -341,9 +341,9 @@ export default function MasterPatientRegistration() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div className="md:col-span-2">
-                            <FormInput label="Honorific" required component={
+                            <FormInput label="Honorific" component={
                                 <select name="honorific" value={formData.honorific} onChange={handleChange} className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 outline-none text-sm font-bold">
-                                    <option value="Mr">Mr.</option><option value="Mrs">Mrs.</option><option value="Ms">Ms.</option><option value="Dr">Dr.</option>
+                                    <option value="">Select</option><option value="Mr">Mr.</option><option value="Mrs">Mrs.</option><option value="Ms">Ms.</option><option value="Dr">Dr.</option>
                                 </select>
                             } />
                         </div>

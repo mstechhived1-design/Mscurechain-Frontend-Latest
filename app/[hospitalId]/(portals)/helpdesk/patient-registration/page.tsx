@@ -29,7 +29,7 @@ interface FieldError {
 const SPELL_FIELDS: (keyof typeof INITIAL_FORM)[] = ["name", "address", "allergies", "medicalHistory"];
 
 const INITIAL_FORM = {
-    honorific: 'Mr.',
+    honorific: '',
     name: '',
     age: '',
     ageUnit: 'Years',
@@ -295,6 +295,18 @@ export default function PatientRegistration() {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+
+        if (name === 'gender') {
+            const maleTitles = ['Mr', 'Mr.', 'Master'];
+            const femaleTitles = ['Mrs', 'Mrs.', 'Ms', 'Ms.', 'Miss'];
+            if (value === 'female' && maleTitles.includes(formData.honorific)) {
+                setFormData(prev => ({ ...prev, gender: value, honorific: '' }));
+                return;
+            } else if (value === 'male' && femaleTitles.includes(formData.honorific)) {
+                setFormData(prev => ({ ...prev, gender: value, honorific: '' }));
+                return;
+            }
+        }
 
         let processedValue = value;
         if (name === 'mobile' || name === 'emergencyContact') {
@@ -584,8 +596,9 @@ export default function PatientRegistration() {
 
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                                 <div className="md:col-span-2">
-                                    <FormInput label="Honorific" required component={
-                                        <select name="honorific" value={formData.honorific === 'Mr' ? 'Mr.' : (formData.honorific || 'Mr.')} onChange={handleChange} className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 outline-none text-sm font-bold transition-all">
+                                    <FormInput label="Honorific" component={
+                                        <select name="honorific" value={formData.honorific === 'Mr' ? 'Mr.' : (formData.honorific || '')} onChange={handleChange} className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 outline-none text-sm font-bold transition-all">
+                                            <option value="">Select Title</option>
                                             {HONORIFIC_OPTIONS.map((h) => (
                                                 <option key={h} value={h}>{h}</option>
                                             ))}
