@@ -92,6 +92,9 @@ interface ReceiptProps {
     chiefComplaint?: string;
     tests?: any[];
     testName?: string;
+    appointmentDate?: string;
+    bookedAt?: string;
+    createdAt?: string;
   };
   payment: {
     amount: number;
@@ -120,6 +123,7 @@ interface ReceiptProps {
     receiptNumber?: string;
     receiptNo?: string;
     date?: string;
+    createdAt?: string;
     paymentDetails?: any;
   };
   isLab?: boolean;
@@ -166,7 +170,15 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
   const [showGuardianDetails, setShowGuardianDetails] = React.useState(true);
   
   // Manual discount / waiver adjustment before printing
-  const initialDiscount = Number(payment.discount || (appointment as any).discount || 0);
+  const initialDiscount = Number(
+    payment.discount ||
+    (payment as any).discountAmount ||
+    (payment as any).discountDetails?.amount ||
+    (appointment as any).discount ||
+    (appointment as any).discountAmount ||
+    (appointment as any).discountDetails?.amount ||
+    0
+  );
   const [customDiscount, setCustomDiscount] = React.useState<number>(initialDiscount);
   const [isEditingDiscount, setIsEditingDiscount] = React.useState(false);
 
@@ -288,15 +300,23 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
         const totalPaidCalc = Number(payment.totalPaidAmount || (advanceAmountCalc + settlementPaidCalc));
         const newBalanceCalc = Math.max(0, afterDiscountCalc - totalPaidCalc);
 
+        const resolvedDate = payment.date || appointment.date || (appointment as any).bookedAt || (payment as any).createdAt || (appointment as any).createdAt || new Date();
+
         const mappedPayment = {
           ...payment,
+          date: resolvedDate,
           discount: effectiveDiscount,
+          totalPaidAmount: totalPaidCalc,
+          paidAmount: totalPaidCalc,
+          remainingPaid: settlementPaidCalc,
+          settlementAmount: settlementPaidCalc,
           balance: newBalanceCalc,
           dueAmount: newBalanceCalc,
         };
 
         const mappedAppointment = {
           ...appointment,
+          date: resolvedDate,
           discount: effectiveDiscount,
           notes: patient.symptoms || appointment.notes,
         };

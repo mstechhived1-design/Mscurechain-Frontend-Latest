@@ -688,7 +688,7 @@ export default function TransactionsPage() {
 
                                     const rawType = tx.type || "appointment_booking";
                                     // 🔧 FIX: Don't use "Emergency Patient" fallback
-                                    const patientName = (tx.patientName || tx.patient?.name || tx.referenceId?.patientName || "").toUpperCase();
+                                    const patientName = (tx.user?.name || tx.patient?.name || tx.patientName || tx.referenceId?.patientName || "").toUpperCase();
 
                                     // Map transaction type to human-readable format
                                     const typeMapping: Record<string, string> = {

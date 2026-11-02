@@ -18,6 +18,7 @@ import {
     Download,
     Package,
     Calendar,
+    Trash2,
 } from "lucide-react";
 import { helpdeskService, ipdService } from "@/lib/integrations";
 import { hospitalAdminService } from "@/lib/integrations/services/hospitalAdmin.service";
@@ -31,6 +32,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import EditTransactionModal from './EditTransactionModal';
+import DeleteTransactionModal from './DeleteTransactionModal';
 import ClinicalReceipt from '@/components/helpdesk/ClinicalReceipt';
 import { formatTime12Hr } from '@/lib/print-utils';
 import { getDateRangeForPreset } from '@/lib/utils/date-utils';
@@ -106,13 +108,27 @@ export const getPatientHonorific = (tx: any): string => {
     return honorific;
 };
 
-export const getPatientNameWithPrefix = (tx: any, honorificMap?: Map<string, string>) => {
-    const rawPatientName = tx.patientName || tx.patient?.name || tx.patientDetails?.name || tx.referenceId?.patientName || tx.referenceId?.name || "Unknown";
+export const getPatientNameWithPrefix = (
+    tx: any, 
+    honorificMap?: Map<string, string>,
+    canonicalNameMap?: Map<string, string>
+) => {
+    let rawPatientName = tx.user?.name || tx.patient?.name || tx.patientDetails?.originalPatientName || tx.patientName || tx.patientDetails?.name || tx.referenceId?.patientName || tx.referenceId?.name || "Unknown";
+    
+    const mrn = (tx.patientMRN || tx.mrn || tx.referenceId?.mrn || tx.user?.mrn || '').toUpperCase().trim();
+    const mob = (tx.patientMobile || tx.mobile || tx.referenceId?.mobile || tx.user?.mobile || '').trim();
+    const pId = (tx.patientId || tx.patient?._id || (typeof tx.patient === 'string' ? tx.patient : '') || tx.user?._id || (typeof tx.user === 'string' ? tx.user : '') || '').toString().trim();
+
+    if (canonicalNameMap) {
+        const canonical = (mrn && canonicalNameMap.get(mrn)) || (mob && canonicalNameMap.get(mob)) || (pId && canonicalNameMap.get(pId));
+        if (canonical && canonical.toUpperCase() !== 'UNKNOWN' && canonical.toUpperCase() !== 'UNNAMED PATIENT' && canonical.toUpperCase() !== 'UNKNOWN PATIENT') {
+            rawPatientName = canonical;
+        }
+    }
+
     let honorific = getPatientHonorific(tx);
 
     const cleanName = cleanPatientName(rawPatientName).toUpperCase();
-    const mrn = (tx.patientMRN || tx.mrn || tx.referenceId?.mrn || '').toUpperCase().trim();
-    const mob = (tx.patientMobile || tx.mobile || tx.referenceId?.mobile || '').trim();
 
     if (!honorific && honorificMap) {
         honorific = honorificMap.get(cleanName) || (mrn ? honorificMap.get(mrn) : '') || (mob ? honorificMap.get(mob) : '') || '';
@@ -145,8 +161,28 @@ export default function TransactionsPage() {
     const [hospital, setHospital] = useState<any>(null);
     const [showEditedOnly, setShowEditedOnly] = useState(false);
     const [editingTx, setEditingTx] = useState<any>(null);
+    const [deletingTx, setDeletingTx] = useState<any>(null);
+    const [deletedTxIds, setDeletedTxIds] = useState<Set<string>>(new Set());
     const [previewTx, setPreviewTx] = useState<any>(null);
     const [fullPatient, setFullPatient] = useState<any>(null);
+
+    // ⚡ INSTANT OPTIMISTIC REMOVAL: Remove deleted transaction from UI in 0 milliseconds
+    const handleDeleteSuccess = (deletedTx: any) => {
+        const idsToAdd: string[] = [];
+        if (deletedTx._id) idsToAdd.push(String(deletedTx._id));
+        if (deletedTx.id) idsToAdd.push(String(deletedTx.id));
+        if (deletedTx.referenceId?._id) idsToAdd.push(String(deletedTx.referenceId._id));
+        if (typeof deletedTx.referenceId === 'string') idsToAdd.push(String(deletedTx.referenceId));
+        if (deletedTx.invoiceNumber) idsToAdd.push(String(deletedTx.invoiceNumber));
+        if (deletedTx.receiptNumber) idsToAdd.push(String(deletedTx.receiptNumber));
+        if (deletedTx.transactionId) idsToAdd.push(String(deletedTx.transactionId));
+
+        setDeletedTxIds(prev => {
+            const next = new Set(prev);
+            idsToAdd.forEach(id => next.add(id));
+            return next;
+        });
+    };
 
     // Fetch full patient profile on receipt preview if needed
     useEffect(() => {
@@ -305,6 +341,50 @@ export default function TransactionsPage() {
         return map;
     }, [transactions]);
 
+    const patientCanonicalNameMap = useMemo(() => {
+        const map = new Map<string, string>();
+        
+        // Pass 1: Identify canonical registered names (from tx.user, tx.patient, or IPD/Lab records with legal registered name)
+        transactions.forEach((tx: any) => {
+            const rawType = (tx.type || '').toLowerCase();
+            const isIpdOrLab = rawType.includes('ipd') || rawType.includes('discharge') || rawType.includes('lab');
+            
+            const candidateName = cleanPatientName(
+                tx.user?.name || 
+                tx.patient?.name || 
+                tx.patientDetails?.originalPatientName || 
+                (isIpdOrLab ? (tx.patientName || tx.patientDetails?.name) : '') ||
+                ''
+            ).trim();
+
+            if (candidateName && candidateName.toUpperCase() !== 'UNKNOWN' && candidateName.toUpperCase() !== 'UNNAMED PATIENT' && candidateName.toUpperCase() !== 'UNKNOWN PATIENT') {
+                const mrn = (tx.patientMRN || tx.mrn || tx.referenceId?.mrn || tx.user?.mrn || '').toUpperCase().trim();
+                const mob = (tx.patientMobile || tx.mobile || tx.referenceId?.mobile || tx.user?.mobile || '').trim();
+                const pId = (tx.patientId || tx.patient?._id || (typeof tx.patient === 'string' ? tx.patient : '') || tx.user?._id || (typeof tx.user === 'string' ? tx.user : '') || '').toString().trim();
+
+                if (mrn && mrn !== 'N/A' && mrn !== '-') map.set(mrn, candidateName);
+                if (mob && mob.length >= 10) map.set(mob, candidateName);
+                if (pId && pId.length === 24) map.set(pId, candidateName);
+            }
+        });
+
+        // Pass 2: Fallback for any other transactions with non-empty valid patient name
+        transactions.forEach((tx: any) => {
+            const candidateName = cleanPatientName(tx.patientName || tx.patientDetails?.name || '').trim();
+            if (candidateName && candidateName.toUpperCase() !== 'UNKNOWN' && candidateName.toUpperCase() !== 'UNNAMED PATIENT' && candidateName.toUpperCase() !== 'UNKNOWN PATIENT') {
+                const mrn = (tx.patientMRN || tx.mrn || tx.referenceId?.mrn || tx.user?.mrn || '').toUpperCase().trim();
+                const mob = (tx.patientMobile || tx.mobile || tx.referenceId?.mobile || tx.user?.mobile || '').trim();
+                const pId = (tx.patientId || tx.patient?._id || (typeof tx.patient === 'string' ? tx.patient : '') || tx.user?._id || (typeof tx.user === 'string' ? tx.user : '') || '').toString().trim();
+
+                if (mrn && mrn !== 'N/A' && mrn !== '-' && !map.has(mrn)) map.set(mrn, candidateName);
+                if (mob && mob.length >= 10 && !map.has(mob)) map.set(mob, candidateName);
+                if (pId && pId.length === 24 && !map.has(pId)) map.set(pId, candidateName);
+            }
+        });
+
+        return map;
+    }, [transactions]);
+
     const handleExport = async (range: "daily" | "weekly" | "monthly" | "all") => {
         try {
             setExporting(true);
@@ -403,7 +483,7 @@ export default function TransactionsPage() {
 
                 const row = worksheet.addRow({
                     date: formattedDate,
-                    patient: getPatientNameWithPrefix(tx, patientHonorificMap),
+                    patient: getPatientNameWithPrefix(tx, patientHonorificMap, patientCanonicalNameMap),
                     mobile: tx.patientMobile || tx.mobile || "N/A",
                     type: serviceType,
                     amount: tx.amount || 0,
@@ -824,19 +904,47 @@ export default function TransactionsPage() {
         }
     };
 
-    const filteredTransactions = transactions.filter((tx: any) => {
-        const isCancelled = tx.status?.toLowerCase() === 'cancelled' || tx.referenceId?.status?.toLowerCase() === 'cancelled';
-        const isPharmacy = tx.type?.toLowerCase().includes('pharma') || tx.type?.toLowerCase().includes('pharmacy');
-        return !isCancelled && !isPharmacy;
-    });
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter((tx: any) => {
+            const txId = String(tx._id || tx.id || '');
+            const refId = String(tx.referenceId?._id || (typeof tx.referenceId === 'string' ? tx.referenceId : '') || '');
+            const invId = String(tx.invoiceNumber || tx.receiptNumber || tx.transactionId || '');
+            if (
+                (txId && deletedTxIds.has(txId)) ||
+                (refId && deletedTxIds.has(refId)) ||
+                (invId && deletedTxIds.has(invId))
+            ) {
+                return false;
+            }
+            const isCancelled = tx.status?.toLowerCase() === 'cancelled' || tx.referenceId?.status?.toLowerCase() === 'cancelled';
+            const isPharmacy = tx.type?.toLowerCase().includes('pharma') || tx.type?.toLowerCase().includes('pharmacy');
+            return !isCancelled && !isPharmacy;
+        });
+    }, [transactions, deletedTxIds]);
 
-    // Calculate stats based on filtered transactions
+    // Calculate stats based on filtered transactions with optimistic deductions
     const stats = useMemo(() => {
-        const grossRevenue = totalRevenue;
-        const operationVolume = total;
-        const quantumDensity = total > 0 ? (totalRevenue / total) : 0;
+        let deductedAmount = 0;
+        let deductedCount = 0;
+        transactions.forEach((tx: any) => {
+            const txId = String(tx._id || tx.id || '');
+            const refId = String(tx.referenceId?._id || (typeof tx.referenceId === 'string' ? tx.referenceId : '') || '');
+            const invId = String(tx.invoiceNumber || tx.receiptNumber || tx.transactionId || '');
+            if (
+                (txId && deletedTxIds.has(txId)) ||
+                (refId && deletedTxIds.has(refId)) ||
+                (invId && deletedTxIds.has(invId))
+            ) {
+                deductedAmount += Number(tx.payment?.amount || tx.amount || 0);
+                deductedCount += 1;
+            }
+        });
+
+        const grossRevenue = Math.max(0, totalRevenue - deductedAmount);
+        const operationVolume = Math.max(0, total - deductedCount);
+        const quantumDensity = operationVolume > 0 ? (grossRevenue / operationVolume) : 0;
         return { grossRevenue, operationVolume, quantumDensity };
-    }, [totalRevenue, total]);
+    }, [totalRevenue, total, transactions, deletedTxIds]);
 
     // 🖨️ PRINT: Single transaction receipt
     const handlePrintTransaction = async (tx: any) => {
@@ -844,11 +952,7 @@ export default function TransactionsPage() {
         if (!win) { toast.error('Please allow popups to print'); return; }
 
         const h = hospital || {};
-        const honorific = tx.patient?.honorific || tx.patient?.profile?.honorific || tx.referenceId?.honorific || tx.referenceId?.patientHonorific || tx.honorific || tx.patientPrefix || tx.patientDetails?.honorific || "";
-        const rawPatientName = tx.patientName || tx.patient?.name || tx.referenceId?.patientName || "Unknown";
-        const upHonorific = honorific ? honorific.toUpperCase() : "";
-        const prefixStr = ["MR", "MRS", "MS", "DR"].includes(upHonorific) ? `${upHonorific}.` : upHonorific;
-        const patientName = `${prefixStr} ${rawPatientName}`.trim().toUpperCase();
+        const patientName = getPatientNameWithPrefix(tx, patientHonorificMap, patientCanonicalNameMap);
         
         const pAge = tx.patientDetails?.age || tx.patientId?.age || tx.patient?.age || tx.patient?.profile?.age;
         const pDob = tx.patientDetails?.dateOfBirth || tx.patientId?.dateOfBirth || tx.patient?.dob || tx.patient?.profile?.dob;
@@ -1050,7 +1154,7 @@ export default function TransactionsPage() {
         const tabLabel = typeFilter === 'ipd' ? 'IPD Payments' : typeFilter === 'lab' ? 'Lab Payments' : 'OPD Payments';
         const rows = filteredTransactions.map((tx: any) => {
             const amount = tx.payment?.amount || tx.amount || 0;
-            const patientName = getPatientNameWithPrefix(tx, patientHonorificMap);
+            const patientName = getPatientNameWithPrefix(tx, patientHonorificMap, patientCanonicalNameMap);
             const rawType = tx.type || 'appointment_booking';
             const typeMapping: Record<string, string> = {
                 'appointment_booking': 'OPD', 'opd': 'OPD',
@@ -1368,7 +1472,7 @@ export default function TransactionsPage() {
                                     <th className="px-2 sm:px-4 py-2 sm:py-3 text-center">Amount (INR)</th>
                                     <th className="px-2 sm:px-4 py-2 sm:py-3 text-center">Status</th>
                                     <th className="px-2 sm:px-4 py-2 sm:py-3 text-center">Mode</th>
-                                    <th className="min-w-[80px] sm:min-w-[100px] px-2 sm:px-4 py-2 sm:py-3 text-center">Print</th>
+                                    <th className="min-w-[90px] sm:min-w-[120px] px-2 sm:px-4 py-2 sm:py-3 text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -1382,7 +1486,7 @@ export default function TransactionsPage() {
                                     const status = (rawStatus.toLowerCase() === 'paid' || rawStatus.toLowerCase() === 'completed' || appointmentPaid) ? 'completed' : 'pending';
 
                                     const rawType = tx.type || "appointment_booking";
-                                    const patientName = getPatientNameWithPrefix(tx, patientHonorificMap);
+                                    const patientName = getPatientNameWithPrefix(tx, patientHonorificMap, patientCanonicalNameMap);
 
                                     // Map transaction type to human-readable format
                                     const typeMapping: Record<string, string> = {
@@ -1571,8 +1675,8 @@ export default function TransactionsPage() {
                                                 </div>
                                             </td>
                                             {/* ACTION COLUMN */}
-                                            <td className="min-w-[80px] sm:min-w-[100px] px-2 sm:px-4 py-2 sm:py-3 text-center">
-                                                <div className="flex items-center justify-center gap-1 sm:gap-2">
+                                            <td className="min-w-[90px] sm:min-w-[120px] px-2 sm:px-4 py-2 sm:py-3 text-center">
+                                                <div className="flex items-center justify-center gap-1 sm:gap-1.5">
                                                     <button
                                                         onClick={() => setEditingTx(tx)}
                                                         className="p-1 sm:p-1.5 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all border border-transparent hover:border-amber-100"
@@ -1586,6 +1690,13 @@ export default function TransactionsPage() {
                                                         title="Print Receipt"
                                                     >
                                                         <Printer size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDeletingTx(tx)}
+                                                        className="p-1 sm:p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100"
+                                                        title="Delete Transaction"
+                                                    >
+                                                        <Trash2 size={14} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -1607,6 +1718,15 @@ export default function TransactionsPage() {
                 <EditTransactionModal 
                     tx={editingTx} 
                     onClose={() => setEditingTx(null)} 
+                />
+            )}
+
+            {deletingTx && (
+                <DeleteTransactionModal 
+                    tx={deletingTx} 
+                    patientName={getPatientNameWithPrefix(deletingTx, patientHonorificMap, patientCanonicalNameMap)}
+                    onClose={() => setDeletingTx(null)} 
+                    onSuccess={handleDeleteSuccess}
                 />
             )}
 
@@ -1650,8 +1770,49 @@ export default function TransactionsPage() {
 
                 // Collect all matching payment transactions for this patient / admission to guarantee accurate receipts
                 const matchingTxList = transactions.filter((t: any) => {
-                    const sameAdmission = (apptData._id && (t.referenceId?._id === apptData._id || t.referenceId === apptData._id)) ||
-                                         (apptData.admissionId && (t.referenceId?.admissionId === apptData.admissionId || t.admissionId === apptData.admissionId));
+                    const targetAdmissionId = apptData.admissionId || previewTx.referenceId?.admissionId || previewTx.admissionId;
+                    const targetApptId = apptData._id || previewTx.referenceId?._id || (typeof previewTx.referenceId === 'string' ? previewTx.referenceId : null);
+
+                    if (isDischargeTx) {
+                        // For an IPD discharge bill, strictly match transactions tied to this specific admission
+                        if (targetAdmissionId) {
+                            return Boolean(
+                                t.referenceId?.admissionId === targetAdmissionId ||
+                                t.admissionId === targetAdmissionId ||
+                                t.referenceId === targetAdmissionId ||
+                                t.transactionId === targetAdmissionId ||
+                                (t.referenceNode && t.referenceNode === targetAdmissionId)
+                            );
+                        }
+
+                        if (targetApptId) {
+                            return Boolean(
+                                t.referenceId?._id === targetApptId ||
+                                t.referenceId === targetApptId ||
+                                t.referenceId?.appointmentId === targetApptId ||
+                                t._id === targetApptId
+                            );
+                        }
+
+                        // Only fallback to matching patient if no targetAdmissionId exists at all
+                        const sameMrn = Boolean(resolvedMrn && resolvedMrn !== 'N/A' && (t.patientMRN === resolvedMrn || t.referenceId?.mrn === resolvedMrn));
+                        const sameName = cleanPatientName(t.patientName || '').toUpperCase() === cleanPatientName(previewTx.patientName || '').toUpperCase();
+                        const tType = (t.type || t.serviceType || '').toLowerCase();
+                        const isIpdSpecific = tType.includes('ipd') || tType.includes('admission') || tType.includes('discharge') || tType.includes('settlement');
+                        const isNonIpd = tType.includes('lab') || tType.includes('opd') || tType.includes('consultation') || tType.includes('pharmacy');
+
+                        return (sameMrn || sameName) && isIpdSpecific && !isNonIpd;
+                    }
+
+                    if (apptData.admissionId) {
+                        return Boolean(
+                            t.referenceId?.admissionId === apptData.admissionId ||
+                            t.admissionId === apptData.admissionId ||
+                            t.referenceId === apptData.admissionId
+                        );
+                    }
+
+                    const sameAdmission = (apptData._id && (t.referenceId?._id === apptData._id || t.referenceId === apptData._id));
                     const sameMrn = (resolvedMrn && resolvedMrn !== 'N/A' && (t.patientMRN === resolvedMrn || t.referenceId?.mrn === resolvedMrn));
                     const sameName = cleanPatientName(t.patientName || '').toUpperCase() === cleanPatientName(previewTx.patientName || '').toUpperCase();
                     return sameAdmission || sameMrn || (sameName && (t.type || '').toLowerCase().includes('ipd'));
@@ -1659,13 +1820,22 @@ export default function TransactionsPage() {
 
                 const collectedReceipts = matchingTxList
                     .filter((t: any) => Number(t.amount || t.payment?.amount || 0) > 0)
-                    .map((t: any) => ({
-                        date: t.date || t.createdAt,
-                        receiptNo: t.receiptNumber || t.transactionId || t.invoiceNumber || '-',
-                        amount: Number(t.amount || t.payment?.amount || 0),
-                        mode: t.paymentMethod || t.paymentMode || 'Cash',
-                        type: (t.type || '').toLowerCase().includes('advance') ? 'Advance' : 'Settlement',
-                    }))
+                    .map((t: any) => {
+                        const rawT = (t.type || t.serviceType || '').toLowerCase();
+                        let txType: 'Advance' | 'Settlement' = 'Settlement';
+                        if (rawT.includes('advance')) {
+                            txType = 'Advance';
+                        } else if (rawT.includes('settlement') || rawT.includes('discharge') || rawT.includes('final')) {
+                            txType = 'Settlement';
+                        }
+                        return {
+                            date: t.date || t.createdAt,
+                            receiptNo: t.receiptNumber || t.transactionId || t.invoiceNumber || '-',
+                            amount: Number(t.amount || t.payment?.amount || 0),
+                            mode: t.paymentMethod || t.paymentMode || 'Cash',
+                            type: txType,
+                        };
+                    })
                     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
                 const collectedAdvance = collectedReceipts
@@ -1676,14 +1846,29 @@ export default function TransactionsPage() {
                     .filter((r: any) => r.type === 'Settlement')
                     .reduce((sum: number, r: any) => sum + r.amount, 0);
 
-                const discount = Number(apptData.discount || previewTx.discount || 0);
+                let discount = Number(
+                    apptData.discount ||
+                    apptData.discountAmount ||
+                    apptData.discountDetails?.amount ||
+                    apptData.financials?.discount ||
+                    apptData.billingDetails?.discount ||
+                    previewTx.discount ||
+                    previewTx.discountAmount ||
+                    previewTx.discountDetails?.amount ||
+                    (previewTx.paymentDetails as any)?.discount ||
+                    (previewTx.referenceId as any)?.discount ||
+                    (previewTx.referenceId as any)?.discountDetails?.amount ||
+                    (previewTx.referenceId as any)?.financials?.discount ||
+                    0
+                );
+
                 const grandTotal = Number(
                     apptData.totalBillAmount ||
                     apptData.grandTotal ||
                     previewTx.totalBillAmount ||
                     previewTx.grandTotal ||
                     (collectedAdvance + collectedSettlement) ||
-                    106088
+                    0
                 );
 
                 const advanceAmount = collectedAdvance > 0 
@@ -1695,8 +1880,22 @@ export default function TransactionsPage() {
                     ? collectedSettlement
                     : Number(previewTx.amount || previewTx.payment?.amount || apptData.settlementAmount || apptData.remainingPaid || 0);
 
-                if (isDischargeTx && settlementPaid === 0 && grandTotal > advanceAmount) {
-                    settlementPaid = Math.max(0, grandTotal - discount - advanceAmount);
+                if (isDischargeTx) {
+                    const isFullySettled = (previewTx.status || '').toLowerCase() === 'completed' || 
+                                          (previewTx.status || '').toLowerCase() === 'paid' || 
+                                          Number(apptData.dueAmount ?? apptData.balance ?? 0) === 0;
+
+                    // If discount wasn't explicitly supplied, but grandTotal exceeds the paid amounts and transaction is paid/completed
+                    if (discount === 0 && isFullySettled && grandTotal > (advanceAmount + settlementPaid)) {
+                        discount = Math.max(0, grandTotal - advanceAmount - settlementPaid);
+                    }
+
+                    const expectedRemaining = Math.max(0, grandTotal - discount - advanceAmount);
+                    if (previewTx.amount && Math.abs(Number(previewTx.amount) - expectedRemaining) < 1) {
+                        settlementPaid = Number(previewTx.amount);
+                    } else if (settlementPaid === 0 && expectedRemaining > 0) {
+                        settlementPaid = expectedRemaining;
+                    }
                 }
 
                 const totalPaid = Number(apptData.totalPaidAmount || (advanceAmount + settlementPaid));
@@ -1712,8 +1911,8 @@ export default function TransactionsPage() {
                         isLab={isLabTx}
                         labTests={labTestsList}
                         patient={{
-                            name: getPatientNameWithPrefix(previewTx, patientHonorificMap),
-                            honorific: getPatientHonorific(previewTx) || patientHonorificMap.get(cleanPatientName(previewTx.patientName || '').toUpperCase()) || '',
+                            name: fullPatient?.name || fullPatient?.user?.name || getPatientNameWithPrefix(previewTx, patientHonorificMap, patientCanonicalNameMap),
+                            honorific: fullPatient?.honorific || fullPatient?.profile?.honorific || getPatientHonorific(previewTx) || patientHonorificMap.get(cleanPatientName(previewTx.patientName || '').toUpperCase()) || '',
                             mrn: resolvedMrn,
                             mobile: previewTx.patientMobile || previewTx.mobile || previewTx.patientDetails?.mobile || previewTx.patient?.mobile || activePatient?.mobile || '',
                             age: previewTx.patientDetails?.age || previewTx.patient?.age || activePatient?.age || '',
@@ -1733,8 +1932,8 @@ export default function TransactionsPage() {
                         appointment={{
                             appointmentId: previewTx.referenceId?.appointmentId || previewTx.referenceId?.admissionId || previewTx.referenceId?.sampleId || previewTx.transactionId || previewTx.receiptNumber || 'N/A',
                             type: isDischargeTx ? 'IPD_FINAL_SETTLEMENT' : (previewTx.type || 'consultation'),
-                            date: previewTx.createdAt ? new Date(previewTx.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
-                            time: previewTx.appointmentTime || previewTx.time || '10:00 AM',
+                            date: previewTx.createdAt || new Date().toISOString(),
+                                                        time: previewTx.appointmentTime || previewTx.time || '10:00 AM',
                             doctorName: previewTx.referenceId?.primaryDoctor || previewTx.referenceId?.suggestedDoctorName || previewTx.referenceId?.doctorName || 'Doctor',
                             specialization: isDischargeTx ? 'IPD DISCHARGE' : (previewTx.type || 'Consultation'),
                             symptoms: previewTx.symptoms || apptData.symptoms || previewTx.reason || apptData.reason,
@@ -1744,7 +1943,8 @@ export default function TransactionsPage() {
                         payment={{
                             amount: isDischargeTx ? settlementPaid : Number(previewTx.amount || previewTx.payment?.amount || 0),
                             fee: grandTotal,
-                            totalBillAmount: isDischargeTx ? grandTotal : Number(previewTx.amount || 0),
+                            date: previewTx.createdAt || new Date().toISOString(),
+                                                        totalBillAmount: isDischargeTx ? grandTotal : Number(previewTx.amount || 0),
                             grandTotal: grandTotal,
                             advanceAmount: advanceAmount,
                             remainingPaid: settlementPaid,

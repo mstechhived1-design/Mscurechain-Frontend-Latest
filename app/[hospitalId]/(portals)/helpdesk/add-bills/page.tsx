@@ -293,18 +293,33 @@ export default function AddBillsPage() {
             }
         }
 
+        const patientHonorific =
+            patient.honorific ||
+            patient.prefix ||
+            patient.profile?.honorific ||
+            patient.profile?.prefix ||
+            patient.user?.honorific ||
+            patient.user?.prefix ||
+            patient.patientHonorific ||
+            patient.patientPrefix ||
+            '';
+
         const transformed = {
+            ...patient,
             _id: patient.user?._id || patient._id || patient.id,
             patientId: patient._id || patient.id,
             name: patient.user?.name || patient.name,
+            honorific: patientHonorific,
+            prefix: patientHonorific,
             mobile: patient.user?.mobile || patient.profile?.contactNumber || patient.mobile || 'N/A',
             mrn: patient.mrn || patient.profile?.mrn || 'N/A',
             gender: patient.profile?.gender || patient.gender || 'N/A',
             age: patient.profile?.age || patient.age || 'N/A',
             ageUnit: patient.profile?.ageUnit || patient.ageUnit || 'Years',
-            prefix: patient.profile?.prefix || patient.prefix || '',
             dob: patient.profile?.dob || patient.dob,
             bloodGroup: patient.profile?.bloodGroup || patient.bloodGroup || '',
+            profile: { ...(patient.profile || {}), honorific: patientHonorific, prefix: patientHonorific },
+            user: { ...(patient.user || {}), honorific: patientHonorific, prefix: patientHonorific },
         };
         setSelectedPatient(transformed);
         setPatientSearch('');
@@ -319,6 +334,15 @@ export default function AddBillsPage() {
             const active = admissionList.find((a: any) => a.status === 'Active');
             setActiveAdmission(active || null);
             if (active) {
+                const admHonorific = active.patientHonorific || active.patientPrefix || active.honorific || active.prefix;
+                if (admHonorific) {
+                    setSelectedPatient((prev: any) => ({
+                        ...prev,
+                        honorific: prev?.honorific || admHonorific,
+                        prefix: prev?.prefix || admHonorific,
+                        profile: { ...(prev?.profile || {}), honorific: prev?.honorific || admHonorific },
+                    }));
+                }
                 toast.success(`Active IPD Admission found: ${active.admissionId}`, { icon: '🏥' });
                 try {
                     const prescs = await ipdService.getPrescriptions(active._id || active.id);
@@ -1592,7 +1616,7 @@ export default function AddBillsPage() {
                                                             {(p.user?.name || p.name || 'P').charAt(0).toUpperCase()}
                                                         </div>
                                                         <div>
-                                                            <div className="search-result-name">{p.user?.name || p.name}</div>
+                                                            <div className="search-result-name">{formatPatientDisplayName(p)}</div>
                                                             <div className="search-result-meta">
                                                                 {p.mrn || p.profile?.mrn || '—'} · {p.user?.mobile || p.profile?.contactNumber || p.mobile || '—'}
                                                             </div>
@@ -1614,7 +1638,7 @@ export default function AddBillsPage() {
                                     </div>
                                     <div className="patient-info">
                                         <div className="patient-name">
-                                            {formatPatientDisplayName(selectedPatient)}
+                                            {formatPatientDisplayName(selectedPatient, activeAdmission)}
                                         </div>
                                         <div className="patient-details">
                                             MRN: {selectedPatient.mrn} • {selectedPatient.gender}, {computeAgeFromDob(selectedPatient.dob, selectedPatient.age, selectedPatient.ageUnit)} • {selectedPatient.mobile}

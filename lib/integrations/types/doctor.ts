@@ -22,11 +22,14 @@ export interface DoctorAppointment {
 export interface DoctorPatient {
   id: string;
   name: string;
+  honorific?: string;
+  dob?: string | Date;
   mobile?: string;
   email?: string;
   lastVisit: string | Date;
   // Fields used in frontend but maybe not in dashboard response
-  age?: number;
+  age?: number | string;
+  ageUnit?: string;
   gender?: string;
   condition?: string;
   mrn?: string;

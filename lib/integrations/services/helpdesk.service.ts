@@ -351,6 +351,13 @@ export const helpdeskService = {
     });
   },
 
+  deleteTransaction: (id: string, payload?: any) => {
+    return apiClient<any>(`${HELPDESK_ENDPOINTS.TRANSACTIONS}/${id}`, {
+      method: "DELETE",
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+  },
+
   // ==================== Transits ====================
   /**
    * Get all clinical transits for the hospital

@@ -42,6 +42,7 @@ import Link from 'next/link';
 import { calculateStayDuration } from '@/lib/utils/date-utils';
 import { ipdService } from '@/lib/integrations';
 import { getSocket, joinSocketRoom } from '@/lib/integrations/api/socket';
+import { formatPatientNameWithPrefix, sanitizePatientName } from '@/lib/utils/name-utils';
 
 import { useDoctorInpatients } from '@/lib/integrations/hooks';
 import { useAuthStore } from '@/stores/authStore';
@@ -463,14 +464,16 @@ export default function DoctorInpatientsPage() {
                                                         <Link onClick={(e) => e.stopPropagation()} href={getPath(`/doctor/patients/${adm.patient?._id || adm.patient?.id}`)} prefetch={true} className="flex items-center gap-3 group/item cursor-pointer">
                                                             <div className="relative shrink-0">
                                                                 <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-700 dark:text-emerald-400 font-black text-sm border border-emerald-200/50 dark:border-emerald-800/50">
-                                                                    {adm.patient?.name?.[0] || 'P'}
+                                                                    {(sanitizePatientName(adm.patient?.name) || 'P')[0]}
                                                                 </div>
                                                                 {isAbnormal && (
                                                                     <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-[#111] ${isCritical ? 'bg-rose-600 animate-ping' : 'bg-amber-500 animate-pulse'}`} />
                                                                 )}
                                                             </div>
                                                             <div>
-                                                                <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tight group-hover/item:text-emerald-600 transition-colors">{adm.patient?.name}</p>
+                                                                <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tight group-hover/item:text-emerald-600 transition-colors">
+                                                                    {formatPatientNameWithPrefix(sanitizePatientName(adm.patient?.name), adm.patient?.honorific || adm.honorific)}
+                                                                </p>
                                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">MRN: {adm.patient?.mrn || 'N/A'}</p>
                                                             </div>
                                                         </Link>
@@ -871,10 +874,12 @@ function InpatientCard({ adm, onOpenRounding, onTransfer, onCharge, onLedger, fe
                 <div className="flex items-start justify-between gap-2 mb-3 pt-1">
                     <Link href={getPath(`/doctor/patients/${adm.patient?._id || adm.patient?.id}`)} prefetch={true} className="flex items-center gap-3 shrink-0 group/link">
                         <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 font-black text-xl border border-slate-200 dark:border-slate-700 group-hover/link:scale-105 transition-transform">
-                            {adm.patient?.name?.[0] || 'P'}
+                            {(sanitizePatientName(adm.patient?.name) || 'P')[0]}
                         </div>
                         <div>
-                            <h3 className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tight group-hover/link:text-emerald-600 transition-colors">{adm.patient?.name}</h3>
+                            <h3 className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tight group-hover/link:text-emerald-600 transition-colors">
+                                {formatPatientNameWithPrefix(sanitizePatientName(adm.patient?.name), adm.patient?.honorific || adm.honorific)}
+                            </h3>
                             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">MRN: {adm.patient?.mrn || 'N/A'}</p>
                             <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200/50 uppercase">

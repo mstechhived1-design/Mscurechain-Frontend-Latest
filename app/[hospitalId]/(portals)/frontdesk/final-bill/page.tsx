@@ -8,6 +8,7 @@ import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.
 import { useHelpdeskPatients } from "@/lib/integrations";
 import { sanitizePatientName, formatPatientDisplayName } from "@/lib/utils/name-utils";
 import { calculateAge } from "@/lib/utils/date-utils";
+import { computeAgeFromDob } from "@/lib/print-utils";
 import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import toast from 'react-hot-toast';
@@ -368,12 +369,16 @@ export default function FinalBillPage() {
                         <td class="lbl">IP No</td><td class="val">: ${adm?.admissionId || ''}</td>
                     </tr>
                     <tr>
-                        <td class="lbl">Age/Sex</td><td class="val">: ${[
-                            (selectedPatient?.profile?.age || selectedPatient?.age || pt?.age || pt?.profile?.age || pt?.patientDetails?.age || calculateAge(selectedPatient?.profile?.dob || selectedPatient?.dob || pt?.dob || pt?.profile?.dob || pt?.patientDetails?.dob)) ? 
-                            (selectedPatient?.profile?.age || selectedPatient?.age || pt?.age || pt?.profile?.age || pt?.patientDetails?.age || calculateAge(selectedPatient?.profile?.dob || selectedPatient?.dob || pt?.dob || pt?.profile?.dob || pt?.patientDetails?.dob)) + (selectedPatient?.profile?.ageUnit || selectedPatient?.ageUnit || pt?.ageUnit || pt?.profile?.ageUnit || pt?.patientDetails?.ageUnit || 'Y') : '', 
-                            (selectedPatient?.profile?.gender || selectedPatient?.gender || pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender) ? 
-                            (selectedPatient?.profile?.gender || selectedPatient?.gender || pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender).charAt(0).toUpperCase() + (selectedPatient?.profile?.gender || selectedPatient?.gender || pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender).slice(1) : ''
-                        ].filter(Boolean).join(' / ') || 'N/A'}</td>
+                        <td class="lbl">Age/Sex</td><td class="val">: ${(() => {
+                            const pDob = selectedPatient?.profile?.dob || selectedPatient?.dob || pt?.dob || pt?.profile?.dob || pt?.patientDetails?.dob;
+                            const pAge = selectedPatient?.profile?.age || selectedPatient?.age || pt?.age || pt?.profile?.age || pt?.patientDetails?.age;
+                            const pUnit = selectedPatient?.profile?.ageUnit || selectedPatient?.ageUnit || pt?.ageUnit || pt?.profile?.ageUnit || pt?.patientDetails?.ageUnit;
+                            const computed = computeAgeFromDob(pDob, pAge, pUnit);
+                            const ageDisp = (computed && computed !== 'N/A') ? computed : '';
+                            const rawG = selectedPatient?.profile?.gender || selectedPatient?.gender || pt?.gender || pt?.profile?.gender || pt?.patientDetails?.gender || '';
+                            const gDisp = rawG ? (rawG.charAt(0).toUpperCase() + rawG.slice(1).toLowerCase()) : '';
+                            return [ageDisp, gDisp].filter(Boolean).join(' / ') || 'N/A';
+                        })()}</td>
                         <td class="lbl">UMR No</td><td class="val">: ${pt.mrn || ''}</td>
                     </tr>
                     <tr>
@@ -465,7 +470,7 @@ export default function FinalBillPage() {
                             <th style="width: 15%">Record Date</th>
                             <th style="width: 20%">Receipt No</th>
                             <th style="width: 40%">Amount Payment</th>
-                            <th style="width: 20%">Type</th>
+                            <th style="width: 20%">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -477,7 +482,8 @@ export default function FinalBillPage() {
                 const rDate = new Date(r.date || r.createdAt || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
                 const rMode = r.paymentMode || r.mode || 'Cash';
                 const receiptNum = r.receiptNumber || r.receiptNo || r.transactionId || '-';
-                const rType = r.type || r.transactionType || 'Advance';
+                const rawType = r.type || r.transactionType || 'Paid';
+                const rType = rawType.toLowerCase() === 'advance' ? 'Paid' : rawType;
                 bodyHtml += `
                     <tr>
                         <td>${rSno++}</td>

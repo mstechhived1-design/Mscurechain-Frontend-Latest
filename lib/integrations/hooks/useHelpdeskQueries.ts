@@ -351,6 +351,55 @@ export const useEditTransaction = () => {
   });
 };
 
+export const useDeleteTransaction = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload?: any }) =>
+      helpdeskService.deleteTransaction(id, payload),
+    onSuccess: (_data, variables) => {
+      // 1. Immediately remove from active cache in 0ms
+      const targetId = String(variables?.id || '');
+      const refId = String(variables?.payload?.referenceId || '');
+      const invNum = String(variables?.payload?.invoiceNumber || '');
+
+      queryClient.setQueriesData({ queryKey: ["helpdesk", "transactions"] }, (old: any) => {
+        if (!old) return old;
+        const filterItem = (tx: any) => {
+          const tid = String(tx._id || tx.id || '');
+          const rid = String(tx.referenceId?._id || (typeof tx.referenceId === 'string' ? tx.referenceId : '') || '');
+          const inum = String(tx.invoiceNumber || tx.receiptNumber || tx.transactionId || '');
+          if (targetId && (tid === targetId || rid === targetId || inum === targetId)) return false;
+          if (refId && (tid === refId || rid === refId)) return false;
+          if (invNum && (inum === invNum || tid === invNum)) return false;
+          return true;
+        };
+
+        if (Array.isArray(old)) {
+          return old.filter(filterItem);
+        }
+        if (old.data && Array.isArray(old.data)) {
+          const filtered = old.data.filter(filterItem);
+          const diff = old.data.length - filtered.length;
+          return {
+            ...old,
+            data: filtered,
+            pagination: old.pagination ? {
+              ...old.pagination,
+              total: Math.max(0, (old.pagination.total || 0) - diff)
+            } : old.pagination
+          };
+        }
+        return old;
+      });
+
+      // 2. Invalidate all transaction queries and dashboard immediately
+      queryClient.invalidateQueries({ queryKey: ["helpdesk", "transactions"], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ["helpdesk", "dashboard"], refetchType: 'all' });
+    },
+  });
+};
+
 // ==================== Transits Hook ====================
 export const useTransits = (params?: any) => {
   return useQuery({

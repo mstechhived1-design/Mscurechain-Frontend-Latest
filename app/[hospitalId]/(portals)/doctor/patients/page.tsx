@@ -7,6 +7,8 @@ import { getDoctorPatientsAction } from '@/lib/integrations/actions/doctor.actio
 import { DoctorPatient } from '@/lib/integrations/types/doctor';
 import { useTenantLink } from '@/hooks/useTenantLink';
 import toast from 'react-hot-toast';
+import { formatPatientNameWithPrefix, sanitizePatientName } from '@/lib/utils/name-utils';
+import { computeAgeFromDob } from '@/lib/print-utils';
 
 function PatientsPage() {
    const { getPath } = useTenantLink();
@@ -200,10 +202,12 @@ function PatientsPage() {
                                              ? 'bg-rose-50 text-rose-500 border border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/30'
                                              : 'bg-emerald-50 text-emerald-500 border border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/30'
                                              }`}>
-                                             {patient.name.charAt(0)}
+                                             {sanitizePatientName(patient.name).charAt(0) || 'P'}
                                           </div>
                                           <div>
-                                             <p className="font-black text-foreground text-xs sm:text-sm group-hover:text-primary-theme uppercase tracking-tight">{patient.name}</p>
+                                             <p className="font-black text-foreground text-xs sm:text-sm group-hover:text-primary-theme uppercase tracking-tight">
+                                                {formatPatientNameWithPrefix(sanitizePatientName(patient.name), patient.honorific)}
+                                             </p>
                                              <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
                                                 <span className="text-[10px] text-muted font-bold uppercase tracking-tight px-1.5 py-0.5 bg-secondary-theme rounded-md">{patient.mrn || '---'}</span>
                                              </div>
@@ -212,7 +216,16 @@ function PatientsPage() {
                                     </td>
                                     <td className="px-4 sm:px-8 py-4 sm:py-6 whitespace-nowrap hidden sm:table-cell">
                                        <div className="text-xs sm:text-sm text-foreground">
-                                          <p className="font-black">{patient.age ? `${patient.age}Y` : '---'}</p>
+                                          <p className="font-black">
+                                             {(() => {
+                                                const computed = computeAgeFromDob(patient.dob, patient.age, patient.ageUnit);
+                                                if (computed && computed !== 'N/A') return computed;
+                                                if (patient.age !== undefined && patient.age !== null && patient.age !== '' && patient.age !== '---') {
+                                                   return /[a-zA-Z]/.test(String(patient.age)) ? String(patient.age) : `${patient.age} ${patient.ageUnit || 'Y'}`;
+                                                }
+                                                return '---';
+                                             })()}
+                                          </p>
                                           <p className="text-[10px] text-muted font-black uppercase tracking-widest">{patient.gender || '---'}</p>
                                        </div>
                                     </td>

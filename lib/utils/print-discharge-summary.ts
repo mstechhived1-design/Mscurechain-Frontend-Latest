@@ -1,5 +1,6 @@
 import { formatDoctorName, formatPatientDisplayName } from '@/lib/utils/name-utils';
 import { calculateExactAge } from '@/lib/utils/date-utils';
+import { computeAgeFromDob } from '@/lib/print-utils';
 
 export interface DischargeMedicine {
     id?: string;
@@ -47,23 +48,23 @@ export const generateDischargeSummaryHTML = (
     }
 ): string => {
     // 1. Dynamic Hospital Header Fallbacks
-    const hospName = hospital?.name || 'HORIZIN HOSPITAL';
-    const hospAddress = hospital?.address || 'MDR0379, RTC colony, Kadapa, YSR Kadapa, Andhra Pradesh';
-    const hospContact = hospital?.phone || hospital?.mobile || hospital?.contact || '9876543210';
-    const hospEmail = hospital?.email || 'harizon@gmail.com';
+    const hospName = hospital?.name || 'HOSPITAL';
+    const hospAddress = hospital?.address || '';
+    const hospContact = hospital?.phone || hospital?.mobile || hospital?.contact || '';
+    const hospEmail = hospital?.email || '';
 
-    // 2. Dynamic Patient Data Extraction
+    // Dynamic Encounter & Patient Data Extraction
+    const encounterDate = admission?.admissionDate || admission?.createdAt || reportData?.date || new Date();
     const patientName = formatPatientDisplayName(patient, admission) || 'PATIENT NAME';
 
     // Age / Sex
     const patientDob = patient?.dob || patient?.profile?.dob || patient?.patientDetails?.dob || patient?.dateOfBirth || patient?.user?.dateOfBirth;
-    const encounterDate = admission?.admissionDate || admission?.createdAt || reportData?.date || new Date();
-    const ageCalc = calculateExactAge(patientDob, new Date(encounterDate));
-    const ageText = ageCalc.display !== "N/A"
-        ? (ageCalc.years >= 2 ? `${ageCalc.years} Y` : ageCalc.shortDisplay)
-        : (patient?.age || patient?.profile?.age ? `${patient?.age || patient?.profile?.age} ${patient?.ageUnit || patient?.profile?.ageUnit || patient?.patientDetails?.ageUnit || 'Y'}` : '');
+    const rawAge = patient?.age || patient?.profile?.age || patient?.patientDetails?.age || patient?.user?.age;
+    const rawAgeUnit = patient?.ageUnit || patient?.profile?.ageUnit || patient?.patientDetails?.ageUnit || patient?.user?.ageUnit;
+    const computedAge = computeAgeFromDob(patientDob, rawAge, rawAgeUnit);
+    const ageText = (computedAge && computedAge !== "N/A") ? computedAge : "";
     const genderRaw = patient?.gender || patient?.profile?.gender || patient?.patientDetails?.gender || patient?.user?.gender || '';
-    const genderText = genderRaw ? (genderRaw.charAt(0).toUpperCase() + genderRaw.slice(1)) : '';
+    const genderText = genderRaw ? (genderRaw.charAt(0).toUpperCase() + genderRaw.slice(1).toLowerCase()) : '';
     const ageSexDisplay = [ageText, genderText].filter(Boolean).join(' / ') || 'N/A';
 
     // IP No / UHID

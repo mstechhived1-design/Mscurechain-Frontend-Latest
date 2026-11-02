@@ -15,7 +15,7 @@ import { patientService } from '@/lib/integrations/services/patient.service';
 import { pharmacyService } from '@/lib/integrations/services/pharmacy.service';
 import { usePrintStore } from '@/stores/printStore';
 import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
-import { formatPatientDisplayName, formatPatientNameWithPrefix, HONORIFIC_OPTIONS, cleanPatientName } from '@/lib/utils/name-utils';
+import { formatPatientDisplayName, formatPatientNameWithPrefix, HONORIFIC_OPTIONS, cleanPatientName, getHospitalHonorificOptions, getHospitalHonorificItems, addHospitalCustomHonorific, cleanHonorificPrefix } from '@/lib/utils/name-utils';
 
 const BillingPage = () => {
     const router = useRouter();
@@ -702,14 +702,32 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                 </label>
                                 <div className="flex gap-2">
                                     <select
-                                        value={patientHonorific}
-                                        onChange={(e) => setPatientHonorific(e.target.value)}
+                                        value={cleanHonorificPrefix(patientHonorific)}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__ADD_CUSTOM__') {
+                                                const customVal = window.prompt("Enter Custom Prefix / Honorific for this hospital:");
+                                                if (customVal && customVal.trim()) {
+                                                    const added = cleanHonorificPrefix(customVal.trim().toUpperCase());
+                                                    addHospitalCustomHonorific(added, hospitalId);
+                                                    setPatientHonorific(added);
+                                                    toast.success(`Custom prefix "${added}" saved for this hospital`);
+                                                }
+                                            } else {
+                                                setPatientHonorific(cleanHonorificPrefix(e.target.value));
+                                            }
+                                        }}
                                         className="w-28 sm:w-32 bg-gray-50 dark:bg-gray-700/50 border-none rounded-2xl px-3 py-4 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-500 dark:text-white cursor-pointer shrink-0"
                                     >
                                         <option value="">Title</option>
-                                        {HONORIFIC_OPTIONS.map((opt) => (
-                                            <option key={opt} value={opt}>{opt}</option>
+                                        {getHospitalHonorificItems(hospitalId).map((opt) => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
                                         ))}
+                                        {patientHonorific && !getHospitalHonorificItems(hospitalId).some(h => h.value.toLowerCase() === patientHonorific.toLowerCase()) && (
+                                            <option value={cleanHonorificPrefix(patientHonorific)}>{cleanHonorificPrefix(patientHonorific).toUpperCase()}</option>
+                                        )}
+                                        <option value="__ADD_CUSTOM__" className="font-bold text-teal-600">
+                                            + Add Custom...
+                                        </option>
                                     </select>
                                     <input
                                         className="w-full min-w-0 bg-gray-50 dark:bg-gray-700/50 border-none rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-500"

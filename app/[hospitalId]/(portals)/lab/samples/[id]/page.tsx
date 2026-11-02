@@ -161,15 +161,15 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
         documentTitle: `Lab_Report_${sample?.sampleId || 'Unknown'}`,
         pageStyle: `
             @page {
-                size: A4;
-                margin: 10mm;
+                size: A4 portrait;
+                margin: 0;
             }
             @media print {
                 html, body {
                     margin: 0 !important;
                     padding: 0 !important;
                     width: 100% !important;
-                    height: auto !important;
+                    height: 100% !important;
                     background: #fff !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
@@ -180,9 +180,9 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 .print-content {
                     display: block !important;
                     width: 100% !important;
-                    height: auto !important;
-                    min-height: 0 !important;
-                    margin: 0 !important;
+                    max-width: 210mm !important;
+                    min-height: 295mm !important;
+                    margin: 0 auto !important;
                     padding: 0 !important;
                     border: none !important;
                     box-sizing: border-box !important;
@@ -192,11 +192,28 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 }
 
                 .report-body {
-                    display: block !important;
-                    padding: 0 !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    justify-content: space-between !important;
+                    min-height: 295mm !important;
+                    padding: 8mm 12mm !important;
                     box-sizing: border-box !important;
                     position: static !important;
-                    overflow: visible !important;
+                }
+
+                .report-main-content {
+                    flex: 1 0 auto !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    width: 100% !important;
+                }
+
+                .report-footer-section {
+                    flex-shrink: 0 !important;
+                    margin-top: auto !important;
+                    width: 100% !important;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
                 }
 
                 .lab-print-footer {
@@ -209,7 +226,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                     display: table !important;
                     width: 100% !important;
                     table-layout: fixed !important;
-                    margin: 16px 0 !important;
+                    margin: 10px 0 14px 0 !important;
                     font-size: 12px !important;
                 }
                 .lab-patient-grid > div {
@@ -219,11 +236,11 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 }
 
                 .lab-test-title {
-                    font-size: 18px !important;
+                    font-size: 16px !important;
                     text-align: center !important;
                     border-bottom: 2px solid #ddd !important;
                     padding-bottom: 5px !important;
-                    margin: 16px 0 10px !important;
+                    margin: 12px 0 8px 0 !important;
                 }
 
                 .lab-test-table {
@@ -233,36 +250,32 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                     font-size: 12px !important;
                 }
                 .lab-test-table th, .lab-test-table td {
-                    border: 1px solid #d0d0d0 !important;
-                    padding: 7px 10px !important;
+                    padding: 6px 8px !important;
                     text-align: left !important;
                     vertical-align: top !important;
                     word-wrap: break-word !important;
                 }
                 .lab-test-table th {
-                    background: rgba(242,246,251,0.8) !important;
-                    font-weight: 600 !important;
+                    background: #f8f9fa !important;
+                    font-weight: 700 !important;
+                    border-bottom: 2px solid #1e293b !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
                 }
-                .lab-test-table th:nth-child(1), .lab-test-table td:nth-child(1) { width: 40% !important; }
-                .lab-test-table th:nth-child(2), .lab-test-table td:nth-child(2) { width: 35% !important; }
-                .lab-test-table th:nth-child(3), .lab-test-table td:nth-child(3) { width: 25% !important; }
+                .lab-test-table td.abnormal-result {
+                    font-weight: 900 !important;
+                    color: #dc2626 !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
 
                 .test-section {
                     page-break-inside: avoid !important;
-                    margin-bottom: 24px !important;
+                    margin-bottom: 20px !important;
                 }
 
                 table { page-break-inside: auto !important; }
                 tr    { page-break-inside: avoid !important; page-break-after: auto !important; }
-                thead { display: table-header-group !important; }
-                tfoot { display: table-footer-group !important; }
-                thead tr * {
-                    position: static !important;
-                    z-index: auto !important;
-                    transform: none !important;
-                }
             }
         `,
     });

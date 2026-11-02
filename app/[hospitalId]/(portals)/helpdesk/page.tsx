@@ -41,6 +41,8 @@ import {
     useAppointments,
     useHelpdeskProfile
 } from "@/lib/integrations/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { getSocket, joinSocketRoom } from "@/lib/integrations/api/socket";
 import { AttendanceModal } from "@/components/attendance/AttendanceModal";
 import { HelpdeskDashboardSkeleton } from "@/components/ui/skeletons";
 import { useAuthStore } from "@/stores/authStore";
@@ -72,7 +74,7 @@ function HelpdeskDashboard() {
     const [activeTab, setActiveTab] = useState('active');
     const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
     const [visitTypeFilter, setVisitTypeFilter] = useState<'all' | 'opd' | 'ipd'>('all');
-    const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all');
+    const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline' | 'app'>('all');
     const [startDateFilter, setStartDateFilter] = useState<string>(() => {
         const today = new Date();
         today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
@@ -150,9 +152,10 @@ function HelpdeskDashboard() {
 
     const handleOpenCheckIn = useCallback((apt: any) => {
         setCheckingInApt(apt);
-        setPaymentMode('cash');
-        const defaultFee = apt.fee || apt.amount || 300;
-        setMixedPayments({ cash: String(defaultFee), card: '', upi: '', bankTransfer: '' });
+        const isPrePaid = apt.isMobile || apt.bookingChannel === 'app' || apt.source === 'app' || apt.paymentStatus?.toLowerCase() === 'paid';
+        setPaymentMode(isPrePaid ? 'upi' : 'cash');
+        const defaultFee = apt.fee || apt.consultationFee || apt.amount || 300;
+        setMixedPayments({ cash: isPrePaid ? '' : String(defaultFee), card: '', upi: isPrePaid ? String(defaultFee) : '', bankTransfer: '' });
         setIsCheckInModalOpen(true);
     }, []);
 
@@ -167,7 +170,7 @@ function HelpdeskDashboard() {
     const handleConfirmCheckIn = async () => {
         if (!checkingInApt) return;
         const aptId = checkingInApt.id || checkingInApt._id;
-        const totalFee = Number(checkingInApt.fee || checkingInApt.amount || 300);
+        const totalFee = Number(checkingInApt.fee || (checkingInApt as any).consultationFee || checkingInApt.amount || 300);
 
         let parsedPaymentDetails: any = undefined;
         let amountPaid = totalFee;
@@ -253,6 +256,61 @@ function HelpdeskDashboard() {
         startDateFilter,
         endDateFilter
     );
+
+    const queryClient = useQueryClient();
+
+    // ── Real-Time Socket Synchronization for Frontdesk Dashboard ───────────────
+    useEffect(() => {
+        let socketInstance: any = null;
+        let isCleanedUp = false;
+
+        const refreshAll = () => {
+            refetchDashboard();
+            queryClient.invalidateQueries({ queryKey: ['appointments'] });
+            queryClient.invalidateQueries({ queryKey: ['helpdesk-dashboard'] });
+        };
+
+        const setupSocket = async () => {
+            socketInstance = await getSocket();
+            if (!socketInstance || isCleanedUp) return;
+
+            if (hospitalId) {
+                joinSocketRoom({
+                    role: user?.role || 'helpdesk',
+                    userId: user?.id || (hospitalId as string),
+                    hospitalId: hospitalId as string,
+                });
+                socketInstance.emit('join_hospital', hospitalId);
+            }
+
+            socketInstance.on('queue_update', refreshAll);
+            socketInstance.on('consultation_started', refreshAll);
+            socketInstance.on('consultation_paused', refreshAll);
+            socketInstance.on('consultation_resumed', refreshAll);
+            socketInstance.on('appointment_status_changed', refreshAll);
+            socketInstance.on('appointment:status_change', refreshAll);
+            socketInstance.on('dashboard:update', refreshAll);
+        };
+
+        setupSocket();
+
+        // 5s background polling guarantees status updates even if websocket is disconnected
+        const pollTimer = setInterval(refreshAll, 5000);
+
+        return () => {
+            isCleanedUp = true;
+            clearInterval(pollTimer);
+            if (socketInstance) {
+                socketInstance.off('queue_update', refreshAll);
+                socketInstance.off('consultation_started', refreshAll);
+                socketInstance.off('consultation_paused', refreshAll);
+                socketInstance.off('consultation_resumed', refreshAll);
+                socketInstance.off('appointment_status_changed', refreshAll);
+                socketInstance.off('appointment:status_change', refreshAll);
+                socketInstance.off('dashboard:update', refreshAll);
+            }
+        };
+    }, [hospitalId, refetchDashboard, queryClient]);
 
     const { data: doctorsData, isLoading: doctorsLoading, isPlaceholderData: isDoctorsPlaceholder } = useHelpdeskDoctors();
     const updateStatusMutation = useUpdateAppointmentStatus();
@@ -346,17 +404,35 @@ function HelpdeskDashboard() {
             list = list.filter((apt: any) => {
                 const type = apt.type?.toLowerCase() || 'opd';
                 if (visitTypeFilter === 'opd') {
-                    return type === 'opd' || type === 'consultation';
+                    return type === 'opd' || type === 'consultation' || type === 'online';
                 }
                 return type === visitTypeFilter.toLowerCase();
             });
         }
 
-        // 5. Filter by Source Channel (All / Online Web / Offline Walk-in)
+        // 5. Filter by Source Channel (All / Online Web / App / Offline Walk-in)
         if (sourceFilter === 'online') {
-            list = list.filter((apt: any) => apt.type?.toLowerCase() === 'online');
+            list = list.filter((apt: any) => 
+                (apt.type?.toLowerCase() === 'online' || apt.bookingChannel === 'website' || apt.bookingChannel === 'online' || apt.source === 'online' || apt.source === 'website') && 
+                !apt.isMobile && 
+                apt.source !== 'app' && 
+                apt.bookingChannel !== 'app'
+            );
+        } else if (sourceFilter === 'app') {
+            list = list.filter((apt: any) => 
+                apt.isMobile === true || 
+                apt.source === 'app' || 
+                apt.bookingChannel === 'app' || 
+                apt.appointmentType?.toLowerCase() === 'mobile' ||
+                (apt.paymentMethod === 'razorpay' && !apt.visitType)
+            );
         } else if (sourceFilter === 'offline') {
-            list = list.filter((apt: any) => apt.type?.toLowerCase() !== 'online');
+            list = list.filter((apt: any) => 
+                apt.type?.toLowerCase() !== 'online' && 
+                !apt.isMobile && 
+                apt.source !== 'app' && 
+                apt.bookingChannel !== 'app'
+            );
         }
 
         return list;
@@ -381,12 +457,29 @@ function HelpdeskDashboard() {
             });
         }
 
-        const online = list.filter((a: any) => a.type?.toLowerCase() === 'online').length;
+        const app = list.filter((a: any) => 
+            a.isMobile === true || 
+            a.source === 'app' || 
+            a.bookingChannel === 'app' ||
+            a.appointmentType?.toLowerCase() === 'mobile' ||
+            (a.paymentMethod === 'razorpay' && !a.visitType)
+        ).length;
+
+        const online = list.filter((a: any) => 
+            (a.type?.toLowerCase() === 'online' || a.bookingChannel === 'website' || a.bookingChannel === 'online' || a.source === 'online' || a.source === 'website') && 
+            !a.isMobile && 
+            a.source !== 'app' && 
+            a.bookingChannel !== 'app'
+        ).length;
+
         const total = list.length;
+        const offline = Math.max(0, total - online - app);
+
         return {
             all: total,
             online,
-            offline: Math.max(0, total - online)
+            app,
+            offline
         };
     }, [appointmentsData, dashboardData, startDateFilter, endDateFilter]);
 
@@ -950,7 +1043,7 @@ function HelpdeskDashboard() {
                                     </button>
                                 </div>
 
-                                {/* Online (Web) vs Offline (Desk) Source Switcher */}
+                                {/* Online (Web) vs App vs Offline (Desk) Source Switcher */}
                                 <div className="flex items-center gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm">
                                     <button
                                         type="button"
@@ -967,6 +1060,15 @@ function HelpdeskDashboard() {
                                     >
                                         <Globe size={11} className={sourceFilter === 'online' ? 'animate-spin' : ''} />
                                         Website ({sourceCounts.online})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSourceFilter('app')}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${sourceFilter === 'app' ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/70'}`}
+                                        title="View appointments booked via Mobile Patient App"
+                                    >
+                                        <Smartphone size={11} />
+                                        App ({sourceCounts.app})
                                     </button>
                                     <button
                                         type="button"
@@ -1098,10 +1200,15 @@ function HelpdeskDashboard() {
                                                     </div>
 
                                                     <div className="col-span-1 flex justify-center">
-                                                        {(apt as any).type?.toLowerCase() === 'online' ? (
+                                                        {(apt as any).isMobile || (apt as any).bookingChannel === 'app' || (apt as any).source === 'app' ? (
+                                                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs">
+                                                                <Smartphone size={9} className="text-indigo-600 shrink-0" />
+                                                                App
+                                                            </span>
+                                                        ) : (apt as any).type?.toLowerCase() === 'online' ? (
                                                             <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1 bg-cyan-50 text-cyan-700 border border-cyan-200 shadow-xs">
                                                                 <Globe size={9} className="text-cyan-600 shrink-0" />
-                                                                Online
+                                                                Website
                                                             </span>
                                                         ) : (apt as any).type === 'EMERGENCY' ? (
                                                             <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block bg-rose-50 text-rose-600 border border-rose-100">
@@ -1122,7 +1229,11 @@ function HelpdeskDashboard() {
                                                         <div className="flex items-center gap-2">
                                                             <Stethoscope size={16} className="text-slate-400 shrink-0" />
                                                             <span className="text-xs font-bold text-slate-700 uppercase tracking-tight truncate">
-                                                                {formatDoctorName(apt.doctorName || apt.doctor?.user?.name || apt.doctor?.name) || "Pending Assign"}
+                                                                {(() => {
+                                                                    const raw = apt.doctorName || apt.doctor?.user?.name || apt.doctor?.name;
+                                                                    if (!raw || raw.toLowerCase().includes('pending')) return 'Pending Assignment';
+                                                                    return formatDoctorName(raw);
+                                                                })()}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -1182,9 +1293,13 @@ function HelpdeskDashboard() {
                                                                 {formatPatientDisplayName(apt.patient, apt, true)}
                                                                 </h4>
                                                                 <div className="mt-1 flex items-center gap-1">
-                                                                    {(apt as any).type?.toLowerCase() === 'online' ? (
+                                                                    {(apt as any).isMobile || (apt as any).bookingChannel === 'app' || (apt as any).source === 'app' ? (
+                                                                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                                            <Smartphone size={8} /> App
+                                                                        </span>
+                                                                    ) : (apt as any).type?.toLowerCase() === 'online' ? (
                                                                         <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-0.5 bg-cyan-50 text-cyan-700 border border-cyan-200">
-                                                                            <Globe size={8} /> Online
+                                                                            <Globe size={8} /> Website
                                                                         </span>
                                                                     ) : (apt as any).type === 'EMERGENCY' ? (
                                                                         <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block bg-rose-50 text-rose-600 border border-rose-100">
@@ -1219,7 +1334,11 @@ function HelpdeskDashboard() {
                                                             <div className="flex items-center justify-end gap-1">
                                                                 <Stethoscope size={10} className="text-slate-400" />
                                                                 <span className="text-[10px] font-bold text-slate-700 uppercase truncate max-w-[100px]">
-                                                                    {formatDoctorName(apt.doctorName || apt.doctor?.user?.name || apt.doctor?.name) || "Pending"}
+                                                                    {(() => {
+                                                                        const raw = apt.doctorName || apt.doctor?.user?.name || apt.doctor?.name;
+                                                                        if (!raw || raw.toLowerCase().includes('pending')) return 'Pending';
+                                                                        return formatDoctorName(raw);
+                                                                    })()}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -1314,9 +1433,29 @@ function HelpdeskDashboard() {
                             <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-1.5">
                                 <div className="flex items-center justify-between">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient</span>
-                                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200 uppercase">
-                                        {(checkingInApt as any).type?.toLowerCase() === 'online' ? 'Online Booking' : 'Offline Booking'}
-                                    </span>
+                                    {(() => {
+                                        const isApp = checkingInApt.isMobile || checkingInApt.bookingChannel === 'app' || checkingInApt.source === 'app';
+                                        const isWebsite = !isApp && (checkingInApt.bookingChannel === 'website' || (checkingInApt as any).type?.toLowerCase() === 'online');
+                                        if (isApp) {
+                                            return (
+                                                <span className="text-[10px] font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 uppercase tracking-wide flex items-center gap-1">
+                                                    📱 App Booking
+                                                </span>
+                                            );
+                                        }
+                                        if (isWebsite) {
+                                            return (
+                                                <span className="text-[10px] font-black text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200 uppercase tracking-wide flex items-center gap-1">
+                                                    🌐 Website Booking
+                                                </span>
+                                            );
+                                        }
+                                        return (
+                                            <span className="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 uppercase tracking-wide">
+                                                Offline Booking
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="text-xs sm:text-sm font-black text-slate-800 uppercase">
                                     {formatPatientDisplayName(checkingInApt.patient, checkingInApt, true)}
@@ -1328,23 +1467,62 @@ function HelpdeskDashboard() {
                             </div>
 
                             {/* Fee Card */}
-                            <div className="flex items-center justify-between p-3 bg-teal-50/50 rounded-2xl border border-teal-100">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center">
-                                        <Banknote size={18} />
+                            {(() => {
+                                const isPrePaid = checkingInApt.isMobile || 
+                                    checkingInApt.bookingChannel === 'app' || 
+                                    checkingInApt.source === 'app' || 
+                                    checkingInApt.paymentStatus?.toLowerCase() === 'paid';
+                                return (
+                                    <div className={`flex items-center justify-between p-3 rounded-2xl border ${
+                                        isPrePaid ? 'bg-emerald-50/70 border-emerald-200' : 'bg-teal-50/50 border-teal-100'
+                                    }`}>
+                                        <div className="flex items-center gap-2.5">
+                                            <div className={`w-9 h-9 rounded-xl text-white flex items-center justify-center ${
+                                                isPrePaid ? 'bg-emerald-600' : 'bg-teal-600'
+                                            }`}>
+                                                <Banknote size={18} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Consultation Fee</p>
+                                                <p className={`text-base font-black ${isPrePaid ? 'text-emerald-800' : 'text-teal-800'}`}>
+                                                    ₹{checkingInApt.fee || (checkingInApt as any).consultationFee || checkingInApt.amount || 300}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {isPrePaid ? (
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[10px] font-black px-2.5 py-1 bg-emerald-600 text-white rounded-lg uppercase tracking-wider shadow-xs flex items-center gap-1">
+                                                    <CheckCircle2 size={12} /> Status: Paid
+                                                </span>
+                                                <span className="text-[9px] font-bold text-emerald-700 mt-0.5">Pre-paid via App</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-[9px] font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md uppercase">
+                                                Status: Unpaid
+                                            </span>
+                                        )}
                                     </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Consultation Fee</p>
-                                        <p className="text-base font-black text-teal-800">₹{checkingInApt.fee || checkingInApt.amount || 300}</p>
-                                    </div>
-                                </div>
-                                <span className="text-[9px] font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md uppercase">
-                                    Status: Unpaid
-                                </span>
-                            </div>
+                                );
+                            })()}
 
-                            {/* Payment Mode Selection */}
-                            <div>
+                            {/* Payment Mode Selection — hidden for pre-paid app patients */}
+                            {(() => {
+                                const isPrePaidApp = checkingInApt.isMobile || checkingInApt.bookingChannel === 'app' || checkingInApt.source === 'app' || checkingInApt.paymentStatus?.toLowerCase() === 'paid';
+                                if (isPrePaidApp) {
+                                    return (
+                                        <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                                            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                                                <CheckCircle2 size={18} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-emerald-800 uppercase tracking-wider">Payment Already Received</p>
+                                                <p className="text-[10px] font-medium text-emerald-700 mt-0.5">Paid via Mobile App · No collection needed at front desk</p>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                <div>
                                 <label className="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">Select Payment Mode</label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {[
@@ -1461,7 +1639,9 @@ function HelpdeskDashboard() {
                                         })()}
                                     </div>
                                 )}
-                            </div>
+                                </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Pinned Footer Actions */}
@@ -1477,14 +1657,20 @@ function HelpdeskDashboard() {
                                 type="button"
                                 onClick={handleConfirmCheckIn}
                                 disabled={isSubmittingCheckIn}
-                                className="flex-1 py-2.5 bg-teal-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-teal-700 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer ${
+                                    checkingInApt.isMobile || checkingInApt.bookingChannel === 'app' || checkingInApt.source === 'app' || checkingInApt.paymentStatus?.toLowerCase() === 'paid'
+                                        ? 'bg-emerald-600 hover:bg-emerald-700'
+                                        : 'bg-teal-600 hover:bg-teal-700'
+                                }`}
                             >
                                 {isSubmittingCheckIn ? (
                                     <RefreshCw size={14} className="animate-spin" />
                                 ) : (
                                     <UserCheck size={14} />
                                 )}
-                                Confirm Check-In
+                                {checkingInApt.isMobile || checkingInApt.bookingChannel === 'app' || checkingInApt.source === 'app' || checkingInApt.paymentStatus?.toLowerCase() === 'paid'
+                                    ? 'Confirm & Dispatch to Doctor'
+                                    : 'Confirm Check-In'}
                             </button>
                         </div>
                     </div>

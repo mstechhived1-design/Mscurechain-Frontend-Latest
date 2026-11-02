@@ -24,6 +24,7 @@ import { PharmacyBillingService } from "@/lib/integrations/services/pharmacyBill
 import { ProductService } from "@/lib/integrations/services/product.service";
 import { hospitalAdminService } from "@/lib/integrations";
 import { formatPatientDisplayName } from "@/lib/utils/name-utils";
+import { computeAgeFromDob } from "@/lib/print-utils";
 import { apiClient } from "@/lib/integrations/api/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 import { useTenantLink } from "@/hooks/useTenantLink";
@@ -175,8 +176,8 @@ const FrequencySelector = ({ value, onChange }: { value: Frequency, onChange: (v
 const IPDBillingPage = () => {
     const router = useRouter();
     const searchParams = useSearchParams() as any;
-    const orderId = ((searchParams?.get("orderId") ?? null) ?? null);
-    const admissionId = ((searchParams?.get("admissionId") ?? null) ?? null);
+    const orderId = searchParams?.get("orderId") || null;
+    const admissionId = searchParams?.get("admissionId") || null;
     // const { user } = useAuthStore();
     const { getPath } = useTenantLink();
 
@@ -545,7 +546,14 @@ const IPDBillingPage = () => {
                             <div className="min-w-0">
                                 <h3 className="text-xs md:text-lg font-black text-slate-900 uppercase tracking-tight">{formatPatientDisplayName(order?.patient, order, true) || "Unknown Patient"}</h3>
                                 <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 leading-relaxed">
-                                    {order?.patient?.age && `${(/[a-zA-Z]/.test(String(order.patient.age)) ? order.patient.age : `${order.patient.age}Y`)} • `} {order?.patient?.gender && `${order.patient.gender} • `}
+                                    {(() => {
+                                        const dob = order?.patient?.dob || (order?.patient as any)?.dateOfBirth || order?.admission?.dob;
+                                        const rawAge = order?.patient?.age;
+                                        const rawUnit = order?.patient?.ageUnit;
+                                        const computed = computeAgeFromDob(dob, rawAge, rawUnit);
+                                        const ageStr = (computed && computed !== 'N/A') ? computed : (rawAge !== undefined && rawAge !== null && rawAge !== '' ? (/[a-zA-Z]/.test(String(rawAge)) ? String(rawAge) : `${rawAge} ${rawUnit || 'Y'}`) : null);
+                                        return ageStr ? `${ageStr} • ` : '';
+                                    })()}{order?.patient?.gender && `${order.patient.gender} • `}
                                     <span className="hidden sm:inline">ADMISSION: </span>{order?.admission?.admissionId || "N/A"}
                                     <br className="sm:hidden" />
                                     <span className="hidden sm:inline"> • </span>WARD: {order?.admission?.bedDetails?.wardType || order?.admission?.wardType || "N/A"} {order?.admission?.bedDetails?.bedId && `[BED: ${order.admission.bedDetails.bedId}]`}

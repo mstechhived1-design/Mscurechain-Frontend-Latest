@@ -103,8 +103,23 @@ export const calculateExactAge = (dob: string | Date | undefined, asOf: Date = n
     if (!dob) return fallback;
 
     try {
-        const birthDate = new Date(dob);
-        if (isNaN(birthDate.getTime())) return fallback;
+        let birthDate: Date | null = null;
+        if (dob instanceof Date) {
+            birthDate = isNaN(dob.getTime()) ? null : dob;
+        } else if (typeof dob === 'string') {
+            const trimmed = dob.trim();
+            const ddmmyyyyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (ddmmyyyyMatch) {
+                const day = parseInt(ddmmyyyyMatch[1], 10);
+                const month = parseInt(ddmmyyyyMatch[2], 10) - 1;
+                const year = parseInt(ddmmyyyyMatch[3], 10);
+                birthDate = new Date(year, month, day);
+            } else {
+                const d = new Date(trimmed);
+                if (!isNaN(d.getTime())) birthDate = d;
+            }
+        }
+        if (!birthDate || isNaN(birthDate.getTime())) return fallback;
 
         const target = new Date(asOf);
         if (target < birthDate) return { ...fallback, display: "0 Days", shortDisplay: "0D", primaryValue: "0", primaryUnit: "Days" };

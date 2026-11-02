@@ -174,6 +174,24 @@ export const PharmacyBillingService = {
     });
   },
 
+  updateInvoicePatient: async (
+    id: string,
+    data: {
+      patientName?: string;
+      customerPhone?: string;
+      patientAddress?: string;
+      patientType?: string;
+      doctorName?: string;
+      mrn?: string;
+      honorific?: string;
+    }
+  ): Promise<{ success: boolean; message: string; data: any }> => {
+    return apiClient<any>(`/pharmacy/invoices/${id}/patient`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
   // ✅ Query key helpers for React Query
   queryKeys: {
     all: () => ["pharmacy"] as const,

@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { LabSample } from '@/lib/integrations/types/labSample';
 import { usePrintStore } from '@/stores/printStore';
+import { computeAgeFromDob } from '@/lib/print-utils';
 
 interface ResultPrintViewProps {
     sample: LabSample;
@@ -75,7 +76,14 @@ const ResultPrintView = forwardRef<HTMLDivElement, ResultPrintViewProps>(({ samp
 
                                 <div className="grid grid-cols-[100px_1fr]">
                                     <span className="font-bold">Age / Gender :</span>
-                                    <span>{sample.patientDetails.age} Years / {sample.patientDetails.gender}</span>
+                                    <span>{(() => {
+                                        const dob = (sample.patientDetails as any)?.dob || (sample.patientDetails as any)?.dateOfBirth || (sample as any)?.patient?.dob;
+                                        const rawAge: any = sample.patientDetails?.age;
+                                        const unit = (sample.patientDetails as any)?.ageUnit;
+                                        const computed = computeAgeFromDob(dob, rawAge, unit);
+                                        const ageStr = (computed && computed !== 'N/A') ? computed : (rawAge !== undefined && rawAge !== null && rawAge !== '' && rawAge !== '---' ? (/[a-zA-Z]/.test(String(rawAge)) ? String(rawAge) : `${rawAge} ${unit || 'Years'}`) : '-');
+                                        return `${ageStr} / ${sample.patientDetails.gender || '-'}`;
+                                    })()}</span>
                                 </div>
                                 <div className="grid grid-cols-[100px_1fr]">
                                     <span className="font-bold">Reg. No :</span>

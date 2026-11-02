@@ -1,4 +1,5 @@
 import React from 'react';
+import { Pencil } from 'lucide-react';
 import { PharmacyBill } from '@/lib/integrations/types/pharmacyBilling';
 import { formatFrequency } from '@/lib/frequencyUtils';
 import MainHeader from '@/components/printers/MainHeader';

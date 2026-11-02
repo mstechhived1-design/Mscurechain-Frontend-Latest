@@ -1,3 +1,0 @@
-cd Multitenant_MsCurechain_Frontend
-cls
-doskey /history > today_commands.txt

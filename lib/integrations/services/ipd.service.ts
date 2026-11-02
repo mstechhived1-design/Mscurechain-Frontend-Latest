@@ -515,6 +515,23 @@ export const ipdService = {
       method: "DELETE",
     }),
 
+  mergeExtraCharges: (data: {
+    primaryChargeId: string;
+    mergeChargeIds: string[];
+    mergedDescription: string;
+    mergedAmount: number;
+  }) =>
+    apiClient<any>(IPD_ENDPOINTS.BILLING.CHARGE_MERGE, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  unmergeExtraCharges: (chargeId: string) =>
+    apiClient<any>(IPD_ENDPOINTS.BILLING.CHARGE_UNMERGE, {
+      method: "POST",
+      body: JSON.stringify({ chargeId }),
+    }),
+
   addAdvancePayment: (data: {
     admissionId: string;
     amount: number;
@@ -554,9 +571,10 @@ export const ipdService = {
       body: JSON.stringify(data),
     }),
 
-  lockBill: (admissionId: string) =>
+  lockBill: (admissionId: string, options?: { preserveOriginalCutoff?: boolean }) =>
     apiClient<any>(IPD_ENDPOINTS.BILLING.LOCK(admissionId), {
       method: "PATCH",
+      body: options ? JSON.stringify(options) : undefined,
     }),
 
   unlockBill: (admissionId: string) =>

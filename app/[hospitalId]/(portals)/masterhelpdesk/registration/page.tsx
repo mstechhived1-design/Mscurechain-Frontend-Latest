@@ -18,6 +18,7 @@ import type { HelpdeskDoctor, Bed, SpellMatch, SpellState, SpellPopupState } fro
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
+import { getAllHospitalPrefixes, addHospitalCustomHonorific, cleanHonorificPrefix } from "@/lib/utils/name-utils";
 
 interface FieldError {
     [key: string]: string;
@@ -88,6 +89,25 @@ export default function MasterPatientRegistration() {
     const searchParams = useSearchParams() as any;
     const params = useParams() as any;
     const hospitalId = params.hospitalId as string;
+    const [isAddingCustomTitle, setIsAddingCustomTitle] = useState(false);
+    const [customTitleInput, setCustomTitleInput] = useState('');
+    const [hospitalPrefixes, setHospitalPrefixes] = useState(() => getAllHospitalPrefixes(hospitalId));
+
+    useEffect(() => {
+        setHospitalPrefixes(getAllHospitalPrefixes(hospitalId));
+    }, [hospitalId]);
+
+    const handleSaveCustomTitle = () => {
+        if (!customTitleInput.trim()) return;
+        const added = cleanHonorificPrefix(customTitleInput.trim().toUpperCase());
+        addHospitalCustomHonorific(added, hospitalId);
+        setHospitalPrefixes(getAllHospitalPrefixes(hospitalId));
+        setFormData(prev => ({ ...prev, honorific: added }));
+        setIsAddingCustomTitle(false);
+        setCustomTitleInput('');
+        toast.success(`Custom prefix "${added}" saved for this hospital`);
+    };
+
     const [submitting, setSubmitting] = useState(false);
     const [errors, setErrors] = useState<FieldError>({});
     const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
@@ -217,7 +237,9 @@ export default function MasterPatientRegistration() {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         let processedValue = value;
-        if (name === 'mobile' || name === 'emergencyContact') {
+        if (name === 'honorific') {
+            processedValue = cleanHonorificPrefix(value);
+        } else if (name === 'mobile' || name === 'emergencyContact') {
             processedValue = value.replace(/\D/g, '').slice(0, 10);
         }
 
@@ -260,6 +282,7 @@ export default function MasterPatientRegistration() {
             setSubmitting(true);
             const res = await masterHelpdeskService.registerPatient({
                 ...formData,
+                honorific: cleanHonorificPrefix(formData.honorific),
                 hospitalId: hospitalId, // Explicitly pass hospital context from URL
                 email: formData.patientEmail || undefined,
                 age: parseInt(formData.age),
@@ -342,9 +365,56 @@ export default function MasterPatientRegistration() {
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div className="md:col-span-2">
                             <FormInput label="Honorific" component={
-                                <select name="honorific" value={formData.honorific} onChange={handleChange} className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 outline-none text-sm font-bold">
-                                    <option value="">Select</option><option value="Mr">Mr.</option><option value="Mrs">Mrs.</option><option value="Ms">Ms.</option><option value="Dr">Dr.</option>
-                                </select>
+                                isAddingCustomTitle ? (
+                                    <div className="flex gap-1 items-center">
+                                        <input
+                                            type="text"
+                                            placeholder="PREFIX"
+                                            value={customTitleInput}
+                                            onChange={(e) => setCustomTitleInput(e.target.value)}
+                                            className="w-full px-2 py-2 rounded-xl bg-white border border-teal-500 text-xs font-bold uppercase outline-none"
+                                            autoFocus
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveCustomTitle}
+                                            className="px-2 py-2 bg-teal-600 text-white rounded-xl text-[10px] font-bold uppercase hover:bg-teal-700 shrink-0"
+                                        >
+                                            Save
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setIsAddingCustomTitle(false); setCustomTitleInput(''); }}
+                                            className="px-2 py-2 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-bold hover:bg-slate-200 shrink-0"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <select
+                                        name="honorific"
+                                        value={formData.honorific}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__ADD_CUSTOM__') {
+                                                setIsAddingCustomTitle(true);
+                                            } else {
+                                                handleChange(e);
+                                            }
+                                        }}
+                                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 outline-none text-sm font-bold cursor-pointer"
+                                    >
+                                        <option value="">Select</option>
+                                        {hospitalPrefixes.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                        {formData.honorific && !hospitalPrefixes.some(p => p.value.toLowerCase() === formData.honorific.toLowerCase()) && (
+                                            <option value={cleanHonorificPrefix(formData.honorific)}>{cleanHonorificPrefix(formData.honorific).toUpperCase()}</option>
+                                        )}
+                                        <option value="__ADD_CUSTOM__" className="font-bold text-teal-600">
+                                            + Add Custom...
+                                        </option>
+                                    </select>
+                                )
                             } />
                         </div>
                         <div className="md:col-span-5">

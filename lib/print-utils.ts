@@ -1,42 +1,147 @@
 import { usePrintStore } from '@/stores/printStore';
 import { formatDoctorName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
+import { formatFrequency } from '@/lib/frequencyUtils';
+
+
+/**
+ * Safely parses any date string, Date object, or timestamp without throwing or producing Invalid Date.
+ * Properly handles Indian/UK DD/MM/YYYY and DD-MM-YYYY formats which standard new Date() fails on when Day > 12.
+ */
+export const parseSafeDate = (input: any): Date | null => {
+  if (!input) return null;
+  if (input instanceof Date) {
+    return isNaN(input.getTime()) ? null : input;
+  }
+  if (typeof input === 'number') {
+    const d = new Date(input);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (
+      !trimmed ||
+      trimmed === '-' ||
+      trimmed.toLowerCase() === 'n/a' ||
+      trimmed.toLowerCase() === 'invalid date' ||
+      trimmed.toLowerCase() === 'null' ||
+      trimmed.toLowerCase() === 'undefined'
+    ) {
+      return null;
+    }
+
+    // 1. Check DD/MM/YYYY or DD-MM-YYYY (e.g. "24/10/2026", "24-10-2026", "05/03/2025")
+    const ddmmyyyyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(.*)$/);
+    if (ddmmyyyyMatch) {
+      const day = parseInt(ddmmyyyyMatch[1], 10);
+      const month = parseInt(ddmmyyyyMatch[2], 10) - 1;
+      const year = parseInt(ddmmyyyyMatch[3], 10);
+      const timePart = ddmmyyyyMatch[4]?.trim();
+      const d = new Date(year, month, day);
+
+      if (timePart) {
+        const cleanTime = timePart.replace(/^,?\s*/, '');
+        const timeParsed = new Date(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')} ${cleanTime}`);
+        if (!isNaN(timeParsed.getTime())) return timeParsed;
+      }
+
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    // 2. Check YYYY-MM-DD or YYYY/MM/DD (e.g. "2026-10-24", "2026/10/24")
+    const yyyymmddMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(.*)$/);
+    if (yyyymmddMatch) {
+      const year = parseInt(yyyymmddMatch[1], 10);
+      const month = parseInt(yyyymmddMatch[2], 10) - 1;
+      const day = parseInt(yyyymmddMatch[3], 10);
+      const timePart = yyyymmddMatch[4]?.trim();
+      const d = new Date(year, month, day);
+
+      if (timePart) {
+        const cleanTime = timePart.replace(/^[T,\s]+/, '');
+        const timeParsed = new Date(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${cleanTime}`);
+        if (!isNaN(timeParsed.getTime())) return timeParsed;
+      }
+
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    // 3. Try standard Date parsing (e.g. ISO strings "2026-10-24T12:00:00Z", "24 Oct 2026", "October 24, 2026")
+    const standardDate = new Date(trimmed);
+    if (!isNaN(standardDate.getTime())) return standardDate;
+  }
+  return null;
+};
+
+export const formatSafeDate = (
+  input: any,
+  options: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" },
+  fallback = new Date()
+): string => {
+  const d = parseSafeDate(input) || parseSafeDate(fallback) || new Date();
+  return d.toLocaleDateString("en-GB", options);
+};
+
+export const formatSafeTime = (
+  input: any,
+  options: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", hour12: true },
+  fallback = new Date()
+): string => {
+  const d = parseSafeDate(input) || parseSafeDate(fallback) || new Date();
+  return d.toLocaleTimeString("en-IN", options);
+};
 
 export const computeAgeFromDob = (dob: any, fallbackAge: any, fallbackUnit: any) => {
-    if (dob) {
-        const birthDate = new Date(dob);
-        if (!isNaN(birthDate.getTime())) {
-            const today = new Date();
-            let ageYears = today.getFullYear() - birthDate.getFullYear();
-            let ageMonths = today.getMonth() - birthDate.getMonth();
-            let ageDays = today.getDate() - birthDate.getDate();
+  if (dob) {
+    const birthDate = parseSafeDate(dob);
+    if (birthDate && !isNaN(birthDate.getTime())) {
+      const today = new Date();
+      let ageYears = today.getFullYear() - birthDate.getFullYear();
+      let ageMonths = today.getMonth() - birthDate.getMonth();
+      let ageDays = today.getDate() - birthDate.getDate();
 
-            if (ageDays < 0) {
-                ageMonths--;
-                ageDays += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
-            }
-            if (ageMonths < 0) {
-                ageYears--;
-                ageMonths += 12;
-            }
+      if (ageDays < 0) {
+        ageMonths--;
+        ageDays += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+      }
+      if (ageMonths < 0) {
+        ageYears--;
+        ageMonths += 12;
+      }
 
-            if (ageYears > 0) {
-                if (ageMonths > 0 && ageYears < 5) {
-                    return `${ageYears} Years ${ageMonths} Months`;
-                }
-                return `${ageYears} Years`;
-            }
-            if (ageMonths > 0) return `${ageMonths} Months`;
-            if (ageDays > 0) return `${ageDays} Days`;
-            return "0 Days";
+      if (ageYears > 0) {
+        if (ageMonths > 0 && ageYears < 5) {
+          return `${ageYears} ${ageYears === 1 ? 'Year' : 'Years'} ${ageMonths} ${ageMonths === 1 ? 'Month' : 'Months'}`;
         }
+        return `${ageYears} ${ageYears === 1 ? 'Year' : 'Years'}`;
+      }
+      if (ageMonths > 0) {
+        return `${ageMonths} ${ageMonths === 1 ? 'Month' : 'Months'}`;
+      }
+      if (ageDays > 0) {
+        return `${ageDays} ${ageDays === 1 ? 'Day' : 'Days'}`;
+      }
+      return "0 Days";
     }
-    if (fallbackAge !== undefined && fallbackAge !== null && fallbackAge !== "-" && fallbackAge !== "" && fallbackAge !== "N/A") {
-        const unit = fallbackUnit ? (fallbackUnit === 'Months' ? 'Months' : fallbackUnit === 'Days' ? 'Days' : 'Years') : 'Years';
-        // if fallbackAge already has Y/Mos/Days, just return it
-        if (String(fallbackAge).match(/(Y|Mos|Days|Month|Day|Yr|Yrs)$/i)) return String(fallbackAge);
-        return `${fallbackAge} ${unit}`;
-    }
-    return "N/A";
+  }
+  if (fallbackAge !== undefined && fallbackAge !== null && fallbackAge !== "-" && fallbackAge !== "" && fallbackAge !== "N/A") {
+    const fallbackStr = String(fallbackAge).trim();
+    // Normalize short format e.g. "1D", "19D", "2M", "5Y"
+    const dMatch = fallbackStr.match(/^(\d+)\s*d(ays?)?$/i);
+    if (dMatch) return `${dMatch[1]} ${dMatch[1] === '1' ? 'Day' : 'Days'}`;
+    const mMatch = fallbackStr.match(/^(\d+)\s*m(os?|onths?)?$/i);
+    if (mMatch) return `${mMatch[1]} ${mMatch[1] === '1' ? 'Month' : 'Months'}`;
+    const yMatch = fallbackStr.match(/^(\d+)\s*y(rs?|ears?)?$/i);
+    if (yMatch) return `${yMatch[1]} ${yMatch[1] === '1' ? 'Year' : 'Years'}`;
+
+    const rawUnit = String(fallbackUnit || '').trim().toLowerCase();
+    const unit = rawUnit.startsWith('d') ? (fallbackStr === '1' ? 'Day' : 'Days') :
+                 rawUnit.startsWith('m') ? (fallbackStr === '1' ? 'Month' : 'Months') :
+                 (fallbackStr === '1' ? 'Year' : 'Years');
+                 
+    if (fallbackStr.match(/(Y|Mos|Days|Month|Day|Yr|Yrs|Years|Months)$/i)) return fallbackStr;
+    return `${fallbackAge} ${unit}`;
+  }
+  return "N/A";
 };
 
 export const formatTime12Hr = (time: any): string => {
@@ -78,12 +183,12 @@ export const formatTime12Hr = (time: any): string => {
 export const formatReceiptPaymentMode = (payment: any = {}, appointment: any = {}): string => {
   const rawMode = String(payment?.method || payment?.mode || appointment?.paymentMethod || appointment?.paymentMode || 'CASH').toUpperCase();
   if (rawMode === 'MIXED') {
-    const detailsObj = payment?.paymentDetails || 
-                      appointment?.payment?.paymentDetails || 
-                      appointment?.paymentDetails || 
-                      payment?.transaction?.paymentDetails || 
-                      appointment?.transaction?.paymentDetails || 
-                      {};
+    const detailsObj = payment?.paymentDetails ||
+      appointment?.payment?.paymentDetails ||
+      appointment?.paymentDetails ||
+      payment?.transaction?.paymentDetails ||
+      appointment?.transaction?.paymentDetails ||
+      {};
     const cash = Number(detailsObj.cash) || 0;
     const upi = Number(detailsObj.upi) || 0;
     const card = Number(detailsObj.card) || 0;
@@ -134,13 +239,13 @@ export const generatePayslipHtml = (data: any) => {
 
   const monthName = rx.startDate
     ? new Date(rx.startDate).toLocaleString("default", {
-        month: "short",
-        year: "numeric",
-      })
+      month: "short",
+      year: "numeric",
+    })
     : "Pay Period";
   const fullPeriod =
     rx.startDate && rx.endDate
-      ? `(From ${((d) => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear())(new Date(rx.startDate))} To ${((d) => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear())(new Date(rx.endDate))})`
+      ? `(From ${((d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear())(new Date(rx.startDate))} To ${((d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear())(new Date(rx.endDate))})`
       : "";
 
   // Number to words function
@@ -770,421 +875,303 @@ export const generatePayslipHtml = (data: any) => {
 };
 
 export const generateLabReceiptHtml = (data: any) => {
-  const { hospital = {}, patient = {}, appointment = {}, payment = {}, headerHtml, footerHtml, labTests = [], showGuardianDetails = true } = data || {};
-  
+  const { hospital = {}, patient = {}, appointment = {}, payment = {}, headerHtml, footerHtml, labTests = [] } = data || {};
+
   const formattedPatientName = formatPatientNameWithPrefix(
-    patient.name || patient.user?.name,
-    appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific || patient.honorific || patient.profile?.honorific || patient.honorificTitle
+    patient.name || patient.user?.name || data.patientName || '',
+    appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific || patient.honorific || patient.profile?.honorific || patient.honorificTitle || data.honorific
   );
 
-  const ageDisplay = computeAgeFromDob(patient.dob || patient.dateOfBirth, patient.age, patient.ageUnit) || patient.age || "N/A";
-  const genderDisplay = patient.gender && patient.gender !== "-"
-    ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)
-    : "N/A";
+  const patAge = computeAgeFromDob(patient.dob || patient.dateOfBirth, patient.age, patient.ageUnit) || patient.age || appointment.patientDetails?.age || data.age || "-";
+  const patGender = (patient.gender && patient.gender !== "-")
+    ? (patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1))
+    : (appointment.patientDetails?.gender || data.gender || "-");
+  const ageGenderStr = `${patAge !== "-" ? patAge : "-"} / ${patGender}`;
 
-  const doctorTitle = formatDoctorName(appointment.doctorName || appointment.primaryDoctor || appointment.suggestedDoctorName || "Doctor");
+  const patMobile = patient.mobile || patient.phone || appointment.patientDetails?.mobile || data.mobile || "-";
+  const patMRN = patient.mrn || patient.medicalRecordNumber || patient.uhid || appointment.patientDetails?.mrn || data.mrn || "N/A";
+  const docName = formatDoctorName(appointment.doctorName || appointment.primaryDoctor || appointment.doctor?.name || appointment.refDoctor || data.refDoctor || data.doctorName || "-");
 
-  const visitDateRaw = appointment.date || appointment.appointmentDate || payment.date || new Date();
-  const formatDDMMYYYY = (dateInput: Date | string | undefined): string => {
-    if (!dateInput) return "N/A";
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return String(dateInput);
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-  const dateFormatted = formatDDMMYYYY(visitDateRaw);
-  const timeFormatted = appointment.time || appointment.appointmentTime || "10:00 AM";
+  const visitDateRaw = appointment.date || appointment.appointmentDate || payment.date || data.billDate || data.createdAt || data.date || (appointment as any).bookedAt || new Date();
+  const safeVisitDate = parseSafeDate(visitDateRaw) || parseSafeDate(payment.date) || parseSafeDate((appointment as any).bookedAt) || parseSafeDate(data.createdAt) || new Date();
+  const currentDate = safeVisitDate.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const currentTime = appointment.time || appointment.appointmentTime || safeVisitDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
   // Tests list
-  let testsList: any[] = [];
+  let testItems: any[] = [];
   if (Array.isArray(labTests) && labTests.length > 0) {
-    testsList = labTests;
+    testItems = labTests;
+  } else if (Array.isArray(data.items) && data.items.length > 0) {
+    testItems = data.items;
+  } else if (Array.isArray(data.tests) && data.tests.length > 0) {
+    testItems = data.tests;
   } else if (Array.isArray(appointment.tests) && appointment.tests.length > 0) {
-    testsList = appointment.tests;
-  } else if (appointment.testName) {
-    testsList = [{ name: appointment.testName, cost: payment.amount }];
-  } else if (appointment.notes && appointment.notes !== 'N/A') {
-    testsList = [{ name: appointment.notes, cost: payment.amount }];
-  } else if (patient.symptoms && patient.symptoms !== 'N/A') {
-    testsList = [{ name: patient.symptoms, cost: payment.amount }];
-  } else {
-    testsList = [{ name: "Lab Diagnostic Investigation", cost: payment.amount }];
+    testItems = appointment.tests;
+  } else if (appointment.testName || data.testName || data.name) {
+    testItems = [{ testName: appointment.testName || data.testName || data.name, price: payment.amount || 0 }];
   }
 
-  const totalAmount = Number(payment.totalBillAmount || payment.fee || payment.originalAmount || payment.amount || 0);
-  const discountAmount = Number(payment.discount || payment.discountAmount || appointment.discount || 0);
-  const paidAmount = Number(payment.amount != null ? payment.amount : (payment.paidAmount || 0));
-  const balanceAmount = Number(payment.balance || (totalAmount - discountAmount - paidAmount > 0 ? totalAmount - discountAmount - paidAmount : 0));
-  const paymentMode = formatReceiptPaymentMode(payment, appointment);
-  const receiptNo = payment.receiptNumber || payment.receiptNo || appointment.appointmentId || appointment.sampleId || 'REC-N/A';
+  const totalAmount = Number(
+    payment.totalBillAmount ??
+    payment.fee ??
+    payment.originalAmount ??
+    data.totalAmount ??
+    data.amount ??
+    payment.amount ??
+    testItems.reduce((acc: number, t: any) => acc + (Number(t.price ?? t.cost) || 0), 0)
+  );
+  const discountAmount = Number(payment.discount || payment.discountAmount || appointment.discount || data.discount || 0);
+  const paidAmount = Number(payment.amount != null ? payment.amount : (data.paidAmount ?? payment.paidAmount ?? totalAmount));
+  const balanceAmount = Number(payment.balance ?? data.balance ?? (totalAmount - discountAmount - paidAmount > 0 ? totalAmount - discountAmount - paidAmount : 0));
+  const paymentMode = formatReceiptPaymentMode(payment, appointment) || data.paymentMode || "Cash";
 
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Lab Diagnostic Receipt - ${formattedPatientName || "Patient"}</title>
-      <meta charset="UTF-8">
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        @page { size: A4; margin: 8mm 12mm; }
-        body {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-          color: #0f172a;
-          line-height: 1.4;
-          margin: 0;
-          padding: 12px;
-          background: white;
-          font-size: 10.5px;
-        }
-        .header-wrapper { width: 100%; box-sizing: border-box; }
-        .footer-wrapper { width: 100%; box-sizing: border-box; }
-        .receipt-container { width: 100%; box-sizing: border-box; }
-        .receipt-title-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 8px 12px;
-          background: #f8fafc;
-          border: 1.5px solid #e2e8f0;
-          border-radius: 8px;
-          margin: 10px 0 12px 0;
-        }
-        .receipt-title {
-          font-size: 13px;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: #0f172a;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-        .badge-lab {
-          background: #eef2ff;
-          color: #4f46e5;
-          border: 1px solid #c7d2fe;
-          font-size: 9.5px;
-          font-weight: 800;
-          padding: 2px 8px;
-          border-radius: 4px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .badge-paid {
-          background: #f0fdf4;
-          color: #16a34a;
-          border: 1px solid #bbf7d0;
-          font-size: 9.5px;
-          font-weight: 800;
-          padding: 2px 8px;
-          border-radius: 4px;
-          text-transform: uppercase;
-        }
-        .info-card {
-          border: 1.5px solid #e2e8f0;
-          border-radius: 8px;
-          padding: 10px 14px;
-          background: #fff;
-          margin-bottom: 12px;
-        }
-        .info-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 4px 20px;
-        }
-        .info-row {
-          display: flex;
-          align-items: baseline;
-          font-size: 10.5px;
-        }
-        .info-label {
-          width: 120px;
-          font-weight: 700;
-          color: #64748b;
-          flex-shrink: 0;
-          text-transform: uppercase;
-          font-size: 9px;
-          letter-spacing: 0.5px;
-        }
-        .info-colon { width: 12px; color: #64748b; font-weight: 700; }
-        .info-value { font-weight: 800; color: #0f172a; flex: 1; word-break: break-word; }
-        
-        .tests-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 12px 0;
-          font-size: 10px;
-          border: 1.5px solid #e2e8f0;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        .tests-table th {
-          background: #f8fafc;
-          padding: 8px 12px;
-          font-weight: 800;
-          text-transform: uppercase;
-          font-size: 9px;
-          letter-spacing: 0.5px;
-          color: #475569;
-          border-bottom: 1.5px solid #e2e8f0;
-        }
-        .tests-table td {
-          padding: 8px 12px;
-          border-bottom: 1px solid #f1f5f9;
-          font-weight: 600;
-        }
-        .tests-table tr:last-child td { border-bottom: none; }
-        
-        .summary-box {
-          display: flex;
-          justify-content: flex-end;
-          margin: 10px 0;
-        }
-        .summary-card {
-          width: 280px;
-          border: 1.5px solid #e2e8f0;
-          border-radius: 8px;
-          background: #f8fafc;
-          padding: 10px 14px;
-        }
-        .summary-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 3px 0;
-          font-size: 10.5px;
-          font-weight: 700;
-          color: #475569;
-        }
-        .summary-row.total {
-          border-top: 1.5px solid #cbd5e1;
-          margin-top: 4px;
-          padding-top: 6px;
-          font-size: 12px;
-          font-weight: 900;
-          color: #0f172a;
-        }
-        .summary-row.paid {
-          color: #0f766e;
-          font-size: 12px;
-          font-weight: 900;
-        }
-        .payment-banner {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 14px;
-          background: #f0fdf4;
-          border: 1.5px solid #bbf7d0;
-          border-radius: 8px;
-          margin: 12px 0;
-        }
-        .instruction-box {
-          background: #f8fafc;
-          border: 1px dashed #cbd5e1;
-          border-radius: 6px;
-          padding: 8px 12px;
-          font-size: 9px;
-          color: #475569;
-          margin: 12px 0;
-        }
-        .instruction-box strong { color: #0f172a; }
-        .sig-section {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 25px;
-          padding-top: 10px;
-        }
-        .sig-box {
-          text-align: center;
-          width: 160px;
-          border-top: 1px solid #94a3b8;
-          padding-top: 4px;
-          font-size: 9px;
-          font-weight: 700;
-          text-transform: uppercase;
-          color: #64748b;
-        }
-        @media print {
-          body { padding: 0; margin: 0; }
-          .receipt-title-bar, .info-card, .tests-table, .summary-card, .payment-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
-      </style>
-      ${!(data?.printWithHeader !== undefined ? data.printWithHeader : usePrintStore.getState().printWithHeader) ? `
-      <style>
-        .header-wrapper, .footer-wrapper, .hospital-header, .footer, .signatory-box, .signatory, .print-header, .print-footer, .header, .header-container, .divider-thick, .footer-note, .page-header, .footer-push { visibility: hidden !important; }
-      </style>
-      ` : ''}
-    </head>
-    <body onload="window.print();">
-      <div class="header-wrapper">
-        ${headerHtml || ''}
+  const rawInvoiceId = data.invoiceId || data.invoiceNo || payment.receiptNumber || payment.receiptNo || appointment.appointmentId || appointment.sampleId || "";
+  let invoiceId = rawInvoiceId;
+  if (!invoiceId) {
+    invoiceId = "OPD-INVOICE";
+  } else if (invoiceId.length >= 24) {
+    invoiceId = `OPD-${invoiceId.slice(-6).toUpperCase()}`;
+  }
+
+  const labName = data.labInfo?.name || (hospital.name ? (hospital.name.toUpperCase().includes("LAB") ? hospital.name.toUpperCase() : `${hospital.name.toUpperCase()} LABORATORY`) : "LABORATORY");
+  const labAddress = data.labInfo?.address || hospital.address || "";
+  const labPhone = data.labInfo?.phone || hospital.phone || hospital.contact || "";
+  const labEmail = data.labInfo?.email || hospital.email || "";
+  const labLogo = data.labInfo?.logo || hospital.logo || "";
+
+  const testRows = testItems.length > 0
+    ? testItems.map((item: any, idx: number) => {
+        const tName = item.testName || item.name || item.investigationName || item.description || "Diagnostic Test";
+        const price = Number(item.price ?? item.cost ?? (testItems.length === 1 ? totalAmount : 0));
+        return `
+        <tr>
+          <td style="border: 1px solid #000000; padding: 6px 10px; text-align: left; width: 60px;">${idx + 1}</td>
+          <td style="border: 1px solid #000000; padding: 6px 10px; text-align: left; font-weight: 500;">${tName}</td>
+          <td style="border: 1px solid #000000; padding: 6px 10px; text-align: right; width: 120px; font-weight: 700;">₹${price.toFixed(2)}</td>
+        </tr>`;
+      }).join("")
+    : `<tr><td colspan="3" style="border: 1px solid #000000; padding: 12px; text-align: center;">No tests recorded on this invoice</td></tr>`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>OPD Invoice - ${invoiceId}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    @page { size: A4 portrait; margin: 8mm 12mm; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #ffffff;
+      color: #000000;
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.4;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .bill-wrapper {
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: #ffffff;
+      min-height: 100%;
+    }
+    table { border-collapse: collapse; }
+    th, td { box-sizing: border-box; }
+    @media print {
+      body { margin: 0; padding: 0; }
+    }
+  </style>
+</head>
+<body onload="window.print();">
+  <div class="bill-wrapper">
+    <div>
+      ${headerHtml ? `<div style="width: 100%; margin-bottom: 12px;">${headerHtml}</div>` : `
+      <!-- HeaderPrint Component matching Screenshot 3 -->
+      <div style="width: 100%; font-family: 'Inter', Arial, sans-serif; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 20px; padding: 6px 0 10px 0;">
+          ${labLogo ? `
+          <div style="width: 110px; max-height: 80px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <img src="${labLogo}" alt="Lab Logo" style="max-width: 100%; max-height: 80px; object-fit: contain;" />
+          </div>` : `
+          <div style="width: 85px; height: 70px; border: 1.5px solid #1e3a8a; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #1e3a8a; font-size: 11px; font-weight: bold; text-transform: uppercase; flex-shrink: 0;">
+            LOGO
+          </div>`}
+          <div style="width: 2px; height: 60px; background-color: #cbd5e1; flex-shrink: 0;"></div>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;">
+            <h1 style="margin: 0; font-size: 26px; font-weight: 900; color: #1e3a8a; text-transform: uppercase; letter-spacing: -0.5px; line-height: 1.1;">
+              ${labName}
+            </h1>
+            ${labEmail ? `
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #1e3a8a; font-weight: 700; margin-top: 2px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" stroke-width="2.5"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              <span>${labEmail}</span>
+            </div>` : ""}
+            ${(labAddress || labPhone) ? `
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 11px; color: #475569; font-weight: 600; margin-top: 2px; flex-wrap: wrap;">
+              ${labAddress ? `<span>${labAddress}</span>` : ""}
+              ${(labAddress && labPhone) ? `<span style="color: #cbd5e1;">|</span>` : ""}
+              ${labPhone ? `
+              <div style="display: flex; align-items: center; gap: 5px; color: #15803d; font-weight: 700;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#15803d" stroke="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <span>${labPhone}</span>
+              </div>` : ""}
+            </div>` : ""}
+          </div>
+        </div>
+        <div style="width: 100%; height: 4px; background-color: #15803d; border-radius: 2px;"></div>
+      </div>`}
+
+      <!-- Center Title: OPD INVOICE matching Screenshot 3 -->
+      <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 12px; position: relative; width: 100%;">
+        <div style="width: 100%; border-top: 1px solid #000000; position: absolute; top: 11px; left: 0; z-index: 1;"></div>
+        <span style="position: relative; z-index: 2; background-color: #ffffff; padding: 0 16px; font-weight: 800; font-size: 14px; text-transform: uppercase; color: #000000; border-bottom: 2px solid #000000; padding-bottom: 2px;">
+          OPD INVOICE
+        </span>
       </div>
 
-      <div class="receipt-container">
-        <!-- Title bar -->
-        <div class="receipt-title-bar">
-          <div class="receipt-title">
-            <span>🔬 Lab Diagnostic Receipt &amp; Invoice</span>
-            <span class="badge-lab">LAB BILL</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="badge-paid">${(payment.status || 'PAID').toUpperCase()}</span>
-            <span style="font-weight: 800; font-size: 10px; color: #475569;"># ${receiptNo}</span>
-          </div>
-        </div>
-
-        <!-- Patient & Billing details -->
-        <div class="info-card">
-          <div class="info-grid">
-            <div class="info-row">
-              <span class="info-label">Patient Name</span>
-              <span class="info-colon">:</span>
-              <span class="info-value">${formattedPatientName}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Date &amp; Time</span>
-              <span class="info-colon">:</span>
-              <span class="info-value">${dateFormatted} ${timeFormatted}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">MR No.</span>
-              <span class="info-colon">:</span>
-              <span class="info-value" style="color: #0f766e;">${patient.mrn || 'N/A'}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Sample / Order ID</span>
-              <span class="info-colon">:</span>
-              <span class="info-value">${appointment.appointmentId || appointment.sampleId || receiptNo}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Age / Gender</span>
-              <span class="info-colon">:</span>
-              <span class="info-value">${ageDisplay} / ${genderDisplay}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Referred Doctor</span>
-              <span class="info-colon">:</span>
-              <span class="info-value">${doctorTitle}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Mobile No.</span>
-              <span class="info-colon">:</span>
-              <span class="info-value">${patient.mobile || 'N/A'}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Payment Mode</span>
-              <span class="info-colon">:</span>
-              <span class="info-value">${paymentMode}</span>
-            </div>
-            ${patient.address && patient.address !== 'N/A' ? `
-            <div class="info-row" style="grid-column: 1 / -1;">
-              <span class="info-label">Address</span>
-              <span class="info-colon">:</span>
-              <span class="info-value">${patient.address}</span>
-            </div>` : ''}
-          </div>
-
-          ${showGuardianDetails && (patient.guardianName || appointment.guardianName) ? `
-          <div style="margin-top: 6px; padding: 4px 8px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 4px; font-size: 9.5px; display: flex; gap: 16px;">
-            <span><strong>Guardian:</strong> ${patient.guardianName || appointment.guardianName}${patient.guardianRelation || appointment.guardianRelation ? ` (${patient.guardianRelation || appointment.guardianRelation})` : ''}</span>
-            ${patient.guardianMobile || appointment.guardianMobile ? `<span><strong>Contact:</strong> ${patient.guardianMobile || appointment.guardianMobile}</span>` : ''}
-          </div>` : ''}
-        </div>
-
-        <!-- Investigation & Test Breakdown -->
-        <table class="tests-table">
-          <thead>
-            <tr>
-              <th style="width: 35px; text-align: center;">#</th>
-              <th style="text-align: left;">Investigation / Test Description</th>
-              <th style="width: 140px; text-align: center;">Department / Type</th>
-              <th style="width: 100px; text-align: right;">Amount (INR)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${testsList.map((t: any, idx: number) => {
-              const testName = t.name || t.testName || t.investigationName || t.description || 'Lab Test';
-              const testDept = t.department || t.category || t.type || 'Clinical Pathology';
-              const testCost = t.cost != null ? Number(t.cost) : (t.price != null ? Number(t.price) : (testsList.length === 1 ? paidAmount : 0));
-              return `
+      <!-- Info Grid Box matching Screenshot 3 -->
+      <table style="width: 100%; border: 1px solid #000000; border-collapse: collapse; margin-bottom: 10px;">
+        <tr>
+          <!-- Invoice Info (Left) -->
+          <td style="width: 50%; vertical-align: top; padding: 8px 12px; border-right: 1px solid #000000;">
+            <div style="font-weight: 800; font-size: 11px; text-transform: uppercase; margin-bottom: 8px; color: #000000;">INVOICE INFORMATION</div>
+            <table style="width: 100%; font-size: 11px; line-height: 1.5;">
               <tr>
-                <td style="text-align: center; color: #64748b;">${idx + 1}</td>
-                <td><strong style="color: #0f172a;">${testName}</strong></td>
-                <td style="text-align: center; color: #64748b;">${testDept}</td>
-                <td style="text-align: right; font-weight: 800; color: #0f172a;">₹ ${Math.round(testCost).toLocaleString('en-IN')}</td>
+                <td style="width: 85px; font-weight: 600; color: #000000;">Invoice ID:</td>
+                <td style="color: #000000; font-weight: 700;">${invoiceId}</td>
               </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
+              <tr>
+                <td style="width: 85px; font-weight: 600; color: #000000;">Date:</td>
+                <td style="color: #000000;">${currentDate}</td>
+              </tr>
+            </table>
+          </td>
 
-        <!-- Summary & Totals -->
-        <div class="summary-box">
-          <div class="summary-card">
-            <div class="summary-row">
-              <span>Gross Total:</span>
-              <span>₹ ${Math.round(totalAmount > 0 ? totalAmount : paidAmount).toLocaleString('en-IN')}</span>
+          <!-- Patient Info (Right) -->
+          <td style="width: 50%; vertical-align: top; padding: 8px 12px;">
+            <div style="font-weight: 800; font-size: 11px; text-transform: uppercase; margin-bottom: 8px; color: #000000;">PATIENT INFORMATION</div>
+            <table style="width: 100%; font-size: 11px; line-height: 1.5;">
+              <tr>
+                <td style="width: 95px; font-weight: 600; color: #000000;">Name:</td>
+                <td style="color: #000000; font-weight: 700;">${formattedPatientName || "Patient"}</td>
+              </tr>
+              <tr>
+                <td style="width: 95px; font-weight: 600; color: #000000;">MRN:</td>
+                <td style="color: #000000; font-weight: 700;">${patMRN}</td>
+              </tr>
+              <tr>
+                <td style="width: 95px; font-weight: 600; color: #000000;">Age / Gender:</td>
+                <td style="color: #000000;">${ageGenderStr}</td>
+              </tr>
+              <tr>
+                <td style="width: 95px; font-weight: 600; color: #000000;">Mobile:</td>
+                <td style="color: #000000;">${patMobile}</td>
+              </tr>
+              <tr>
+                <td style="width: 95px; font-weight: 600; color: #000000;">Ref. Doctor:</td>
+                <td style="color: #000000;">${docName}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Items Table matching Screenshot 3 -->
+      <table style="width: 100%; border: 1px solid #000000; border-collapse: collapse; margin-bottom: 12px; font-size: 11px;">
+        <thead>
+          <tr style="background-color: #e5e7eb; color: #000000;">
+            <th style="border: 1px solid #000000; padding: 5px 8px; text-align: left; width: 55px; font-weight: 700;">S.No</th>
+            <th style="border: 1px solid #000000; padding: 5px 8px; text-align: left; font-weight: 700;">Test / Service</th>
+            <th style="border: 1px solid #000000; padding: 5px 8px; text-align: right; width: 110px; font-weight: 700;">Price (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${testRows}
+        </tbody>
+      </table>
+
+      <!-- Summary / Totals Section matching Screenshot 3 -->
+      <table style="width: 100%; border-collapse: separate; border-spacing: 12px 0; margin-bottom: 14px;">
+        <tr>
+          <!-- Left: Payment Summary -->
+          <td style="width: 50%; vertical-align: top; padding: 0;">
+            <table style="width: 100%; border: 1px solid #000000; border-collapse: collapse; font-size: 11px;">
+              <tr>
+                <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">Payment Mode:</td>
+                <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #000000;">${paymentMode}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">Payment Status:</td>
+                <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">${balanceAmount > 0 ? "Partially Paid" : "Fully Paid"}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">Bill Date:</td>
+                <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #000000;">${currentDate}</td>
+              </tr>
+              <tr style="background-color: #e5e7eb;">
+                <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">Bill Time:</td>
+                <td style="padding: 6px 10px; text-align: right; color: #000000; font-weight: 600;">${currentTime}</td>
+              </tr>
+            </table>
+          </td>
+
+          <!-- Right: Totals Box -->
+          <td style="width: 50%; vertical-align: top; padding: 0;">
+            <table style="width: 100%; border: 1px solid #000000; border-collapse: collapse; font-size: 11px;">
+              <tr>
+                <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">Total Amount:</td>
+                <td style="padding: 6px 10px; text-align: right; font-weight: 700; border-bottom: 1px solid #000000;">₹${totalAmount.toFixed(2)}</td>
+              </tr>
+              ${discountAmount > 0 ? `
+              <tr>
+                <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">Discount:</td>
+                <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #000000;">- ₹${discountAmount.toFixed(2)}</td>
+              </tr>` : ""}
+              <tr style="background-color: #e5e7eb;">
+                <td style="padding: 6px 10px; font-weight: 700; color: #000000;">Balance Due:</td>
+                <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #000000;">₹${balanceAmount.toFixed(2)}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- FooterPrint Component matching Screenshot 3 -->
+    <div style="margin-top: auto; padding-top: 10px;">
+      ${footerHtml ? `<div>${footerHtml}</div>` : `
+      ${(labPhone || labEmail) ? `
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed;">
+        <tr>
+          ${labPhone ? `
+          <td style="width: ${labEmail ? '50%' : '100%'}; background-color: #15803d; color: #ffffff; padding: 6px 14px; font-size: 11px; font-weight: 700; vertical-align: middle;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="white" stroke="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <span>${labPhone}</span>
             </div>
-            ${discountAmount > 0 ? `
-            <div class="summary-row" style="color: #e11d48;">
-              <span>Discount Applied:</span>
-              <span>- ₹ ${Math.round(discountAmount).toLocaleString('en-IN')}</span>
-            </div>` : ''}
-            <div class="summary-row total">
-              <span>Net Total:</span>
-              <span>₹ ${Math.round(paidAmount + balanceAmount).toLocaleString('en-IN')}</span>
+          </td>` : ""}
+          ${labEmail ? `
+          <td style="width: ${labPhone ? '50%' : '100%'}; background-color: #1e3a8a; color: #ffffff; padding: 6px 14px; font-size: 11px; font-weight: 700; vertical-align: middle; text-align: ${labPhone ? 'right' : 'left'};">
+            <div style="display: flex; align-items: center; justify-content: ${labPhone ? 'flex-end' : 'flex-start'}; gap: 6px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              <span>${labEmail}</span>
             </div>
-            <div class="summary-row paid">
-              <span>Amount Paid:</span>
-              <span>₹ ${Math.round(paidAmount).toLocaleString('en-IN')}</span>
-            </div>
-            ${balanceAmount > 0 ? `
-            <div class="summary-row" style="color: #e11d48; font-weight: 900;">
-              <span>Balance Due:</span>
-              <span>₹ ${Math.round(balanceAmount).toLocaleString('en-IN')}</span>
-            </div>` : ''}
-          </div>
-        </div>
-
-        <!-- Payment Confirmation Banner -->
-        <div class="payment-banner">
-          <div>
-            <span style="font-size: 9.5px; font-weight: 700; color: #166534; text-transform: uppercase;">Payment Received With Thanks</span>
-            <div style="font-size: 11px; font-weight: 800; color: #14532d; margin-top: 1px;">
-              ₹ ${Math.round(paidAmount).toLocaleString('en-IN')} via ${paymentMode}
-            </div>
-          </div>
-          <span style="font-size: 10px; font-weight: 800; color: #15803d; background: #dcfce7; padding: 3px 10px; border-radius: 4px; border: 1px solid #86efac;">
-            TRANSACTION VERIFIED
-          </span>
-        </div>
-
-        <!-- Instructions -->
-        <div class="instruction-box">
-          <strong>Important Instructions:</strong>
-          <ul style="margin: 4px 0 0 16px; padding: 0;">
-            <li>Please present this receipt along with your MR No. at the sample collection counter / laboratory desk.</li>
-            <li>Report delivery timelines depend on individual test requirements. Online/WhatsApp reports will be shared once authorized by the pathologist.</li>
-          </ul>
-        </div>
-
-        <!-- Signatures -->
-        <div class="sig-section">
-          <div class="sig-box">Patient / Representative</div>
-          <div class="sig-box">Cashier / Billing Desk</div>
-          <div class="sig-box">Authorized Lab Signatory</div>
-        </div>
-      </div>
-
-      ${footerHtml ? `
-      <div class="footer-wrapper" style="margin-top: 20px;">
-        ${footerHtml}
-      </div>` : ''}
-    </body>
-    </html>
-  `;
+          </td>` : ""}
+        </tr>
+      </table>` : ""}
+      ${labAddress ? `
+      <div style="text-align: center; font-size: 10px; color: #64748b; font-weight: 500; line-height: 1.4;">
+        <span style="font-weight: 700; color: #1e3a8a;">${labName} &mdash; </span>${labAddress}
+      </div>` : ""}`}
+    </div>
+  </div>
+</body>
+</html>`;
 };
 
 export const generateOPDRegistrationSlipHtml = (data: any) => {
@@ -1199,12 +1186,12 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
   }
   const ageDisplay = computeAgeFromDob(patient.dob, patient.age, patient.ageUnit) || patient.age || "N/A";
   const doctorTitle = formatDoctorName(appointment.doctorName);
-  
+
   const formattedPatientName = formatPatientNameWithPrefix(
     patient.name || patient.user?.name,
     appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific || patient.honorific || patient.profile?.honorific || patient.honorificTitle || patient.patientHonorific
   );
-  
+
   const rawToken = appointment.token_number || appointment.tokenNo || appointment.tokenNumber || appointment.token || appointment.queueNumber || appointment.dailyTokenNumber || (appointment.queuePosition !== undefined ? appointment.queuePosition : undefined) || (() => {
     const refStr = String(appointment.appointmentId || patient.mrn || "10");
     const digits = refStr.replace(/\D/g, "");
@@ -1218,16 +1205,16 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
     if (typeof val === 'string' && val.trim() !== '') return val.trim();
     return '';
   };
-  const symptomDisplay = getSymptomsText(patient.symptoms) || 
-                         getSymptomsText(appointment.symptoms) || 
-                         getSymptomsText(appointment.reason) || 
-                         getSymptomsText(patient.chiefComplaint) || 
-                         getSymptomsText(appointment.notes) || 
-                         getSymptomsText(appointment.chiefComplaint) || 
-                         getSymptomsText(appointment.reasonForVisit) || 
-                         getSymptomsText(payment.reason) || 
-                         "N/A";
-  
+  const symptomDisplay = getSymptomsText(patient.symptoms) ||
+    getSymptomsText(appointment.symptoms) ||
+    getSymptomsText(appointment.reason) ||
+    getSymptomsText(patient.chiefComplaint) ||
+    getSymptomsText(appointment.notes) ||
+    getSymptomsText(appointment.chiefComplaint) ||
+    getSymptomsText(appointment.reasonForVisit) ||
+    getSymptomsText(payment.reason) ||
+    "N/A";
+
   const isDischargeTx = Boolean(
     payment?.isDischarge ||
     payment?.isDischargeTransaction ||
@@ -1257,35 +1244,21 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
     if (!dateInput) return "N/A";
     const d = new Date(dateInput);
     if (isNaN(d.getTime())) return "N/A";
-    const day   = String(d.getDate()).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year  = d.getFullYear();
+    const year = d.getFullYear();
     return `${day}-${month}-${year}`;
   };
 
-  let baseVisitDate = new Date();
-  if (appointment.date) {
-    if (typeof appointment.date === 'string' && appointment.date.includes('/')) {
-      const parts = appointment.date.split('/');
-      if (parts.length === 3) {
-        baseVisitDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-      } else {
-        baseVisitDate = new Date(appointment.date);
-      }
-    } else {
-      baseVisitDate = new Date(appointment.date);
-    }
-  } else if (appointment.appointmentDate) {
-    baseVisitDate = new Date(appointment.appointmentDate);
-  }
+  let baseVisitDate = parseSafeDate(appointment.date) || parseSafeDate(appointment.appointmentDate) || parseSafeDate(payment.date) || new Date();
 
   // Always use the live hospital admin's currently configured values!
   // Do not use the stored snapshot because admin might have updated the window duration.
   let followUpExpiryMsg = "";
   const liveEnableExpiry = hospital.enableFollowUpExpiry ?? true;
-  const liveRangeDays    = isIPD ? hospital.ipdFollowUpDays : hospital.opdFollowUpDays;
-  
-  if (liveRangeDays !== undefined && liveRangeDays !== null) { 
+  const liveRangeDays = isIPD ? hospital.ipdFollowUpDays : hospital.opdFollowUpDays;
+
+  if (liveRangeDays !== undefined && liveRangeDays !== null) {
     const liveExpiryDate = new Date(baseVisitDate);
     liveExpiryDate.setDate(liveExpiryDate.getDate() + Number(liveRangeDays));
     if (!liveEnableExpiry) {
@@ -1514,9 +1487,8 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
     </head>
     <body onload="window.print();">
       <div class="header-wrapper">
-        ${
-          headerHtml ||
-          `
+        ${headerHtml ||
+    `
           <div class="header-container">
             <div class="hospital-branding">
               ${hospital.logo ? `<img src="${hospital.logo}" alt="Logo" class="hospital-logo" />` : ""}
@@ -1533,7 +1505,7 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
             </div>
           </div>
           `
-        }
+    }
       </div>
 
       <div class="divider-thick"></div>
@@ -1555,12 +1527,12 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
         <div class="grid-row">
           <span class="label" style="width: 110px;">DOB</span><span class="colon">:</span>
           <span class="value">${(() => {
-            const val = patient.dob || patient.dateOfBirth;
-            if (!val) return "N/A";
-            if (typeof val === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(val.trim())) return val.trim();
-            const d = new Date(val);
-            return !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB') : String(val);
-          })()}</span>
+      const val = patient.dob || patient.dateOfBirth;
+      if (!val) return "N/A";
+      if (typeof val === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(val.trim())) return val.trim();
+      const d = new Date(val);
+      return !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB') : String(val);
+    })()}</span>
         </div>
 
         <div class="grid-row">
@@ -1592,15 +1564,15 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
         </div>` : '<div class="grid-row"></div>'}
 
         ${(() => {
-          if (data.showGuardianDetails === false) return '';
-          const gName = appointment.guardianName || patient.guardianName || '';
-          const gRelation = appointment.guardianRelation || patient.guardianRelation || '';
-          const gMobile = appointment.guardianMobile || patient.guardianMobile || '';
-          const docRef = appointment.doctorReference || patient.doctorReference || '';
-          const hasGuardian = gName || gRelation || gMobile;
-          const hasDocRef = !!docRef;
-          if (!hasGuardian && !hasDocRef) return '';
-          return `
+      if (data.showGuardianDetails === false) return '';
+      const gName = appointment.guardianName || patient.guardianName || '';
+      const gRelation = appointment.guardianRelation || patient.guardianRelation || '';
+      const gMobile = appointment.guardianMobile || patient.guardianMobile || '';
+      const docRef = appointment.doctorReference || patient.doctorReference || '';
+      const hasGuardian = gName || gRelation || gMobile;
+      const hasDocRef = !!docRef;
+      if (!hasGuardian && !hasDocRef) return '';
+      return `
         <div style="grid-column: 1 / -1; margin-top: 6px; padding: 6px 8px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;">
           <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #0369a1; letter-spacing: 0.6px; margin-bottom: 4px;">Guardian / Reference Details</div>
           <div style="display: flex; flex-wrap: wrap; gap: 6px 20px;">
@@ -1609,27 +1581,27 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
             ${docRef ? `<div style="display:flex;align-items:center;gap:4px;"><span style="font-size:10px;font-weight:700;color:#475569;">Doctor Reference</span><span style="color:#475569;">:</span><span style="font-size:10px;font-weight:800;color:#0f766e;">${docRef}</span></div>` : ''}
           </div>
         </div>`;
-        })()}
+    })()}
 
         ${(() => {
-          if (isDischargeTx) {
-            const totalBill = Number(payment.totalBillAmount || payment.grandTotal || (Number(payment.amount || 0) + Number(payment.advanceAmount || 0)));
-            const discount = Number(payment.discount || appointment.discount || 0);
-            const afterDiscount = Math.max(0, totalBill - discount);
-            const advancePaid = Number(payment.advanceAmount || 0);
-            let settlementPaid = Number(payment.remainingPaid || payment.settlementAmount || payment.amount || 0);
-            if (isDischargeTx && settlementPaid === 0 && afterDiscount > advancePaid) {
-              settlementPaid = Math.max(0, afterDiscount - advancePaid);
-            }
-            let totalPaid = Number(payment.totalPaidAmount || payment.paidAmount || (advancePaid + settlementPaid));
-            if (isDischargeTx && totalPaid <= advancePaid && afterDiscount > advancePaid) {
-              totalPaid = advancePaid + settlementPaid;
-            }
-            let balanceDue = Number(payment.balance ?? payment.dueAmount ?? Math.max(0, afterDiscount - totalPaid));
-            if (isDischargeTx && (payment.status?.toLowerCase() === 'paid' || payment.status?.toLowerCase() === 'completed')) {
-              balanceDue = Math.max(0, afterDiscount - totalPaid);
-            }
-            return `
+      if (isDischargeTx) {
+        const totalBill = Number(payment.totalBillAmount || payment.grandTotal || (Number(payment.amount || 0) + Number(payment.advanceAmount || 0)));
+        const discount = Number(payment.discount || appointment.discount || 0);
+        const afterDiscount = Math.max(0, totalBill - discount);
+        const advancePaid = Number(payment.advanceAmount || 0);
+        let settlementPaid = Number(payment.remainingPaid || payment.settlementAmount || payment.amount || 0);
+        if (isDischargeTx && settlementPaid === 0 && afterDiscount > advancePaid) {
+          settlementPaid = Math.max(0, afterDiscount - advancePaid);
+        }
+        let totalPaid = Number(payment.totalPaidAmount || payment.paidAmount || (advancePaid + settlementPaid));
+        if (isDischargeTx && totalPaid <= advancePaid && afterDiscount > advancePaid) {
+          totalPaid = advancePaid + settlementPaid;
+        }
+        let balanceDue = Number(payment.balance ?? payment.dueAmount ?? Math.max(0, afterDiscount - totalPaid));
+        if (isDischargeTx && (payment.status?.toLowerCase() === 'paid' || payment.status?.toLowerCase() === 'completed')) {
+          balanceDue = Math.max(0, afterDiscount - totalPaid);
+        }
+        return `
             <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; margin-top: 6px; padding: 8px 10px; background: #f8fafc; border: 1.5px solid #0f172a; border-radius: 8px;">
               <div>
                 <div style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Grand Total</div>
@@ -1662,8 +1634,8 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
                 <div style="font-size: 11px; font-weight: 800; color: #334155; margin-top: 2px;">${formatReceiptPaymentMode(payment, appointment)}</div>
               </div>
             </div>`;
-          }
-          return `
+      }
+      return `
           <!-- Compact single row: Token | Fee (if discount) | Discount (if discount) | Paid Amount | Payment Mode -->
           <div style="grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
             <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
@@ -1693,39 +1665,38 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
               <span style="font-size: 10px; font-weight: 800; color: #1e293b;">${formatReceiptPaymentMode(payment, appointment)}</span>
             </div>
             ${(() => {
-              const aptStat = String(appointment.paymentStatus || '').toUpperCase();
-              const payStat = String(payment.status || payment.paymentStatus || '').toUpperCase();
-              const isPaid = aptStat === 'PAID' || payStat === 'PAID' || /PAID|COMPLETED/i.test(aptStat) || /PAID|COMPLETED/i.test(payStat);
-              const statusText = isPaid ? 'PAID' : 'UNPAID';
-              const badgeColor = isPaid ? '#15803d' : '#b91c1c';
-              const badgeBg = isPaid ? '#f0fdf4' : '#fef2f2';
-              const badgeBorder = isPaid ? '#bbf7d0' : '#fecaca';
-              return `
+          const aptStat = String(appointment.paymentStatus || '').toUpperCase();
+          const payStat = String(payment.status || payment.paymentStatus || '').toUpperCase();
+          const isPaid = aptStat === 'PAID' || payStat === 'PAID' || /PAID|COMPLETED/i.test(aptStat) || /PAID|COMPLETED/i.test(payStat);
+          const statusText = isPaid ? 'PAID' : 'UNPAID';
+          const badgeColor = isPaid ? '#15803d' : '#b91c1c';
+          const badgeBg = isPaid ? '#f0fdf4' : '#fef2f2';
+          const badgeBorder = isPaid ? '#bbf7d0' : '#fecaca';
+          return `
             <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 110px;">
               <span style="font-size: 10px; font-weight: 700; color: #475569; flex-shrink: 0;">Payment Status</span>
               <span style="color: #475569; font-weight: 700; flex-shrink: 0;">:</span>
               <span style="font-size: 10px; font-weight: 900; color: ${badgeColor}; background: ${badgeBg}; border: 1px solid ${badgeBorder}; padding: 1px 6px; border-radius: 4px; text-transform: uppercase;">${statusText}</span>
             </div>`;
-            })()}
-          </div>`;
         })()}
+          </div>`;
+    })()}
 
-        ${
-          (payment.method || '').toUpperCase() === 'MIXED' && (payment.paymentDetails || payment.splitPayments || payment.breakdown)
-            ? (() => {
-                const breakdown = payment.paymentDetails || payment.splitPayments || payment.breakdown || {};
-                const parts = [];
-                if (breakdown.cash && Number(breakdown.cash) > 0) parts.push(`Cash: ₹${Number(breakdown.cash).toLocaleString('en-IN')}`);
-                if (breakdown.card && Number(breakdown.card) > 0) parts.push(`Card: ₹${Number(breakdown.card).toLocaleString('en-IN')}`);
-                if (breakdown.upi && Number(breakdown.upi) > 0) parts.push(`UPI: ₹${Number(breakdown.upi).toLocaleString('en-IN')}`);
-                return parts.length > 0 ? `
+        ${(payment.method || '').toUpperCase() === 'MIXED' && (payment.paymentDetails || payment.splitPayments || payment.breakdown)
+      ? (() => {
+        const breakdown = payment.paymentDetails || payment.splitPayments || payment.breakdown || {};
+        const parts = [];
+        if (breakdown.cash && Number(breakdown.cash) > 0) parts.push(`Cash: ₹${Number(breakdown.cash).toLocaleString('en-IN')}`);
+        if (breakdown.card && Number(breakdown.card) > 0) parts.push(`Card: ₹${Number(breakdown.card).toLocaleString('en-IN')}`);
+        if (breakdown.upi && Number(breakdown.upi) > 0) parts.push(`UPI: ₹${Number(breakdown.upi).toLocaleString('en-IN')}`);
+        return parts.length > 0 ? `
                 <div style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; padding: 3px 0; margin-top: 2px; font-size: 9.5px; color: #475569; font-weight: 700;">
                   <span style="color: #374151; font-weight: 800;">Breakdown:</span>
                   ${parts.map(p => `<span style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 3px; padding: 1px 6px; font-weight: 700;">${p}</span>`).join('')}
                 </div>` : '';
-              })()
-            : ''
-        }
+      })()
+      : ''
+    }
 
         <!-- Follow-up & Visit Calculations Block -->
         ${followUpExpiryMsg ? `
@@ -1818,7 +1789,7 @@ export const generateClinicalReceiptHtml = (data: any) => {
   );
 
   const isIPD = data.registrationType === 'IPD' || (appointment.type && appointment.type.toUpperCase().includes('IPD')) || isDischargeTx;
-  
+
   const totalBill = Number(payment.totalBillAmount || payment.grandTotal || (Number(payment.amount || 0) + Number(payment.advanceAmount || 0)));
   const discount = Number(payment.discount || appointment.discount || 0);
   const afterDiscount = Math.max(0, totalBill - discount);
@@ -1835,21 +1806,21 @@ export const generateClinicalReceiptHtml = (data: any) => {
   if (isDischargeTx && (payment.status?.toLowerCase() === 'paid' || payment.status?.toLowerCase() === 'completed')) {
     balanceDue = Math.max(0, afterDiscount - totalPaid);
   }
-  
+
   const getSymptomsText = (val: any) => {
     if (Array.isArray(val)) return val.length > 0 ? val.join(', ') : '';
     if (typeof val === 'string' && val.trim() !== '') return val.trim();
     return '';
   };
-  const symptomDisplay = getSymptomsText(patient.symptoms) || 
-                         getSymptomsText(patient.chiefComplaint) || 
-                         getSymptomsText(appointment.symptoms) || 
-                         getSymptomsText(appointment.reason) || 
-                         getSymptomsText(appointment.notes) || 
-                         getSymptomsText(appointment.chiefComplaint) || 
-                         getSymptomsText(appointment.reasonForVisit) || 
-                         "N/A";
-  
+  const symptomDisplay = getSymptomsText(patient.symptoms) ||
+    getSymptomsText(patient.chiefComplaint) ||
+    getSymptomsText(appointment.symptoms) ||
+    getSymptomsText(appointment.reason) ||
+    getSymptomsText(appointment.notes) ||
+    getSymptomsText(appointment.chiefComplaint) ||
+    getSymptomsText(appointment.reasonForVisit) ||
+    "N/A";
+
   // ── Follow-up validity block (detailed / IPD receipt) ──────────────────
   // Priority: stored followUpStatus snapshot (booked values) › live hospital settings
   // We NEVER use hardcoded numbers — always the hospital admin's configured value.
@@ -1864,19 +1835,19 @@ export const generateClinicalReceiptHtml = (data: any) => {
     if (!dateInput) return "N/A";
     const d = new Date(dateInput);
     if (isNaN(d.getTime())) return "N/A";
-    const day   = String(d.getDate()).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year  = d.getFullYear();
+    const year = d.getFullYear();
     return `${day}-${month}-${year}`;
   };
 
-  const visitDateRaw  = appointment.date || appointment.appointmentDate || new Date();
-  const baseVisitDate = new Date(visitDateRaw);
+  const visitDateRaw = appointment.date || appointment.appointmentDate || payment.date || (appointment as any).createdAt || (payment as any).createdAt || new Date();
+  const baseVisitDate = parseSafeDate(visitDateRaw) || new Date();
 
   let followUpExpiryMsg = "";
   const liveEnableExpiry = hospital.enableFollowUpExpiry ?? true;
-  const liveRangeDays    = isIPD ? hospital.ipdFollowUpDays : hospital.opdFollowUpDays;
-  
+  const liveRangeDays = isIPD ? hospital.ipdFollowUpDays : hospital.opdFollowUpDays;
+
   if (liveRangeDays !== undefined && liveRangeDays !== null) {
     const liveExpiryDate = new Date(baseVisitDate);
     liveExpiryDate.setDate(liveExpiryDate.getDate() + Number(liveRangeDays));
@@ -2001,10 +1972,9 @@ export const generateClinicalReceiptHtml = (data: any) => {
           }
         }
         
-        ${
-          headerHtml
-            ? ""
-            : `
+        ${headerHtml
+      ? ""
+      : `
         .hospital-header {
           display: flex;
           align-items: center;
@@ -2032,7 +2002,7 @@ export const generateClinicalReceiptHtml = (data: any) => {
           font-weight: 500;
         }
         `
-        }
+    }
         .bill-title-row {
           display: grid;
           grid-template-columns: 1.3fr 0.7fr;
@@ -2281,9 +2251,8 @@ export const generateClinicalReceiptHtml = (data: any) => {
 
       <!-- These wrappers are fixed during print -->
       <div class="header-wrapper">
-        ${
-          headerHtml ||
-          `
+        ${headerHtml ||
+    `
         <div class="hospital-header">
           ${hospital.logo ? `<img src="${hospital.logo}" alt="Logo" style="max-height: 85px; width: auto; object-fit: contain;" />` : ""}
           <div class="hospital-details">
@@ -2293,7 +2262,7 @@ export const generateClinicalReceiptHtml = (data: any) => {
           </div>
         </div>
         `
-        }
+    }
       </div>
 
 
@@ -2316,30 +2285,28 @@ export const generateClinicalReceiptHtml = (data: any) => {
                 <div class="bill-title-row">
                   <div>
                     <div class="bill-title">
-                      ${
-                        isDischargeTx
-                          ? "IPD DISCHARGE BILLING STATEMENT"
-                          : isIPD
-                            ? "IPD ADMISSION RECEIPT"
-                            : (appointment.type?.toLowerCase() === 'follow-up'
-                              ? "FOLLOW-UP APPOINTMENT RECEIPT"
-                              : "PATIENT REGISTRATION BILL")
-                      }
+                      ${isDischargeTx
+      ? "IPD DISCHARGE BILLING STATEMENT"
+      : isIPD
+        ? "IPD ADMISSION RECEIPT"
+        : (appointment.type?.toLowerCase() === 'follow-up'
+          ? "FOLLOW-UP APPOINTMENT RECEIPT"
+          : "PATIENT REGISTRATION BILL")
+    }
                     </div>
                     <div class="bill-subtitle">
-                      ${
-                        isDischargeTx
-                          ? "Hospital Discharge & Final Settlement Invoice"
-                          : isIPD
-                            ? "Hospital Admission Document"
-                            : (appointment.type?.toLowerCase() === 'follow-up'
-                              ? "Follow-up Consultation Slip"
-                              : "Appointment Receipt")
-                      }
+                      ${isDischargeTx
+      ? "Hospital Discharge & Final Settlement Invoice"
+      : isIPD
+        ? "Hospital Admission Document"
+        : (appointment.type?.toLowerCase() === 'follow-up'
+          ? "Follow-up Consultation Slip"
+          : "Appointment Receipt")
+    }
                     </div>
                   </div>
                   <div class="bill-meta">
-                    <div><strong>Date:</strong> ${payment.date ? new Date(payment.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : appointment.date}</div>
+                    <div><strong>Date:</strong> ${payment.date ? formatSafeDate(payment.date, { day: "2-digit", month: "short", year: "numeric" }) : (appointment.date ? formatSafeDate(appointment.date, { day: "2-digit", month: "short", year: "numeric" }) : formatSafeDate(new Date(), { day: "2-digit", month: "short", year: "numeric" }))}</div>
                     <div><strong>Booking Time:</strong> ${appointment.bookedAt ? formatTime12Hr(appointment.bookedAt) : new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}</div>
                     <div><strong>Receipt No:</strong> ${payment.receiptNumber || payment.receiptNo || appointment.appointmentId}</div>
                   </div>
@@ -2369,12 +2336,12 @@ export const generateClinicalReceiptHtml = (data: any) => {
                             <div>
                                  <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">DOB</div>
                                  <div style="font-size: 10px; font-weight: 700; color: #1e293b;">${(() => {
-                                   const val = patient.dob || patient.dateOfBirth;
-                                   if (!val) return "N/A";
-                                   if (typeof val === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(val.trim())) return val.trim();
-                                   const d = new Date(val);
-                                   return !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB') : String(val);
-                                 })()}</div>
+      const val = patient.dob || patient.dateOfBirth;
+      if (!val) return "N/A";
+      if (typeof val === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(val.trim())) return val.trim();
+      const d = new Date(val);
+      return !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB') : String(val);
+    })()}</div>
                             </div>
                         </div>
                     </div>
@@ -2406,15 +2373,15 @@ export const generateClinicalReceiptHtml = (data: any) => {
                 </div>
 
                 ${(() => {
-                  if (data.showGuardianDetails === false) return '';
-                  const gName = appointment.guardianName || patient.guardianName || '';
-                  const gRelation = appointment.guardianRelation || patient.guardianRelation || '';
-                  const gMobile = appointment.guardianMobile || patient.guardianMobile || '';
-                  const docRef = appointment.doctorReference || patient.doctorReference || '';
-                  const hasGuardian = gName || gRelation || gMobile;
-                  const hasDocRef = !!docRef;
-                  if (!hasGuardian && !hasDocRef) return '';
-                  return `
+      if (data.showGuardianDetails === false) return '';
+      const gName = appointment.guardianName || patient.guardianName || '';
+      const gRelation = appointment.guardianRelation || patient.guardianRelation || '';
+      const gMobile = appointment.guardianMobile || patient.guardianMobile || '';
+      const docRef = appointment.doctorReference || patient.doctorReference || '';
+      const hasGuardian = gName || gRelation || gMobile;
+      const hasDocRef = !!docRef;
+      if (!hasGuardian && !hasDocRef) return '';
+      return `
                 <div style="margin-top: 8px; padding: 8px 12px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
                   <div style="font-size: 8px; font-weight: 900; text-transform: uppercase; color: #0369a1; letter-spacing: 0.7px; margin-bottom: 6px;">Guardian / Reference Details</div>
                   <div style="display: flex; flex-wrap: wrap; gap: 8px 24px;">
@@ -2423,7 +2390,7 @@ export const generateClinicalReceiptHtml = (data: any) => {
                     ${docRef ? `<div><span style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Doctor Reference</span><div style="font-size:10px;font-weight:800;color:#0f766e;">${docRef}</div></div>` : ''}
                   </div>
                 </div>`;
-                })()}
+    })()}
 
                 <!-- Visit Summary & Follow-up Validation Block -->
                 ${followUpExpiryMsg ? `
@@ -2438,9 +2405,8 @@ export const generateClinicalReceiptHtml = (data: any) => {
                 </div>`}
 
                 <!-- Vital Signs -->
-                ${
-                  data.showVitals
-                    ? `
+                ${data.showVitals
+      ? `
                 <div class="section">
                   <div class="section-header">Vital Signs (Current Visit)</div>
                   <table class="vitals-grid">
@@ -2465,167 +2431,152 @@ export const generateClinicalReceiptHtml = (data: any) => {
                   </table>
                 </div>
                 `
-                    : ""
-                }
+      : ""
+    }
 
                 <!-- Reason / Symptoms -->
-                ${
-                  (data.showVitals &&
-                    ((patient.allergies &&
-                      patient.allergies.length > 0 &&
-                      patient.allergies !== "None" &&
-                      patient.allergies !== "NONE") ||
-                      (patient.medicalHistory &&
-                        patient.medicalHistory !== "None" &&
-                        patient.medicalHistory !== "NONE" &&
-                        patient.medicalHistory !== "CLEAR"))) ||
-                  symptomDisplay !== "N/A"
-                    ? `
+                ${(data.showVitals &&
+      ((patient.allergies &&
+        patient.allergies.length > 0 &&
+        patient.allergies !== "None" &&
+        patient.allergies !== "NONE") ||
+        (patient.medicalHistory &&
+          patient.medicalHistory !== "None" &&
+          patient.medicalHistory !== "NONE" &&
+          patient.medicalHistory !== "CLEAR"))) ||
+      symptomDisplay !== "N/A"
+      ? `
                 <div class="section">
                   <div class="section-header">${data.showVitals ? "Medical History, Allergies &amp; Current Symptoms" : "Reason / Symptoms"}</div>
                   <table class="data-grid">
-                    ${
-                      data.showVitals
-                        ? `
+                    ${data.showVitals
+        ? `
                     <tr>
-                      ${
-                        patient.allergies &&
-                        patient.allergies.length > 0 &&
-                        patient.allergies !== "None" &&
-                        patient.allergies !== "NONE"
-                          ? `<td class="label" style="color: #e11d48; width:14%;">Allergies:</td>
+                      ${patient.allergies &&
+          patient.allergies.length > 0 &&
+          patient.allergies !== "None" &&
+          patient.allergies !== "NONE"
+          ? `<td class="label" style="color: #e11d48; width:14%;">Allergies:</td>
                            <td class="value" style="color: #e11d48; width:36%;">
                              ${Array.isArray(patient.allergies) ? patient.allergies.join(", ") : patient.allergies}
                            </td>`
-                          : `<td class="label" style="width:14%;">Allergies:</td><td class="value" style="width:36%;">-</td>`
-                      }
-                      ${
-                        patient.medicalHistory &&
-                        patient.medicalHistory !== "None" &&
-                        patient.medicalHistory !== "NONE" &&
-                        patient.medicalHistory !== "CLEAR"
-                          ? `<td class="label" style="width:14%;">Hist/Issues:</td>
+          : `<td class="label" style="width:14%;">Allergies:</td><td class="value" style="width:36%;">-</td>`
+        }
+                      ${patient.medicalHistory &&
+          patient.medicalHistory !== "None" &&
+          patient.medicalHistory !== "NONE" &&
+          patient.medicalHistory !== "CLEAR"
+          ? `<td class="label" style="width:14%;">Hist/Issues:</td>
                            <td class="value" style="width:36%;">${patient.medicalHistory}</td>`
-                          : `<td class="label" style="width:14%;">Hist/Issues:</td><td class="value" style="width:36%;">-</td>`
-                      }
+          : `<td class="label" style="width:14%;">Hist/Issues:</td><td class="value" style="width:36%;">-</td>`
+        }
                     </tr>
                     `
-                        : ""
-                    }
-                    ${
-                      symptomDisplay !== "N/A"
-                        ? `
+        : ""
+      }
+                    ${symptomDisplay !== "N/A"
+        ? `
                     <tr>
                       <td class="label">Reason / Symptoms:</td>
                       <td colspan="3" class="value">${symptomDisplay}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
                   </table>
                 </div>`
-                    : ""
-                }
+      : ""
+    }
 
                 <!-- Discharge Clinical Summary -->
-                ${
-                  patient.dischargeType ||
-                  data.registrationType === "DISCHARGE" ||
-                  patient.diagnosis ||
-                  patient.provisionalDiagnosis ||
-                  patient.treatmentGiven ||
-                  patient.adviceAtDischarge ||
-                  patient.hospitalCourse ||
-                  patient.investigationsPerformed ||
-                  patient.surgicalProcedures
-                    ? `
+                ${patient.dischargeType ||
+      data.registrationType === "DISCHARGE" ||
+      patient.diagnosis ||
+      patient.provisionalDiagnosis ||
+      patient.treatmentGiven ||
+      patient.adviceAtDischarge ||
+      patient.hospitalCourse ||
+      patient.investigationsPerformed ||
+      patient.surgicalProcedures
+      ? `
                 <div class="section">
                   <div class="section-header">Clinical Discharge Summary</div>
                   <table class="data-grid">
-                    ${
-                      patient.dischargeType || data.registrationType === "DISCHARGE"
-                        ? `
+                    ${patient.dischargeType || data.registrationType === "DISCHARGE"
+        ? `
                     <tr>
                       <td class="label" style="width:20%; color: #1d4ed8; background-color: #eff6ff;">Discharge Status:</td>
                       <td colspan="3" class="value" style="font-weight: 800; color: #1d4ed8; background-color: #eff6ff;">${patient.dischargeType || "FINAL DISCHARGE"}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
                     
-                    ${
-                      patient.provisionalDiagnosis
-                        ? `
+                    ${patient.provisionalDiagnosis
+        ? `
                     <tr>
                       <td class="label" style="width:20%;">Provisional Diag:</td>
                       <td colspan="3" class="value">${patient.provisionalDiagnosis}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
                     
-                    ${
-                      patient.diagnosis
-                        ? `
+                    ${patient.diagnosis
+        ? `
                     <tr>
                       <td class="label" style="width:20%;">Final Diagnosis:</td>
                       <td colspan="3" class="value" style="font-weight: 800; color: #1e293b; text-transform: uppercase;">${patient.diagnosis}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
 
-                    ${
-                      patient.hospitalCourse
-                        ? `
+                    ${patient.hospitalCourse
+        ? `
                     <tr>
                       <td class="label" style="width:20%;">Hospital Course:</td>
                       <td colspan="3" class="value">${patient.hospitalCourse}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
 
-                    ${
-                      patient.investigationsPerformed
-                        ? `
+                    ${patient.investigationsPerformed
+        ? `
                     <tr>
                       <td class="label" style="width:20%;">Investigations:</td>
                       <td colspan="3" class="value">${patient.investigationsPerformed}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
                     
-                    ${
-                      patient.treatmentGiven
-                        ? `
+                    ${patient.treatmentGiven
+        ? `
                     <tr>
                       <td class="label" style="width:20%; background-color: #f0fdf4;">Treatment Given:</td>
                       <td colspan="3" class="value" style="background-color: #f0fdf4;">${patient.treatmentGiven}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
 
-                    ${
-                      patient.surgicalProcedures
-                        ? `
+                    ${patient.surgicalProcedures
+        ? `
                     <tr>
                       <td class="label" style="width:20%;">Procedures Done:</td>
                       <td colspan="3" class="value">${patient.surgicalProcedures}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
 
-                    ${
-                      patient.medicationsPrescribed
-                        ? `
+                    ${patient.medicationsPrescribed
+        ? `
                     <tr>
                       <td class="label" style="width:20%; background-color: #f0fdf4; color: #15803d;">Meds @ Discharge:</td>
                       <td colspan="3" class="value" style="font-family: inherit; white-space: pre-wrap; background-color: #f0fdf4; font-weight: 700;">${patient.medicationsPrescribed}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
                     
-                    ${
-                      patient.adviceAtDischarge ||
-                      patient.activityRestrictions ||
-                      patient.dietInstructions
-                        ? `
+                    ${patient.adviceAtDischarge ||
+        patient.activityRestrictions ||
+        patient.dietInstructions
+        ? `
                     <tr>
                       <td class="label" style="width:20%;">Discharge Advice:</td>
                       <td colspan="3" class="value">
@@ -2634,14 +2585,13 @@ export const generateClinicalReceiptHtml = (data: any) => {
                         ${patient.dietInstructions ? `<div style="margin-bottom: 6px;"><strong>Dietary Instructions:</strong> ${patient.dietInstructions}</div>` : ""}
                       </td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
 
-                    ${
-                      patient.followUpDate ||
-                      patient.followUpInstructions ||
-                      patient.warningSigns
-                        ? `
+                    ${patient.followUpDate ||
+        patient.followUpInstructions ||
+        patient.warningSigns
+        ? `
                     <tr style="background-color: #fffbeb;">
                       <td class="label" style="width:20%; border-top: 2px solid #f59e0b; background-color: #fef3c7; color: #92400e;">Follow-up & Emergency:</td>
                       <td colspan="3" class="value" style="border-top: 2px solid #f59e0b;">
@@ -2650,22 +2600,21 @@ export const generateClinicalReceiptHtml = (data: any) => {
                         ${patient.warningSigns ? `<div style="color: #b91c1c; font-size: 10px; font-weight: 900; padding: 6px; background-color: #fee2e2; border-radius: 4px; border: 1px solid #fecaca; margin-top: 4px;">⚠️ EMERGENCY WARNING SIGNS: ${patient.warningSigns.toUpperCase()}</div>` : ""}
                       </td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
 
-                    ${
-                      patient.conditionAtDischarge
-                        ? `
+                    ${patient.conditionAtDischarge
+        ? `
                     <tr>
                       <td class="label" style="width:20%; background-color: #f0fdf4; color: #166534;">Final Condition:</td>
                       <td colspan="3" class="value" style="font-weight: 900; color: #166534; background-color: #f0fdf4; text-transform: uppercase;">${patient.conditionAtDischarge}</td>
                     </tr>`
-                        : ""
-                    }
+        : ""
+      }
                   </table>
                 </div>`
-                    : ""
-                }
+      : ""
+    }
 
                 <!-- Payment Summary (Always displayed) -->
                 <div class="section">
@@ -2678,16 +2627,14 @@ export const generateClinicalReceiptHtml = (data: any) => {
                       </tr>
                     </thead>
                     <tbody>
-                      ${
-                        isDischargeTx
-                          ? `
+                      ${isDischargeTx
+      ? `
                         <tr>
                           <td style="font-weight: 700; color: #1e293b;">Grand Total</td>
                           <td style="text-align: right; font-weight: 800; font-size: 12px; color: #0f172a;">₹ ${Math.round(totalBill).toLocaleString('en-IN')}</td>
                         </tr>
-                        ${
-                          discount > 0
-                            ? `
+                        ${discount > 0
+        ? `
                         <tr style="color: #e11d48;">
                           <td style="font-weight: 700;">(-) Discount Applied</td>
                           <td style="text-align: right; font-weight: 800;">- ₹ ${Math.round(discount).toLocaleString('en-IN')}</td>
@@ -2696,17 +2643,16 @@ export const generateClinicalReceiptHtml = (data: any) => {
                           <td>After Discount</td>
                           <td style="text-align: right; font-weight: 800;">₹ ${Math.round(afterDiscount).toLocaleString('en-IN')}</td>
                         </tr>`
-                            : ""
-                        }
-                        ${
-                          advancePaid > 0
-                            ? `
+        : ""
+      }
+                        ${advancePaid > 0
+        ? `
                         <tr style="color: #2563eb;">
                           <td style="font-weight: 700;">(-) Advance Paid</td>
                           <td style="text-align: right; font-weight: 800;">- ₹ ${Math.round(advancePaid).toLocaleString('en-IN')}</td>
                         </tr>`
-                            : ""
-                        }
+        : ""
+      }
                         <tr>
                           <td style="font-weight: 700; color: #0f766e;">${settlementPaid === 0 && discount > 0 ? 'Discount / Concession' : 'Settlement Paid Amount'}</td>
                           <td style="text-align: right; font-weight: 800; color: #0f766e;">₹ ${Math.round(settlementPaid === 0 && discount > 0 ? discount : settlementPaid).toLocaleString('en-IN')}</td>
@@ -2720,21 +2666,20 @@ export const generateClinicalReceiptHtml = (data: any) => {
                           <td style="text-align: right; font-weight: 900;">₹ ${Math.round(balanceDue).toLocaleString('en-IN')}</td>
                         </tr>
                       `
-                          : data.registrationType === "IPD"
-                            ? `
+      : data.registrationType === "IPD"
+        ? `
                         <tr>
                           <td style="font-weight: bold; color: #475569;">Initial Admission Fee</td>
                           <td style="text-align: right;">₹ ${Math.round(payment.totalBillAmount || payment.fee || payment.originalAmount || (Number(payment.amount || 0) + Number(payment.discount || appointment.discount || 0))).toLocaleString()}</td>
                         </tr>
-                        ${
-                          Number(payment.discount || appointment.discount || 0) > 0
-                            ? `
+                        ${Number(payment.discount || appointment.discount || 0) > 0
+          ? `
                         <tr style="color: #e11d48;">
                           <td style="font-weight: bold;">Discount Applied</td>
                           <td style="text-align: right; font-weight: 800;">- ₹ ${Math.round(Number(payment.discount || appointment.discount || 0)).toLocaleString()}</td>
                         </tr>`
-                            : ""
-                        }
+          : ""
+        }
                         <tr>
                           <td style="font-weight: bold; color: #0f766e;">Amount Paid (IPD Advance)</td>
                           <td style="text-align: right; font-weight: bold; color: #0f766e;">₹ ${Math.round(payment.amount != null ? payment.amount : (payment.totalPaidAmount || payment.advanceAmount || 0)).toLocaleString()}</td>
@@ -2744,20 +2689,19 @@ export const generateClinicalReceiptHtml = (data: any) => {
                           <td style="text-align: right;">₹ ${Math.round(payment.amount != null ? payment.amount : (payment.totalPaidAmount || payment.advanceAmount || 0)).toLocaleString()}</td>
                         </tr>
                       `
-                            : `
+        : `
                         <tr>
                           <td style="font-weight: bold; color: #475569;">Consultation / Registration Fee</td>
                           <td style="text-align: right;">₹ ${Math.round(payment.totalBillAmount || payment.fee || payment.originalAmount || (Number(payment.amount || 0) + Number(payment.discount || appointment.discount || 0))).toLocaleString()}</td>
                         </tr>
-                        ${
-                          Number(payment.discount || appointment.discount || 0) > 0
-                            ? `
+                        ${Number(payment.discount || appointment.discount || 0) > 0
+          ? `
                         <tr style="color: #e11d48;">
                           <td style="font-weight: bold;">Discount Applied</td>
                           <td style="text-align: right; font-weight: 800;">- ₹ ${Math.round(Number(payment.discount || appointment.discount || 0)).toLocaleString()}</td>
                         </tr>`
-                            : ""
-                        }
+          : ""
+        }
                         <tr>
                           <td style="font-weight: bold; color: #0f766e;">Net Paid Amount (OPD)</td>
                           <td style="text-align: right; font-weight: 800; color: #0f766e;">₹ ${Math.round(payment.amount != null ? payment.amount : (payment.totalPaidAmount || 0)).toLocaleString()}</td>
@@ -2767,52 +2711,52 @@ export const generateClinicalReceiptHtml = (data: any) => {
                           <td style="text-align: right;">₹ ${Math.round(payment.amount != null ? payment.amount : (payment.totalPaidAmount || 0)).toLocaleString()}</td>
                         </tr>
                       `
-                      }
+    }
                     </tbody>
                   </table>
                   <div class="payment-footer">
                     <div>Payment Method: ${payment.method || payment.mode || "N/A"}
                     ${(payment.method || payment.mode || '').toUpperCase() === 'MIXED' && (payment.paymentDetails || payment.splitPayments || payment.breakdown) ? (() => {
-                      const breakdown = payment.paymentDetails || payment.splitPayments || payment.breakdown || {};
-                      const parts = [];
-                      if (breakdown.cash && Number(breakdown.cash) > 0) parts.push(`Cash: ₹${Number(breakdown.cash).toLocaleString('en-IN')}`);
-                      if (breakdown.card && Number(breakdown.card) > 0) parts.push(`Card: ₹${Number(breakdown.card).toLocaleString('en-IN')}`);
-                      if (breakdown.upi && Number(breakdown.upi) > 0) parts.push(`UPI: ₹${Number(breakdown.upi).toLocaleString('en-IN')}`);
-                      if (breakdown.bankTransfer && Number(breakdown.bankTransfer) > 0) parts.push(`Bank: ₹${Number(breakdown.bankTransfer).toLocaleString('en-IN')}`);
-                      return parts.length > 0 ? `<div style="font-size: 10px; margin-top: 4px; padding: 4px; background: #f8fafc; border-radius: 4px; border: 1px solid #e2e8f0; display: inline-block;">${parts.join(' | ')}</div>` : '';
-                    })() : ''}
+      const breakdown = payment.paymentDetails || payment.splitPayments || payment.breakdown || {};
+      const parts = [];
+      if (breakdown.cash && Number(breakdown.cash) > 0) parts.push(`Cash: ₹${Number(breakdown.cash).toLocaleString('en-IN')}`);
+      if (breakdown.card && Number(breakdown.card) > 0) parts.push(`Card: ₹${Number(breakdown.card).toLocaleString('en-IN')}`);
+      if (breakdown.upi && Number(breakdown.upi) > 0) parts.push(`UPI: ₹${Number(breakdown.upi).toLocaleString('en-IN')}`);
+      if (breakdown.bankTransfer && Number(breakdown.bankTransfer) > 0) parts.push(`Bank: ₹${Number(breakdown.bankTransfer).toLocaleString('en-IN')}`);
+      return parts.length > 0 ? `<div style="font-size: 10px; margin-top: 4px; padding: 4px; background: #f8fafc; border-radius: 4px; border: 1px solid #e2e8f0; display: inline-block;">${parts.join(' | ')}</div>` : '';
+    })() : ''}
                     </div>
                     <div class="${(payment?.status || "").toUpperCase() === "PAID" ? "status-paid" : ""}">Payment Status: ${(payment?.status || "PAID").toUpperCase()}</div>
                   </div>
-                  ${
-                    isDischargeTx && (payment.receipts?.length > 0 || payment.payments?.length > 0 || advancePaid > 0 || settlementPaid > 0)
-                      ? (() => {
-                          let receiptList = (payment.receipts && payment.receipts.length > 0)
-                            ? payment.receipts
-                            : (payment.payments && payment.payments.length > 0)
-                              ? payment.payments
-                              : [];
-                          if (receiptList.length === 0 && (advancePaid > 0 || settlementPaid > 0)) {
-                            const synth = [];
-                            if (advancePaid > 0) {
-                              synth.push({
-                                date: appointment.date || '-',
-                                receiptNo: 'IPD-ADVANCE',
-                                amount: advancePaid,
-                                mode: 'Advance'
-                              });
-                            }
-                            if (settlementPaid > 0) {
-                              synth.push({
-                                date: payment.date ? new Date(payment.date).toLocaleDateString('en-GB') : (appointment.date || '-'),
-                                receiptNo: payment.receiptNumber || payment.receiptNo || 'SETTLE-REC',
-                                amount: settlementPaid,
-                                mode: payment.mode || payment.method || 'Settlement'
-                              });
-                            }
-                            receiptList = synth;
-                          }
-                          return `
+                  ${isDischargeTx && (payment.receipts?.length > 0 || payment.payments?.length > 0 || advancePaid > 0 || settlementPaid > 0)
+      ? (() => {
+        let receiptList = (payment.receipts && payment.receipts.length > 0)
+          ? payment.receipts
+          : (payment.payments && payment.payments.length > 0)
+            ? payment.payments
+            : [];
+        if (receiptList.length === 0 && (advancePaid > 0 || settlementPaid > 0)) {
+          const synth = [];
+          if (advancePaid > 0) {
+            synth.push({
+              date: appointment.date || '-',
+              receiptNo: 'IPD-ADVANCE',
+              amount: advancePaid,
+              mode: 'Advance'
+            });
+          }
+          if (settlementPaid > 0) {
+            synth.push({
+              date: payment.date ? new Date(payment.date).toLocaleDateString('en-GB') : (appointment.date || '-'),
+              receiptNo: payment.receiptNumber || payment.receiptNo || 'SETTLE-REC',
+              amount: settlementPaid,
+              mode: payment.mode || payment.method || 'Settlement'
+            });
+          }
+          receiptList = synth;
+        }
+        const receiptTotal = receiptList.reduce((sum: number, r: any) => sum + Number(r.amount || 0), 0);
+        return `
                           <div style="margin-top: 12px; border-top: 1.5px solid #0f172a; padding-top: 8px;">
                             <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #0f172a; margin-bottom: 5px; letter-spacing: 0.5px;">Receipt Details :</div>
                             <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
@@ -2827,11 +2771,11 @@ export const generateClinicalReceiptHtml = (data: any) => {
                               </thead>
                               <tbody>
                                 ${receiptList.map((r: any, idx: number) => {
-                                  const rDate = r.date ? (typeof r.date === 'string' && r.date.includes('/') ? r.date : new Date(r.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })) : (appointment.date || '-');
-                                  const rNo = r.receiptNo || r.receiptNumber || r.transactionId || `REC-0${idx + 1}`;
-                                  const rAmt = Math.round(Number(r.amount || 0)).toLocaleString('en-IN');
-                                  const rType = r.type || r.mode || r.paymentMode || (idx === 0 && advancePaid > 0 ? 'Advance' : 'Settlement');
-                                  return `
+          const rDate = r.date ? formatSafeDate(r.date, { day: '2-digit', month: 'short', year: 'numeric' }) : (appointment.date ? formatSafeDate(appointment.date, { day: '2-digit', month: 'short', year: 'numeric' }) : '-');
+          const rNo = r.receiptNo || r.receiptNumber || r.transactionId || `REC-0${idx + 1}`;
+          const rAmt = Math.round(Number(r.amount || 0)).toLocaleString('en-IN');
+          const rType = r.type || r.mode || r.paymentMode || (idx === 0 && advancePaid > 0 ? 'Advance' : 'Settlement');
+          return `
                                     <tr style="border-bottom: 1px solid #f1f5f9;">
                                       <td style="padding: 4px 6px; text-align: left;">${idx + 1}</td>
                                       <td style="padding: 4px 6px; text-align: left;">${rDate}</td>
@@ -2840,18 +2784,18 @@ export const generateClinicalReceiptHtml = (data: any) => {
                                       <td style="padding: 4px 6px; text-align: left;">${rType}</td>
                                     </tr>
                                   `;
-                                }).join('')}
+        }).join('')}
                                 <tr style="background-color: #f8fafc; font-weight: 800; border-top: 1.5px solid #0f172a; border-bottom: 1.5px solid #0f172a;">
                                   <td colspan="3" style="padding: 5px 6px; text-align: right; text-transform: uppercase;">Total :</td>
-                                  <td style="padding: 5px 6px; text-align: right; color: #0f766e; font-size: 11px;">₹ ${Math.round(totalPaid).toLocaleString('en-IN')}</td>
+                                  <td style="padding: 5px 6px; text-align: right; color: #0f766e; font-size: 11px;">₹ ${Math.round(receiptTotal > 0 ? receiptTotal : totalPaid).toLocaleString('en-IN')}</td>
                                   <td style="padding: 5px 6px;"></td>
                                 </tr>
                               </tbody>
                             </table>
                           </div>`;
-                        })()
-                      : ""
-                  }
+      })()
+      : ""
+    }
                 </div>
               </td>
             </tr>
@@ -2868,9 +2812,8 @@ export const generateClinicalReceiptHtml = (data: any) => {
         </table>
       </div>
       <div class="footer-wrapper">
-        ${
-          footerHtml ||
-          `
+        ${footerHtml ||
+    `
         <div class="footer">
           <div style="flex: 1;">
             <p style="margin: 0; font-weight: 700;">PREPARED BY: ${patient.preparedBy || "System Administrator"}</p>
@@ -2884,7 +2827,7 @@ export const generateClinicalReceiptHtml = (data: any) => {
           </div>
         </div>
         `
-        }
+    }
       </div>
     </body>
     </html>
@@ -2907,130 +2850,207 @@ export const generatePrescriptionHtml = (data: any) => {
 
   const patientName = formatPatientNameWithPrefix(
     patient.name || patient.user?.name,
-    (appointment && (appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific)) || patient.honorific || patient.profile?.honorific || patient.honorificTitle
+    patient.honorific || (appointment && (appointment.appointmentHonorific || appointment.honorific || appointment.patientDetails?.honorific)) || patient.profile?.honorific || patient.honorificTitle
   );
-  const ageDisplay = computeAgeFromDob(patient.dob, patient.age, patient.ageUnit);
+  const rawAge =
+    patient.age ??
+    patient.profile?.age ??
+    patient.user?.age ??
+    (appointment && (appointment.patientDetails?.age || appointment.age)) ??
+    data.age ??
+    "";
+
+  let ageDisplay = "";
+  if (rawAge !== "" && rawAge !== undefined && rawAge !== null && rawAge !== "N/A" && rawAge !== "-") {
+    const cleanAgeStr = String(rawAge).trim();
+    if (cleanAgeStr.match(/(Y|Years|Mos|Months|Days|Yr|Yrs)$/i)) {
+      ageDisplay = cleanAgeStr;
+    } else {
+      ageDisplay = `${cleanAgeStr} Y`;
+    }
+  } else {
+    const computed = computeAgeFromDob(
+      patient.dob || patient.dateOfBirth || patient.user?.dob || patient.profile?.dob,
+      rawAge,
+      patient.ageUnit
+    );
+    if (computed && computed !== "N/A") {
+      ageDisplay = computed.match(/(Y|Years|Mos|Months|Days|Yr|Yrs)$/i) ? computed : `${computed} Y`;
+    }
+  }
+
+  const rawGender =
+    patient.gender ||
+    patient.profile?.gender ||
+    patient.user?.gender ||
+    (appointment && (appointment.patientDetails?.gender || appointment.gender)) ||
+    data.gender ||
+    "";
   const genderDisplay =
-    patient.gender && patient.gender !== "-"
-      ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)
+    rawGender && rawGender !== "-"
+      ? String(rawGender).toUpperCase()
       : "N/A";
+
+  const patientMRN =
+    patient.mrn ||
+    patient.profile?.mrn ||
+    patient.medicalRecordNumber ||
+    patient.uhid ||
+    (appointment && (appointment.mrn || appointment.patientDetails?.mrn)) ||
+    data.mrn ||
+    "-";
+
+  const displayDate = formatSafeDate(prescription.prescriptionDate || prescription.createdAt || new Date(), { day: "numeric", month: "long", year: "numeric" });
+
+  let followUpFormatted = "";
+  if (prescription.followUpDate) {
+    try {
+      followUpFormatted = formatSafeDate(prescription.followUpDate, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch (e) { }
+  }
+
+  const calcQty = (med: any) => {
+    if (med.quantity) return med.quantity;
+    if (med.qty) return med.qty;
+    let freqNum = 1;
+    const fStr = typeof med.frequency === "object" ? formatFrequency(med.frequency) : String(med.frequency || med.freq || "");
+    const fLower = fStr.toLowerCase();
+    if (fLower.includes("night") && fLower.includes("morning")) freqNum = 2;
+    else if (fLower.includes("1-0-1")) freqNum = 2;
+    else if (fLower.includes("1-1-1")) freqNum = 3;
+    else if (fLower.includes("twice")) freqNum = 2;
+    else if (fLower.includes("thrice")) freqNum = 3;
+    const days = parseInt(String(med.duration || "5").replace(/\D/g, "")) || 5;
+    return freqNum * days;
+  };
+
+  const formattedDocName = formatDoctorName(doctor.name || doctor.user?.name);
 
   return `
             <!DOCTYPE html>
             <html>
             <head>
+                <meta charset="utf-8" />
                 <title>Prescription - ${patientName}</title>
                 <style>
-                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
                     
-                    @media print {
-                        @page { size: A4; margin: 0; }
-                        body { print-color-adjust: exact; -webkit-print-color-adjust: exact; margin: 0; padding: 0; }
-                        .container { min-height: 280mm !important; height: auto !important; border: none !important; }
+                    @page { 
+                      size: A4 portrait; 
+                      margin: 0; 
                     }
-
                     html, body {
                       height: 100%;
                       margin: 0;
                       padding: 0;
-                    }
-                    body { 
-                        font-family: 'Inter', sans-serif; 
-                        margin: 0;
-                        padding: 0;
-                        background: white;
-                        font-size: 11px;
-                        line-height: 1.4;
-                        color: #111;
-                        display: flex;
-                        flex-direction: column;
-                        min-height: 100vh;
+                      background-color: #ffffff;
+                      color: #000;
+                      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                      font-size: 11px;
+                      line-height: 1.4;
+                      -webkit-print-color-adjust: exact;
+                      print-color-adjust: exact;
                     }
 
                     .container {
                         width: 210mm;
-                        min-height: 296mm;
+                        min-height: 297mm;
                         margin: 0 auto;
-                        padding: 15mm 20mm;
+                        padding: 10mm;
                         box-sizing: border-box;
-                        flex: 1;
                         display: flex;
                         flex-direction: column;
-                        border: 1px solid #e5e7eb;
+                        justify-content: space-between;
+                        background: #ffffff;
                     }
 
-                    .footer-push {
-                        margin-top: auto;
-                    }
-
-                    /* Header */
-                    .header {
-                        display: flex;
-                        align-items: center;
-                        gap: 20px;
-                        padding-bottom: 20px;
-                        margin-bottom: 20px;
-                        border-bottom: 2px solid #000;
-                    }
-                    .brand { flex: 1; display: flex; align-items: center; gap: 15px; }
-                    .brand-text { text-align: left; }
-                    .brand h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-                    .brand p { margin: 2px 0 0; font-size: 9px; color: #555; }
-                    
-                    .doctor { text-align: right; }
-                    .doctor h2 { margin: 0; font-size: 14px; font-weight: 700; }
-                    .doctor p { margin: 2px 0 0; font-size: 9px; font-weight: 600; text-transform: uppercase; color: #555; }
-
-                    /* Patient Grid - Clean, No Box */
-                    .patient-info {
+                    .rx-info-grid {
                         display: grid;
                         grid-template-columns: repeat(4, 1fr);
                         gap: 15px;
-                        margin-bottom: 25px;
-                        padding-bottom: 15px;
+                        margin-bottom: 20px;
+                        padding-bottom: 12px;
                         border-bottom: 1px solid #eee;
                     }
-                    .info-label { display: block; font-size: 8px; font-weight: 700; text-transform: uppercase; color: #777; margin-bottom: 3px; letter-spacing: 0.5px; }
-                    .info-val { font-size: 12px; font-weight: 600; text-transform: uppercase; }
-
-                    /* Diagnosis */
-                    .diagnosis-box { margin-bottom: 20px; }
-                    .diagnosis-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #777; letter-spacing: 0.5px; }
-                    .diagnosis-val { font-size: 12px; font-weight: 600; margin-left: 6px; }
-
-                    /* Med List/Table */
-                    .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #000; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 10px; letter-spacing: 0.5px; }
-                    
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-                    th { text-align: left; font-size: 9px; font-weight: 700; text-transform: uppercase; color: #777; padding: 0 0 8px 0; border-bottom: 1px solid #eee; }
-                    td { padding: 10px 0; border-bottom: 1px solid #f9f9f9; vertical-align: top; }
-                    
-                    .med-name { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
-                    .med-meta { font-size: 10px; color: #555; }
-                    
-                    /* Advice Grid */
-                    .advice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-                    .advice-list { list-style: none; padding: 0; margin: 0; }
-                    .advice-list li { margin-bottom: 6px; padding-left: 15px; position: relative; font-size: 11px; }
-                    .advice-list li:before { content: "•"; position: absolute; left: 0; color: #aaa; }
-
-                    /* Follow up */
-                    .follow-up { margin-top: 30px; padding-top: 15px; border-top: 1px dashed #eee; font-size: 11px; }
-                    .follow-up strong { font-weight: 700; text-transform: uppercase; font-size: 9px; color: #777; margin-right: 5px; }
-
-                    /* Footer (Pushed to bottom) */
-                    .footer { 
-                        margin-top: auto;
-                        padding-top: 30px;
-                        display: flex; 
-                        justify-content: space-between; 
-                        align-items: flex-end; 
+                    .info-label { 
+                        display: block; 
+                        font-size: 8px; 
+                        font-weight: 700; 
+                        text-transform: uppercase; 
+                        color: #777; 
+                        margin-bottom: 2px; 
+                        letter-spacing: 0.5px; 
                     }
-                    .footer-l span { display: block; font-size: 8px; color: #999; line-height: 1.5; }
+                    .info-val { 
+                        font-size: 11px; 
+                        font-weight: 800; 
+                        text-transform: uppercase; 
+                        color: #000;
+                    }
+
+                    .diagnosis-box { margin-bottom: 15px; }
+                    .diagnosis-label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #777; letter-spacing: 0.5px; }
+                    .diagnosis-val { font-size: 11px; font-weight: 700; margin-left: 5px; color: #000; }
+
+                    .section-label { 
+                        font-size: 9px; 
+                        font-weight: 800; 
+                        text-transform: uppercase; 
+                        color: #000; 
+                        border-bottom: 1px solid #000; 
+                        padding-bottom: 4px; 
+                        margin-bottom: 8px; 
+                        letter-spacing: 0.5px; 
+                    }
                     
-                    .sig-block { text-align: center; }
-                    .sig-img { height: 40px; display: block; margin: 0 auto 5px; }
-                    .sig-line { border-top: 1px solid #ccc; padding-top: 5px; font-size: 9px; font-weight: 600; text-transform: uppercase; min-width: 120px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+                    th { text-align: left; font-size: 8px; font-weight: 700; text-transform: uppercase; color: #777; padding: 0 0 6px 0; border-bottom: 1px solid #eee; }
+                    td { padding: 8px 0; border-bottom: 1px solid #f9f9f9; vertical-align: top; }
+                    
+                    .med-name { font-size: 11px; font-weight: 700; color: #000; }
+                    .med-meta { font-size: 10px; color: #444; }
+
+                    .info-box {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        background: #f8fafc;
+                        border: 1px solid #edf2f7;
+                        border-radius: 8px;
+                        padding: 10px 14px;
+                        margin-top: 15px;
+                        margin-bottom: 20px;
+                        font-size: 10px;
+                    }
+
+                    .signatory-container {
+                        margin-top: 40px;
+                        display: flex;
+                        justify-content: flex-end;
+                    }
+                    .signatory-box {
+                        text-align: center;
+                        width: 180px;
+                    }
+                    .sig-line {
+                        border-top: 1.5px solid #000;
+                        padding-top: 4px;
+                        font-size: 10px;
+                        font-weight: 800;
+                        text-transform: uppercase;
+                        color: #000;
+                    }
+                    .sig-subtitle {
+                        font-size: 8px;
+                        font-weight: 600;
+                        color: #64748b;
+                        text-transform: uppercase;
+                        margin-top: 2px;
+                    }
 
                     .no-print {
                         position: sticky;
@@ -3061,155 +3081,101 @@ export const generatePrescriptionHtml = (data: any) => {
                         .no-print { display: none !important; }
                     }
                 </style>
-              ${!usePrintStore.getState().printWithHeader ? `
-      <style>
-        .header-wrapper, .footer-wrapper, .hospital-header, .footer, .signatory-box, .signatory, .print-header, .print-footer, .header, .header-container, .divider-thick, .footer-note, .page-header, .footer-push { visibility: hidden !important; }
-        .print-settings-toggle-wrapper { visibility: visible !important; }
-      </style>
-      ` : ''}
-    </head>
-            <body onload="window.print();">
-                <script>
-                    window.onafterprint = function() {
-                        setTimeout(() => {
-                            window.location.replace('${data.returnUrl || "/helpdesk"}');
-                        }, 500);
-                    };
-                </script>
-                <div class="no-print">
-                    <button onclick="window.location.replace('${data.returnUrl || "/helpdesk"}')" class="return-btn">
-                        ← BACK TO HOSPITAL DASHBOARD
-                    </button>
-                </div>
+            </head>
+            <body>
                 <div class="container">
-                    ${
-                      headerHtml ||
-                      `
-                    <div class="header">
-                        <div class="brand">
-                            ${hospital.logo ? `<img src="${hospital.logo}" style="max-height: 70px; width: auto; object-fit: contain;" />` : ""}
-                            <div class="brand-text">
-                                <h1>${hospital.name || "CureChain Medical Center"}</h1>
-                                <p>${hospital.address || ""}</p>
-                                <p>${hospital.contact || hospital.phone || ""} ${hospital.email ? `• ${hospital.email}` : ""}</p>
+                    <!-- Branded Hospital Header -->
+                    ${headerHtml || ""}
+
+                    <div style="flex: 1 1 auto; display: flex; flex-direction: column;">
+                        <!-- Rx Info Grid strictly matching PrescriptionDocument -->
+                        <div class="rx-info-grid">
+                            <div>
+                                <span class="info-label">Patient Name</span>
+                                <span class="info-val">${patientName}</span>
+                            </div>
+                            <div>
+                                <span class="info-label">Age / Gender</span>
+                                <span class="info-val">${ageDisplay || "N/A"} / ${genderDisplay}</span>
+                            </div>
+                            <div>
+                                <span class="info-label">MRN Number</span>
+                                <span class="info-val" style="color: #006af5;">${patientMRN}</span>
+                            </div>
+                            <div style="text-align: right;">
+                                <span class="info-label">Date</span>
+                                <span class="info-val">${displayDate}</span>
+                            </div>
+                        </div>
+
+                        <!-- Diagnosis -->
+                        <div class="diagnosis-box">
+                            <span class="diagnosis-label">Provisional Diagnosis:</span>
+                            <span class="diagnosis-val">${prescription.diagnosis || "General Consultation"}</span>
+                        </div>
+
+                        <!-- Prescribed Medications Table -->
+                        <div style="margin-top: 10px;">
+                            <h3 class="section-label">Prescribed Medications</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width: 45%;">MEDICINE</th>
+                                        <th style="width: 15%;">DOSAGE</th>
+                                        <th style="width: 20%;">FREQUENCY</th>
+                                        <th style="width: 10%;">DAYS</th>
+                                        <th style="width: 10%; text-align: right;">QTY</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${medicines
+      .map(
+        (med: any) => `
+                                    <tr>
+                                      <td>
+                                        <div class="med-name">${med.name}</div>
+                                      </td>
+                                      <td class="med-meta">${typeof med.dosage === 'object' && med.dosage !== null ? `${med.dosage.morning || 0}-${med.dosage.afternoon || 0}-${med.dosage.evening || 0}-${med.dosage.night || 0}` : (med.dosage || "-")}</td>
+                                      <td class="med-meta">${typeof (med.freq || med.frequency) === 'object' ? formatFrequency(med.freq || med.frequency) : (med.freq || med.frequency || "-")}</td>
+                                      <td class="med-meta">${med.duration || "-"}</td>
+                                      <td class="med-meta" style="text-align: right;">${calcQty(med)}</td>
+                                    </tr>
+                                    `,
+      )
+      .join("")}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Instructions & Follow-up Box -->
+                        <div class="info-box">
+                            <div>
+                                <strong style="color: #64748b; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px;">SPECIAL INSTRUCTIONS:</strong>
+                                <span style="font-weight: 600; color: #1e293b;">${prescription.notes || prescription.advice || "N/A"}</span>
+                            </div>
+                            ${followUpFormatted
+      ? `
+                            <div>
+                                <strong style="color: #64748b; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px;">NEXT REVIEW ON:</strong>
+                                <span style="font-weight: 800; color: #0284c7;">${followUpFormatted}</span>
+                            </div>
+                            `
+      : ""
+    }
+                        </div>
+
+                        <!-- Signatory Line matching Screenshot 1 -->
+                        <div class="signatory-container">
+                            <div class="signatory-box">
+                                <div class="sig-line">${formattedDocName}</div>
+                                <div class="sig-subtitle">AUTHORISED SIGNATORY</div>
                             </div>
                         </div>
                     </div>
-                    `
-                    }
 
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 10px;">
-                        <div style="font-size: 16px; font-weight: 700; text-transform: uppercase; color: #1e40af;">PRESCRIPTION</div>
-                        <div style="text-align: right;">
-                            <h2 style="margin: 0; font-size: 14px; font-weight: 700;">${formatDoctorName(doctor.name)}</h2>
-                            <p style="margin: 2px 0 0; font-size: 9px; font-weight: 600; text-transform: uppercase; color: #555;">${doctor.specialization || "Consultant Physician"}</p>
-                        </div>
-                    </div>
-
-                    <div class="patient-info">
-                        <div>
-                            <span class="info-label">Name</span>
-                            <span class="info-val">${patientName}</span>
-                        </div>
-                        <div>
-                            <span class="info-label">Age / Gender</span>
-                            <span class="info-val">${ageDisplay} / ${genderDisplay}</span>
-                        </div>
-                        <div>
-                            <span class="info-label">ID</span>
-                            <span class="info-val">${patient.mrn || "-"}</span>
-                        </div>
-                        <div>
-                            <span class="info-label">Date</span>
-                            <span class="info-val">${new Date(prescription.createdAt).toLocaleDateString("en-GB")}</span>
-                        </div>
-                    </div>
-
-                    ${
-                      prescription.diagnosis
-                        ? `
-                    <div class="diagnosis-box">
-                        <span class="diagnosis-label">Diagnosis:</span>
-                        <span class="diagnosis-val">${prescription.diagnosis}</span>
-                    </div>
-                    `
-                        : ""
-                    }
-
-                    <div class="section-label">Medications</div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width: 40%">Medicine</th>
-                                <th style="width: 20%">Dosage</th>
-                                <th style="width: 20%">Frequency</th>
-                                <th style="width: 10%">Days</th>
-                                <th style="width: 10%">Qty</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${medicines
-                              .map(
-                                (med: any) => `
-                            <tr>
-                                <td>
-                                    <div class="med-name">${med.name}</div>
-                                </td>
-                                <td class="med-meta">${med.dosage || "-"}</td>
-                                <td class="med-meta">${med.freq || med.frequency || "-"}</td>
-                                <td class="med-meta">${med.duration || "-"}</td>
-                                <td class="med-meta">${med.quantity || "-"}</td>
-                            </tr>
-                            `,
-                              )
-                              .join("")}
-                        </tbody>
-                    </table>
-
-                    <div class="advice-grid">
-                        ${
-                          dietAdvice.length > 0
-                            ? `
-                        <div>
-                            <div class="section-label" style="border-bottom: 1px solid #eee; margin-top: 10px;">Advice</div>
-                            <ul class="advice-list">
-                                ${dietAdvice
-                                  .filter((i: string) => i.trim())
-                                  .map((d: string) => `<li>${d}</li>`)
-                                  .join("")}
-                            </ul>
-                        </div>
-                        `
-                            : ""
-                        }
-                    </div>
-
-                    ${
-                      prescription.advice
-                        ? `
-                    <div class="follow-up">
-                        <strong>Advice / Follow Up:</strong> ${prescription.advice}
-                    </div>
-                    `
-                        : ""
-                    }
-
-                    <div class="footer-push">
-                    ${
-                      footerHtml ||
-                      `
-                    <div class="footer">
-                        <div class="footer-l">
-                            <span>Generated by MsCurechain Systems</span>
-                            <span>Valid for 30 days</span>
-                        </div>
-                        <div class="sig-block">
-                            ${doctor.signature ? `<img src="${doctor.signature}" class="sig-img" />` : '<div style="height: 40px;"></div>'}
-                            <div class="sig-line">Authorized Signature</div>
-                        </div>
-                    </div>
-                    `
-                    }
+                    <!-- Branded Hospital Footer pinned to bottom -->
+                    <div style="margin-top: auto; padding-top: 15px;">
+                        ${footerHtml || ""}
                     </div>
                 </div>
             </body>
@@ -3391,16 +3357,15 @@ export const generateLabTokenHtml = (data: any) => {
                 </button>
             </div>
             <div class="container">
-              ${
-                headerHtml ||
-                `
+              ${headerHtml ||
+    `
               <div class="header">
                   <h1 style="color: #9333ea; margin: 0; font-size: 24px;">LAB REQUISITION</h1>
                   <h2 style="margin: 8px 0; font-size: 18px;">${hospital.name || "CureChain Medical Center"}</h2>
                   <p style="margin: 4px 0; font-size: 12px; color: #6b7280;">Department of Pathology & Radiodiagnosis</p>
               </div>
               `
-              }
+    }
 
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 16px; background: #fff; border: 1.5px solid #f1f5f9; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                   <div>
@@ -3434,9 +3399,9 @@ export const generateLabTokenHtml = (data: any) => {
                 </thead>
                 <tbody>
                   ${tests
-                    .filter((t: any) => t.name.trim())
-                    .map(
-                      (test: any, idx: number) => `
+      .filter((t: any) => t.name.trim())
+      .map(
+        (test: any, idx: number) => `
                     <tr>
                       <td>${idx + 1}</td>
                       <td>${test.name}</td>
@@ -3445,19 +3410,18 @@ export const generateLabTokenHtml = (data: any) => {
                       <td>Rupees ${(parseFloat(String(test.price || test.testPrice || test.amount || test.test?.price || test.testId?.price || 0)) || 0).toFixed(2)}</td>
                     </tr>
                   `,
-                    )
-                    .join("")}
+      )
+      .join("")}
                 </tbody>
               </table>
 
-              ${
-                notes
-                  ? `<div style="background: #fdfaff; padding: 16px; border-left: 4px solid #9333ea; margin: 24px 0; border-radius: 0 8px 8px 0;">
+              ${notes
+      ? `<div style="background: #fdfaff; padding: 16px; border-left: 4px solid #9333ea; margin: 24px 0; border-radius: 0 8px 8px 0;">
                 <p style="margin: 0; font-weight: 800; font-size: 13px; color: #9333ea; text-transform: uppercase; letter-spacing: 0.5px;">Physician Remarks:</p>
                 <p style="margin: 8px 0 0 0; font-style: italic; color: #475569; line-height: 1.5;">${notes}</p>
               </div>`
-                  : ""
-              }
+      : ""
+    }
 
               <div class="footer-push">
                 <div style="text-align: right; margin-top: 50px;">
@@ -3465,14 +3429,13 @@ export const generateLabTokenHtml = (data: any) => {
                   <p style="margin: 0; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #475569;">Medical Officer Signature</p>
                 </div>
 
-                ${
-                  footerHtml ||
-                  `
+                ${footerHtml ||
+    `
                 <div style="border-top: 1px solid #e5e7eb; margin-top: 40px; padding-top: 8px; text-align: center; font-size: 8px; color: #9ca3af;">
                   <p style="margin: 0;">Generated by MsCureChain • ${new Date().toLocaleDateString("en-GB")} at ${formatTime12Hr(new Date())}</p>
                 </div>
                 `
-                }
+    }
               </div>
             </div>
           </body>
@@ -3481,334 +3444,471 @@ export const generateLabTokenHtml = (data: any) => {
 };
 
 export const generateLabReportHtml = (data: any) => {
-  const { hospital, patient, doctor, labSample, headerHtml, footerHtml } = data;
+  const { hospital, patient, doctor, labSample, labInfo, labSettings } = data;
+
+  const defaultLab = {
+    name:
+      labInfo?.name ||
+      labSettings?.name ||
+      data.labName ||
+      "MEDI LAB LABORATORY",
+    address:
+      labInfo?.address ||
+      labSettings?.address ||
+      data.labAddress ||
+      "123 Medical Plaza, Healthcare District",
+    phone:
+      labInfo?.phone ||
+      labSettings?.phone ||
+      data.labPhone ||
+      "+91 98765 43210",
+    email:
+      labInfo?.email ||
+      labSettings?.email ||
+      data.labEmail ||
+      "lab@mscurechain.com",
+    logo:
+      labInfo?.logo ||
+      labSettings?.logo ||
+      data.labLogo ||
+      "https://images.unsplash.com/photo-1579154204601-01588f351e67?w=150&auto=format&fit=crop&q=80",
+  };
+
   const formattedPatientName = formatPatientNameWithPrefix(
-    patient?.name || patient?.user?.name,
-    patient?.honorific || patient?.profile?.honorific || patient?.honorificTitle
+    patient?.name || patient?.user?.name || data.patientName || "PATIENT",
+    patient?.honorific || patient?.profile?.honorific || patient?.honorificTitle || data.honorific,
+    true
   );
-  const ageDisplay = computeAgeFromDob(patient?.dob, patient?.age, patient?.ageUnit);
-  const tests = labSample?.tests || [];
-  const sampleId = labSample?.sampleId || 'N/A';
-  const sampleType = labSample?.sampleType || 'N/A';
-  const reportDate = labSample?.reportDate ? new Date(labSample.reportDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
-  const collectionDate = labSample?.collectionDate ? new Date(labSample.collectionDate).toLocaleDateString('en-GB') : 'N/A';
-  const status = labSample?.status || 'Completed';
 
-  const getDisplayRange = (test: any) => {
-    if (test.range) return test.range;
-    if (test.referenceRange) return test.referenceRange;
-    if (!test.normalRanges) return test.normalRange || '-';
-    const gender = (patient?.gender || '').toLowerCase();
-    const age = patient?.age || 0;
-    let range;
-    if (age < 12) range = test.normalRanges.child;
-    else if (gender === 'male') range = test.normalRanges.male;
-    else if (gender === 'female') range = test.normalRanges.female;
-    if (range && (range.min !== undefined || range.max !== undefined)) {
-      return `${range.min ?? 0} - ${range.max ?? 0}`;
+  const rawAge =
+    patient?.age ??
+    patient?.profile?.age ??
+    patient?.user?.age ??
+    data.age ??
+    "";
+  let ageDisplay = "";
+  if (rawAge !== "" && rawAge !== undefined && rawAge !== null && rawAge !== "N/A" && rawAge !== "-") {
+    const cleanAgeStr = String(rawAge).trim();
+    if (cleanAgeStr.match(/(Y|Years|Mos|Months|Days|Yr|Yrs)$/i)) {
+      ageDisplay = cleanAgeStr;
+    } else {
+      ageDisplay = `${cleanAgeStr} Years`;
     }
-    return test.normalRange || '-';
+  } else {
+    const computed = computeAgeFromDob(
+      patient?.dob || patient?.dateOfBirth || patient?.user?.dob || patient?.profile?.dob,
+      rawAge,
+      patient?.ageUnit
+    );
+    if (computed && computed !== "N/A") {
+      ageDisplay = computed;
+    }
+  }
+
+  const rawGender =
+    patient?.gender ||
+    patient?.profile?.gender ||
+    patient?.user?.gender ||
+    data.gender ||
+    "";
+  let genderDisplay = "-";
+  if (rawGender) {
+    const gLower = String(rawGender).trim().toLowerCase();
+    if (gLower.startsWith("m")) genderDisplay = "M";
+    else if (gLower.startsWith("f")) genderDisplay = "F";
+    else genderDisplay = String(rawGender).toUpperCase();
+  }
+
+  const tests = labSample?.tests || data.tests || [];
+  const sampleId =
+    labSample?.sampleId ||
+    data.sampleId ||
+    labSample?.tokenNumber ||
+    data.tokenNumber ||
+    data._id ||
+    "SMP-0238";
+  const sampleType = labSample?.sampleType || data.sampleType || "Blood, Urine";
+
+  const rawRegDate = labSample?.createdAt || data.createdAt || new Date();
+  const rawDrawnDate = labSample?.collectionDate || data.collectionDate || rawRegDate;
+  const rawReportDate = labSample?.reportDate || data.reportDate || rawRegDate;
+
+  const formatDateDisplay = (dt: any) => {
+    if (!dt) return "-";
+    try {
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return String(dt);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      return `${day}-${month}-${year} ${hours}:${minutes} ${ampm}`;
+    } catch {
+      return String(dt);
+    }
   };
 
-  const formatQualitativeRange = (range: string, result: string, name?: string) => {
-    const resLower = String(result || '').trim().toLowerCase();
-    const rangeLower = String(range || '').trim().toLowerCase();
-    const nameLower = String(name || '').trim().toLowerCase();
-    
-    if (rangeLower === '0 - 0' || rangeLower === '0-0' || rangeLower === 'n/a' || rangeLower === '0' || rangeLower === '-' || rangeLower.includes('reactive, non reactive') || rangeLower.includes('reactive / non reactive')) {
-      if (resLower.includes('reactive')) return 'Non-Reactive';
-      if (resLower.includes('negative') || resLower.includes('positive') || nameLower.includes('hcv') || nameLower.includes('hiv') || nameLower.includes('hbsag') || nameLower.includes('dengue') || nameLower.includes('tpha')) return 'Negative';
-      if (rangeLower.includes('reactive')) return 'Non-Reactive';
+  const regOnFormatted = formatDateDisplay(rawRegDate);
+  const drawnOnFormatted = formatDateDisplay(rawDrawnDate);
+  const reportedOnFormatted = formatDateDisplay(rawReportDate);
+
+  const docName = doctor?.name || doctor?.user?.name || data.doctorName || "Dr. Ramesh";
+  const formattedDocName = docName.toLowerCase().startsWith("dr") ? docName : `Dr. ${docName}`;
+
+  const checkFlag = (result: string, rangeText?: string) => {
+    if (!result) return "";
+    const cleanStr = String(result).replace(/,/g, "").trim();
+    if (cleanStr.includes("(L)") || cleanStr.includes("(H)")) return "";
+    const val = parseFloat(cleanStr);
+    if (!isNaN(val) && rangeText && rangeText !== "N/A" && rangeText !== "-" && rangeText !== "") {
+      const cleanRange = String(rangeText).replace(/,/g, "").trim();
+      const rangeMatch = cleanRange.match(/^(-?\d+(?:\.\d+)?)\s*(?:-|to|–|—)\s*(-?\d+(?:\.\d+)?)$/i);
+      if (rangeMatch) {
+        const minVal = parseFloat(rangeMatch[1]);
+        const maxVal = parseFloat(rangeMatch[2]);
+        if (!isNaN(minVal) && val < minVal) return "(L) ";
+        if (!isNaN(maxVal) && val > maxVal) return "(H) ";
+      } else if (cleanRange.startsWith("<")) {
+        const maxVal = parseFloat(cleanRange.substring(1).trim());
+        if (!isNaN(maxVal) && val >= maxVal) return "(H) ";
+      } else if (cleanRange.startsWith(">")) {
+        const minVal = parseFloat(cleanRange.substring(1).trim());
+        if (!isNaN(minVal) && val <= minVal) return "(L) ";
+      }
     }
-    return range;
+    return "";
   };
 
-  const formatQualitativeUnit = (unit: string, result: string) => {
-    const uLower = String(unit || '').trim().toLowerCase();
-    const resLower = String(result || '').trim().toLowerCase();
-    if (uLower === 'n/a' || uLower === 'none' || uLower === '0' || uLower === '-' || resLower.includes('negative') || resLower.includes('positive') || resLower.includes('reactive')) {
-      return '';
-    }
-    return unit === '-' ? '' : unit;
-  };
+  const testsRowsHtml = tests
+    .map((test: any) => {
+      const testTitle =
+        test.testName ||
+        test.name ||
+        test.test?.name ||
+        test.title ||
+        "INVESTIGATION";
+      const subTests =
+        test.subTests ||
+        test.test?.subTests ||
+        test.parameters ||
+        [];
 
-  const checkIsAbnormalRange = (valStr: any, rangeStr: any, currentAbnormal?: boolean) => {
-    if (currentAbnormal) return true;
-    if (!valStr || !rangeStr || rangeStr === '-' || rangeStr === 'N/A') return false;
-    if (String(valStr).includes('(L)') || String(valStr).includes('(H)')) return true;
-    const cleanVal = parseFloat(String(valStr).replace(/,/g, '').trim());
-    if (isNaN(cleanVal)) return false;
-    const cleanRange = String(rangeStr).replace(/,/g, '').trim();
-    const rangeMatch = cleanRange.match(/^(-?\d+(?:\.\d+)?)\s*(?:-|to|–|—)\s*(-?\d+(?:\.\d+)?)$/i);
-    if (rangeMatch) {
-      const minVal = parseFloat(rangeMatch[1]);
-      const maxVal = parseFloat(rangeMatch[2]);
-      if (!isNaN(minVal) && cleanVal < minVal) return true;
-      if (!isNaN(maxVal) && cleanVal > maxVal) return true;
-    } else if (cleanRange.startsWith('<')) {
-      const maxVal = parseFloat(cleanRange.substring(1).trim());
-      if (!isNaN(maxVal) && cleanVal >= maxVal) return true;
-    } else if (cleanRange.startsWith('>')) {
-      const minVal = parseFloat(cleanRange.substring(1).trim());
-      if (!isNaN(minVal) && cleanVal <= minVal) return true;
-    }
-    return false;
-  };
-
-  const testsHtml = tests.map((test: any, idx: number) => {
-    const rawUnit = test.unit || '-';
-    const rawRange = getDisplayRange(test);
-    const resultValue = test.resultValue || '-';
-    const range = formatQualitativeRange(rawRange, resultValue, test.testName);
-    const unit = formatQualitativeUnit(rawUnit, resultValue);
-    const isAbnormal = checkIsAbnormalRange(resultValue, range, test.isAbnormal || String(resultValue).includes('(L)') || String(resultValue).includes('(H)'));
-    const hasSubTests = test.subTests && test.subTests.length > 0;
-    const isMajorPanel = (t: any) => t && t.subTests && t.subTests.length >= 6;
-    const isDeptSwitch = idx > 0 && test.departmentName && test.departmentName !== tests[idx - 1]?.departmentName;
-    const shouldBreakPage = idx > 0 && (isMajorPanel(test) || isMajorPanel(tests[idx - 1]) || isDeptSwitch);
-    const breakStyle = shouldBreakPage ? 'page-break-before: always; break-before: page;' : '';
-
-    const subTestsHtml = (test.subTests || []).map((sub: any) => {
-      const rawSubRange = getDisplayRange(sub);
-      const inheritedRange = (rawSubRange && rawSubRange !== '-') ? rawSubRange : rawRange;
-      const subRange = formatQualitativeRange(inheritedRange, sub.result || '-', sub.name || test.testName);
-      const inheritedUnit = (sub.unit && sub.unit !== '-') ? sub.unit : rawUnit;
-      const subUnit = formatQualitativeUnit(inheritedUnit, sub.result || '-');
-      const subAbnormal = checkIsAbnormalRange(sub.result, subRange, sub.isAbnormal || String(sub.result || '').includes('(L)') || String(sub.result || '').includes('(H)') || isAbnormal);
-      return `
-      <tr style="background: #ffffff; page-break-inside: avoid; break-inside: avoid;">
-        <td style="padding: 5px 8px 5px 20px; border-bottom: none; font-size: 12px; color: #334155; text-transform: uppercase;">${sub.name || '-'}</td>
-        <td style="padding: 5px 8px; border-bottom: none; font-size: 12px; font-weight: ${subAbnormal ? '900' : '600'}; color: ${subAbnormal ? '#dc2626' : '#1e293b'};">
-          ${sub.result || '-'}
-          ${subAbnormal ? '<span style="font-size:10px; background:#fee2e2; color:#dc2626; padding: 1px 5px; border-radius:4px; margin-left:6px; font-weight:900;">▲ HIGH/LOW</span>' : ''}
-        </td>
-        <td style="padding: 5px 8px; border-bottom: none; font-size: 12px; color: #64748b;">${subUnit}</td>
-        <td style="padding: 5px 8px; border-bottom: none; font-size: 12px; color: #475569;">${subRange}</td>
-      </tr>`;
-    }).join('');
-
-    if (hasSubTests) {
-      return `
-        <tr style="background: #f8fafc; page-break-inside: avoid; break-inside: avoid; ${breakStyle}">
-          <td colspan="4" style="padding: 8px 8px; border-top: ${idx > 0 && !shouldBreakPage ? '2px solid #cbd5e1' : 'none'}; border-bottom: none; font-weight: 800; font-size: 13px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">${test.testName || '-'}</td>
+      let rows = `
+        <tr style="page-break-inside: avoid; break-inside: avoid;">
+          <td colspan="4" style="padding: 12px 10px 6px; text-align: left;">
+            <div style="
+              display: inline-block;
+              font-weight: 800;
+              font-size: 13.5px;
+              color: #1e293b;
+              border-bottom: 2px solid #3b82f6;
+              padding-bottom: 3px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            ">
+              ${testTitle}
+            </div>
+          </td>
         </tr>
-        ${subTestsHtml}
       `;
-    }
 
-    return `
-      <tr style="background: #ffffff; page-break-inside: avoid; break-inside: avoid; ${breakStyle}">
-        <td style="padding: 6px 8px; border-top: ${idx > 0 && !shouldBreakPage ? '1px solid #e2e8f0' : 'none'}; border-bottom: none; font-weight: 700; font-size: 12px; color: #1e293b; text-transform: uppercase;">${test.testName || '-'}</td>
-        <td style="padding: 6px 8px; border-top: ${idx > 0 && !shouldBreakPage ? '1px solid #e2e8f0' : 'none'}; border-bottom: none; font-weight: ${isAbnormal ? '900' : '700'}; font-size: 12px; color: ${isAbnormal ? '#dc2626' : '#1e293b'};">
-          ${resultValue}
-          ${isAbnormal ? '<span style="font-size:10px; background:#fee2e2; color:#dc2626; padding: 1px 5px; border-radius:4px; margin-left:6px; font-weight:900;">▲ HIGH/LOW</span>' : ''}
-        </td>
-        <td style="padding: 6px 8px; border-top: ${idx > 0 && !shouldBreakPage ? '1px solid #e2e8f0' : 'none'}; border-bottom: none; font-size: 12px; color: #64748b;">${unit}</td>
-        <td style="padding: 6px 8px; border-top: ${idx > 0 && !shouldBreakPage ? '1px solid #e2e8f0' : 'none'}; border-bottom: none; font-size: 12px; color: #475569;">${range}</td>
-      </tr>
-    `;
-  }).join('');
+      if (subTests.length > 0) {
+        rows += subTests
+          .map((sub: any) => {
+            const paramName = sub.name || sub.label || sub.parameter || "-";
+            const rawRes = sub.result !== undefined && sub.result !== null ? String(sub.result) : (sub.value || "-");
+            const range = sub.range || sub.referenceRange || sub.normalRange || "-";
+            const unit = sub.unit || "-";
+            const flag = checkFlag(rawRes, range);
+            const isAbnormal =
+              sub.isAbnormal ||
+              flag !== "" ||
+              rawRes.includes("(L)") ||
+              rawRes.includes("(H)");
+
+            return `
+              <tr style="page-break-inside: avoid; break-inside: avoid; border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 6px 10px; font-size: 12px; color: #000; text-transform: uppercase; font-weight: 500;">
+                  ${paramName}
+                </td>
+                <td style="padding: 6px 10px; font-size: 12px; font-weight: ${isAbnormal ? "900" : "600"}; color: ${isAbnormal ? "#dc2626" : "#000"};">
+                  ${flag}${rawRes}
+                </td>
+                <td style="padding: 6px 10px; font-size: 12px; color: #64748b;">
+                  ${unit}
+                </td>
+                <td style="padding: 6px 10px; font-size: 12px; color: #475569;">
+                  ${range}
+                </td>
+              </tr>
+            `;
+          })
+          .join("");
+      } else {
+        const rawRes = test.resultValue || test.result || "-";
+        const range = test.normalRange || test.referenceRange || test.range || "-";
+        const unit = test.unit || "-";
+        const flag = checkFlag(rawRes, range);
+        const isAbnormal =
+          test.isAbnormal ||
+          flag !== "" ||
+          String(rawRes).includes("(L)") ||
+          String(rawRes).includes("(H)");
+
+        rows += `
+          <tr style="page-break-inside: avoid; break-inside: avoid; border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 6px 10px; font-size: 12px; color: #000; text-transform: uppercase; font-weight: 500;">
+              ${testTitle}
+            </td>
+            <td style="padding: 6px 10px; font-size: 12px; font-weight: ${isAbnormal ? "900" : "600"}; color: ${isAbnormal ? "#dc2626" : "#000"};">
+              ${flag}${rawRes}
+            </td>
+            <td style="padding: 6px 10px; font-size: 12px; color: #64748b;">
+              ${unit}
+            </td>
+            <td style="padding: 6px 10px; font-size: 12px; color: #475569;">
+              ${range}
+            </td>
+          </tr>
+        `;
+      }
+
+      if (test.remarks) {
+        rows += `
+          <tr style="page-break-inside: avoid; break-inside: avoid;">
+            <td colspan="4" style="padding: 4px 10px 10px; font-size: 11px; color: #555;">
+              <strong>Remarks:</strong> ${test.remarks}
+            </td>
+          </tr>
+        `;
+      }
+
+      return rows;
+    })
+    .join("");
 
   return `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Lab Report - ${formattedPatientName || 'Patient'}</title>
+      <title>Lab Report - ${formattedPatientName}</title>
       <meta charset="UTF-8">
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        @media print {
-          @page { size: A4; margin: 8mm; }
-          body { margin: 0; padding: 0; }
-          .no-print { display: none !important; }
-          table.lab-master-print-table { width: 100% !important; border-collapse: collapse !important; border: none !important; }
-          table.lab-master-print-table > thead { display: table-header-group !important; }
-          table.lab-master-print-table > tbody { display: table-row-group !important; }
-          table.lab-master-print-table > tfoot { display: table-footer-group !important; }
-          table.lab-master-print-table > thead > tr > td, table.lab-master-print-table > tbody > tr > td, table.lab-master-print-table > tfoot > tr > td { border: none !important; padding: 0 !important; }
+        @page {
+          size: A4 portrait;
+          margin: 0;
         }
-        html, body { height: 100%; margin: 0; padding: 0; }
-        body {
-          font-family: 'Inter', Arial, sans-serif;
-          background: white;
-          color: #1e293b;
+        html, body {
+          margin: 0;
+          padding: 0;
+          height: 100%;
+          background: #ffffff;
+          color: #000;
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
           font-size: 12px;
-          line-height: 1.5;
+          line-height: 1.4;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
-        .container {
-          width: 210mm;
-          min-height: 296mm;
+        .report-container {
+          width: 100%;
+          max-width: 210mm;
+          min-height: 295mm;
+          height: 100%;
           margin: 0 auto;
-          padding: 12mm 16mm;
+          padding: 8mm 12mm;
           box-sizing: border-box;
+          position: relative;
           display: flex;
           flex-direction: column;
+          justify-content: space-between;
+          background: #ffffff;
         }
-        .footer-push {
-          margin-top: auto;
-        }
-        .return-btn {
-          padding: 10px 24px;
-          background-color: #000;
-          color: white;
-          border: none;
-          border-radius: 8px;
-          font-weight: bold;
-          cursor: pointer;
-          text-decoration: none;
-          font-family: inherit;
+        .report-top-content {
+          flex: 1 0 auto;
+          display: flex;
+          flex-direction: column;
           width: 100%;
-          max-width: 400px;
-          font-size: 14px;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          display: block;
-          text-align: center;
-          margin: 12px auto;
         }
-        .report-title {
-          text-align: center;
-          font-size: 18px;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 2px;
-          color: #1e3a5f;
-          border-bottom: 3px double #1e3a5f;
-          padding-bottom: 10px;
-          margin: 18px 0 16px;
+        .report-bottom-content {
+          flex-shrink: 0;
+          margin-top: auto;
+          width: 100%;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
-        .info-grid {
+        .watermark {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(-35deg);
+          font-size: 42px;
+          color: rgba(0, 0, 0, 0.035);
+          font-weight: 800;
+          letter-spacing: 4px;
+          white-space: nowrap;
+          pointer-events: none;
+          z-index: 0;
+          user-select: none;
+        }
+        .lab-master-table {
+          width: 100%;
+          border-collapse: collapse;
+          border: none;
+        }
+        .lab-patient-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 8px 24px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 10px;
-          padding: 14px 18px;
-          margin-bottom: 18px;
+          gap: 15px;
+          margin: 8px 0 14px;
+          font-size: 12px;
+          background: #f8f9fa;
+          padding: 10px 14px;
+          border-radius: 4px;
+          border: 1px solid #f1f5f9;
         }
-        .info-row { display: flex; gap: 6px; font-size: 11px; }
-        .info-label { font-weight: 700; color: #64748b; white-space: nowrap; min-width: 90px; }
-        .info-value { font-weight: 600; color: #1e293b; }
-        table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-        thead tr {
-          background: #1e3a5f;
-          color: white;
-        }
-        thead th {
-          padding: 10px 10px;
-          font-size: 10px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          text-align: left;
-        }
-        .footer-section {
-          margin-top: 40px;
-          border-top: 2px solid #e2e8f0;
-          padding-top: 16px;
+        .info-row {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 20px;
-          text-align: center;
+          grid-template-columns: 115px 10px 1fr;
+          margin-bottom: 3px;
         }
-        .sig-block { }
-        .sig-line {
-          border-bottom: 1.5px solid #000;
-          margin: 0 auto 6px;
-          width: 140px;
+        .info-label {
+          font-weight: 700;
+          color: #334155;
         }
-        .sig-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #475569; letter-spacing: 0.5px; }
-        .sig-sublabel { font-size: 9px; color: #94a3b8; margin-top: 2px; font-style: italic; }
-        .status-badge {
-          display: inline-block;
-          padding: 3px 10px;
-          border-radius: 6px;
-          font-size: 10px;
-          font-weight: 800;
-          text-transform: uppercase;
-          background: #dcfce7;
-          color: #16a34a;
-          border: 1px solid #bbf7d0;
+        .no-print {
+          display: none;
+        }
+        @media print {
+          .no-print { display: none !important; }
         }
       </style>
-      ${!usePrintStore.getState().printWithHeader ? `
-      <style>
-        .header-wrapper, .footer-wrapper, .hospital-header, .footer, .signatory-box, .signatory, .print-header, .print-footer, .header, .header-container, .divider-thick, .footer-note, .page-header, .footer-push { visibility: hidden !important; }
-        .print-settings-toggle-wrapper { visibility: visible !important; }
-      </style>
-      ` : ''}
     </head>
-    <body onload="window.print();">
-      <script>
-        window.onafterprint = function() {
-          setTimeout(() => { window.location.replace('${data.returnUrl || "/helpdesk"}'); }, 500);
-        };
-      </script>
-      <div class="no-print">
-        <button onclick="window.location.replace('${data.returnUrl || "/helpdesk"}')" class="return-btn">
-          ← BACK TO HOSPITAL DASHBOARD
-        </button>
-      </div>
-      <div class="container">
-        <table class="lab-master-print-table" style="width: 100%; border-collapse: collapse; border: none;">
-          <thead>
-            <tr>
-              <td colspan="4" style="border: none; padding: 0;">
-                ${headerHtml || `
-                <div style="text-align:center; padding-bottom: 10px; border-bottom: 2px solid #1e3a5f; margin-bottom: 12px;">
-                  <h1 style="margin:0; font-size:22px; font-weight:900; text-transform:uppercase; color:#1e3a5f;">
-                    ${hospital?.name || 'Medical Center'}
-                  </h1>
-                  <p style="margin:4px 0 0; font-size:11px; color:#64748b;">${hospital?.address || ''}</p>
-                  ${hospital?.phone ? `<p style="margin:2px 0 0; font-size:10px; color:#94a3b8;">Phone: ${hospital.phone}</p>` : ''}
-                </div>`}
+    <body>
+      <div class="report-container">
+        <!-- Faded Center Watermark -->
+        <div class="watermark">${defaultLab.name}</div>
 
-                <div class="report-title">Laboratory Report</div>
+        <div style="position: relative; z-index: 1; width: 100%; min-height: 100%; display: flex; flex-direction: column; justify-content: space-between; flex: 1 1 auto;">
+          <!-- Top Section: Header, Patient Grid, Test Results Table -->
+          <div class="report-top-content">
+            <!-- Top Header Section matching HeaderPrint.tsx -->
+            <div style="display: flex; align-items: center; justify-content: flex-start; padding: 4px 0 10px 0; gap: 20px; border-bottom: 4px solid #15803d; margin-bottom: 8px;">
+              <div style="min-width: 90px; max-width: 130px; display: flex; align-items: center; justify-content: center;">
+                <img src="${defaultLab.logo}" alt="Lab Logo" style="max-width: 100%; max-height: 80px; object-fit: contain;" />
+              </div>
+              <div style="height: 60px; width: 2px; background: #e2e8f0; flex-shrink: 0;"></div>
+              <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1; gap: 2px;">
+                <h1 style="font-size: 28px; font-weight: 900; color: #1e3a8a; margin: 0; text-transform: uppercase; letter-spacing: -0.01em; line-height: 1.1;">
+                  ${defaultLab.name}
+                </h1>
+                <div style="display: flex; align-items: center; gap: 6px; color: #1e3a8a; font-size: 12px; font-weight: 700; margin-top: 2px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#1e3a8a"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                  <span>${defaultLab.email}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; width: 100%; flex-wrap: wrap; margin-top: 2px;">
+                  <p style="color: #475569; font-size: 11px; margin: 0; font-weight: 600;">${defaultLab.address}</p>
+                  <div style="height: 11px; width: 1px; background-color: #cbd5e1;"></div>
+                  <div style="display: flex; align-items: center; gap: 6px; color: #15803d; font-size: 11.5px; font-weight: 800;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#15803d"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.44-5.15-3.75-6.59-6.59l1.97-1.57c.28-.28.36-.67.25-1.02A11.36 11.36 0 018.57 4.29c0-.55-.45-1-1-1H4.29c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.29c0-.55-.45-1-1-1z"/></svg>
+                    <span>${defaultLab.phone}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                <div class="info-grid">
-                  <div class="info-row"><span class="info-label">Patient Name</span><span class="info-value">: ${formattedPatientName || 'N/A'}</span></div>
-                  <div class="info-row"><span class="info-label">Sample ID</span><span class="info-value">: ${sampleId}</span></div>
-                  <div class="info-row"><span class="info-label">Age / Gender</span><span class="info-value">: ${ageDisplay || 'N/A'} / ${patient?.gender || 'N/A'}</span></div>
-                  <div class="info-row"><span class="info-label">MRN</span><span class="info-value">: ${patient?.mrn || 'N/A'}</span></div>
-                  <div class="info-row"><span class="info-label">Referred By</span><span class="info-value">: ${doctor?.name ? (doctor.name.toLowerCase().startsWith('dr') ? doctor.name : `Dr. ${doctor.name}`) : 'N/A'}</span></div>
-                  <div class="info-row"><span class="info-label">Sample Type</span><span class="info-value">: ${sampleType}</span></div>
-                  <div class="info-row"><span class="info-label">Collection Date</span><span class="info-value">: ${collectionDate}</span></div>
-                  <div class="info-row"><span class="info-label">Report Date</span><span class="info-value">: ${reportDate}</span></div>
-                  <div class="info-row"><span class="info-label">Status</span><span class="info-value">: <span class="status-badge">${status}</span></span></div>
-                  <div class="info-row"><span class="info-label">Mobile</span><span class="info-value">: ${patient?.mobile || 'N/A'}</span></div>
+            <!-- Centered Title -->
+            <div style="text-align: center; font-weight: 900; margin: 6px 0; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; color: #0f172a;">
+              TEST REPORT
+            </div>
+
+            <!-- 2-Column Info Grid matching LabReportTemplate.tsx -->
+            <div class="lab-patient-grid">
+              <div>
+                <div class="info-row"><span class="info-label">Reg No</span><span>:</span><span style="font-weight: 800; font-family: monospace;">${sampleId}</span></div>
+                <div class="info-row"><span class="info-label">Patient Name</span><span>:</span><span style="font-weight: 800; text-transform: uppercase;">${formattedPatientName}</span></div>
+                <div class="info-row"><span class="info-label">Age</span><span>:</span><span style="font-weight: 600;">${ageDisplay || "-"}</span></div>
+                <div class="info-row"><span class="info-label">Gender</span><span>:</span><span style="font-weight: 600;">${genderDisplay}</span></div>
+                <div class="info-row"><span class="info-label">Ref By</span><span>:</span><span style="font-weight: 600;">${formattedDocName}</span></div>
+                <div class="info-row"><span class="info-label">Ref By Client</span><span>:</span><span style="color: #64748b;">_</span></div>
+              </div>
+              <div>
+                <div class="info-row"><span class="info-label">Reg On</span><span>:</span><span style="font-weight: 600;">${regOnFormatted}</span></div>
+                <div class="info-row"><span class="info-label">Sample Drawn On</span><span>:</span><span style="font-weight: 600;">${drawnOnFormatted}</span></div>
+                <div class="info-row"><span class="info-label">Reported On</span><span>:</span><span style="font-weight: 600;">${reportedOnFormatted}</span></div>
+                <div class="info-row"><span class="info-label">Sample Type</span><span>:</span><span style="font-weight: 600;">${sampleType}</span></div>
+                <div class="info-row"><span class="info-label">Report Status</span><span>:</span><span style="font-weight: 700; color: #0284c7;">Final</span></div>
+              </div>
+            </div>
+
+            <!-- Test Results Table -->
+            <table class="lab-master-table">
+              <thead>
+                <!-- Table Headers matching Screenshot 3 -->
+                <tr style="background: #f8fafc; border-bottom: 2px solid #1e293b;">
+                  <th style="width: 35%; padding: 7px 10px; text-align: left; font-weight: 800; font-size: 11.5px; color: #000; text-transform: uppercase;">Parameter</th>
+                  <th style="width: 25%; padding: 7px 10px; text-align: left; font-weight: 800; font-size: 11.5px; color: #000; text-transform: uppercase;">Result</th>
+                  <th style="width: 15%; padding: 7px 10px; text-align: left; font-weight: 800; font-size: 11.5px; color: #000; text-transform: uppercase;">Units</th>
+                  <th style="width: 25%; padding: 7px 10px; text-align: left; font-weight: 800; font-size: 11.5px; color: #000; text-transform: uppercase;">Reference Range</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${testsRowsHtml || `
+                  <tr>
+                    <td colspan="4" style="text-align: center; padding: 25px; color: #94a3b8; font-style: italic;">
+                      No test results recorded.
+                    </td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Bottom Section: Signature & Footer pinned to downside -->
+          <div class="report-bottom-content">
+            <!-- Lab Incharge Signatory block matching Screenshot 3 -->
+            <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 20px; margin-bottom: 10px; padding-right: 15px; page-break-inside: avoid;">
+              <div style="text-align: center; min-width: 190px;">
+                <div style="height: 35px;"></div>
+                <div style="border-top: 1.5px solid #000; padding-top: 5px; font-weight: 800; font-size: 11px; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">
+                  LAB INCHARGE SIGNATURE
                 </div>
-              </td>
-            </tr>
-            <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
-              <th style="width:40%; padding: 8px 10px; text-align: left; font-size: 12px; color: #334155;">Parameter</th>
-              <th style="width:20%; padding: 8px 10px; text-align: left; font-size: 12px; color: #334155;">Result</th>
-              <th style="width:15%; padding: 8px 10px; text-align: left; font-size: 12px; color: #334155;">Units</th>
-              <th style="width:25%; padding: 8px 10px; text-align: left; font-size: 12px; color: #334155;">Reference Range</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tests.length > 0 ? testsHtml : `
-              <tr>
-                <td colspan="4" style="text-align:center; padding: 30px; color:#94a3b8; font-style:italic;">
-                  No test results available yet
-                </td>
-              </tr>
-            `}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="4" style="border: none; padding: 0;">
-                <div class="footer-push">
-                ${footerHtml || `
-                <div style="border-top: 1px solid #e5e7eb; margin-top: 20px; padding-top: 8px; text-align:center; font-size:9px; color:#9ca3af;">
-                  <p style="margin:0;">Generated by MsCureChain • ${new Date().toLocaleDateString('en-GB')} at ${formatTime12Hr(new Date())}</p>
-                </div>`}
+                <div style="font-size: 9.5px; color: #64748b; margin-top: 2px;">
+                  (Lab Technician / Incharge)
                 </div>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+              </div>
+            </div>
+
+            <!-- Footer matching FooterPrint.tsx -->
+            <div style="width: 100%; margin-top: 8px;">
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed; border: none;">
+                <tr>
+                  <td style="width: 50%; background-color: #15803d; color: #ffffff; padding: 6px 14px; font-size: 11.5px; font-weight: 800; vertical-align: middle;">
+                    📞 ${defaultLab.phone}
+                  </td>
+                  <td style="width: 50%; background-color: #1e3a8a; color: #ffffff; padding: 6px 14px; font-size: 11.5px; font-weight: 700; text-align: right; vertical-align: middle;">
+                    ✉️ ${defaultLab.email}
+                  </td>
+                </tr>
+              </table>
+              <div style="display: flex; justify-content: space-between; font-size: 8.5px; color: #64748b; line-height: 1.4; padding: 0 4px;">
+                <div>
+                  <div>• Results clinically correlation recommended</div>
+                  <div>• Contact lab immediately for alarming results</div>
+                </div>
+                <div style="text-align: right;">
+                  <div>• This is an authentic verified laboratory diagnostic document</div>
+                  <div>• Page 1 of 1</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </body>
     </html>
@@ -3915,12 +4015,11 @@ export const generateQualityReportHtml = (data: any) => {
       };
     </script>
     <body onload="window.print();">
-      ${
-        headerHtml ||
-        `<div class="header">
+      ${headerHtml ||
+    `<div class="header">
         <h1 class="title">${hospital?.name || "CureChain Hospital"}</h1>
       </div>`
-      }
+    }
 
       <div style="text-align: center; margin-top: 10px; margin-bottom: 20px;">
         <div style="font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase;">NABH QUALITY INDICATOR AUDIT REPORT</div>
@@ -3980,16 +4079,16 @@ export const generateQualityReportHtml = (data: any) => {
             <td>${T.bedOccupancyMin}-${T.bedOccupancyMax}%</td>
             <td style="font-weight:700">${indicators.bedOccupancyRate || 0}%</td>
             <td>${(() => {
-              const v = indicators.bedOccupancyRate || 0;
-              const ok = v >= T.bedOccupancyMin && v <= T.bedOccupancyMax;
-              const cls = ok ? "success" : "danger";
-              const lbl = ok
-                ? "COMPLIANT"
-                : v < T.bedOccupancyMin
-                  ? "LOW OCCUPANCY"
-                  : "NON-COMPLIANT";
-              return `<span class="status-text ${cls}">${lbl}</span>`;
-            })()}</td>
+      const v = indicators.bedOccupancyRate || 0;
+      const ok = v >= T.bedOccupancyMin && v <= T.bedOccupancyMax;
+      const cls = ok ? "success" : "danger";
+      const lbl = ok
+        ? "COMPLIANT"
+        : v < T.bedOccupancyMin
+          ? "LOW OCCUPANCY"
+          : "NON-COMPLIANT";
+      return `<span class="status-text ${cls}">${lbl}</span>`;
+    })()}</td>
           </tr>
           <tr>
             <td><strong>Avg Length of Stay (ALOS)</strong><br><span style="color:#64748b; font-size:8px">Admission to Discharge</span></td>
@@ -4002,22 +4101,22 @@ export const generateQualityReportHtml = (data: any) => {
             <td>&lt; ${T.billingTat} min</td>
             <td style="font-weight:700">${indicators.billingTat || 0} min</td>
             <td>${(() => {
-              const v = indicators.billingTat;
-              if (v === undefined || v === null || v === 0)
-                return `<span class="status-text warning">NO DATA</span>`;
-              return `<span class="status-text ${v < T.billingTat ? "success" : "danger"}">${v < T.billingTat ? "COMPLIANT" : "NON-COMPLIANT"}</span>`;
-            })()}</td>
+      const v = indicators.billingTat;
+      if (v === undefined || v === null || v === 0)
+        return `<span class="status-text warning">NO DATA</span>`;
+      return `<span class="status-text ${v < T.billingTat ? "success" : "danger"}">${v < T.billingTat ? "COMPLIANT" : "NON-COMPLIANT"}</span>`;
+    })()}</td>
           </tr>
           <tr>
             <td><strong>Incident Rate</strong><br><span style="color:#64748b; font-size:8px">${useRawIncidents ? "Total reported incidents this month" : "Per 1000 Patient Days"}</span></td>
             <td>&lt; ${useRawIncidents ? `${T.incidentCountMax} /mo` : `${T.incidentRateMax}\u2030`}</td>
             <td style="font-weight:700">${useRawIncidents ? metrics?.rawCounts?.totalIncidents || 0 : indicators.incidentRate || 0}${useRawIncidents ? "" : "\u2030"}</td>
             <td>${(() => {
-              const compliant = useRawIncidents
-                ? (metrics?.rawCounts?.totalIncidents || 0) < T.incidentCountMax
-                : (indicators.incidentRate || 0) < T.incidentRateMax;
-              return `<span class="status-text ${compliant ? "success" : "danger"}">${compliant ? "COMPLIANT" : "NON-COMPLIANT"}</span>`;
-            })()}</td>
+      const compliant = useRawIncidents
+        ? (metrics?.rawCounts?.totalIncidents || 0) < T.incidentCountMax
+        : (indicators.incidentRate || 0) < T.incidentRateMax;
+      return `<span class="status-text ${compliant ? "success" : "danger"}">${compliant ? "COMPLIANT" : "NON-COMPLIANT"}</span>`;
+    })()}</td>
           </tr>
           <tr>
             <td><strong>Readmission Rate</strong><br><span style="color:#64748b; font-size:8px">Same Diagnosis within 30 days</span></td>
@@ -4063,12 +4162,11 @@ export const generateQualityReportHtml = (data: any) => {
       </div>
 
       <div style="margin-top: auto;">
-        ${
-          footerHtml ||
-          `<div class="footer">
+        ${footerHtml ||
+    `<div class="footer">
           CureChain Hospital Management System | Generated on ${new Date().toLocaleDateString("en-GB")} at ${formatTime12Hr(new Date())}
         </div>`
-        }
+    }
       </div>
     </body>
     </html>
@@ -4302,13 +4400,9 @@ export const generateAddBillsReceiptHtml = (data: any) => {
     ageDisplay = computeAgeFromDob(patient.dob, patient.age, patient.ageUnit);
   }
 
-  const billDateObj = payment?.date ? new Date(payment.date) : new Date();
-  const billDateFormatted = !isNaN(billDateObj.getTime())
-    ? billDateObj.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
-    : new Date().toLocaleDateString("en-GB");
-  const billTimeFormatted = !isNaN(billDateObj.getTime())
-    ? billDateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-    : new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  const billDateObj = parseSafeDate(payment?.date || (payment as any)?.createdAt) || new Date();
+  const billDateFormatted = billDateObj.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const billTimeFormatted = billDateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
   const doctorDisplay = patient?.refDoctor || (appointment?.doctorName ? `Dr. ${appointment.doctorName.replace(/^Dr\.?\s*/i, '')}` : "Self / Walk-in");
   const receiptNumber = payment?.receiptNo || payment?.receiptNumber || "N/A";

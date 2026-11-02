@@ -2,6 +2,7 @@ import React from 'react';
 import MainHeader from '../printers/MainHeader';
 import MainFooter from '../printers/MainFooter';
 import { formatFrequency } from '@/lib/frequencyUtils';
+import { computeAgeFromDob } from '@/lib/print-utils';
 import { Activity, Heart, AlertCircle } from 'lucide-react';
 
 interface CardiologyData {
@@ -76,7 +77,11 @@ export const CardiologyPrescriptionDocument: React.FC<CardiologyPrescriptionDocu
         logo: ''
     };
 
-    const patientAge = patient.user?.age || patient.age || rx.appointment?.patientDetails?.age || rx.age || 'N/A';
+    const patientDob = patient.user?.dob || patient.dob || patient.user?.dateOfBirth || patient.dateOfBirth || rx.appointment?.patientDetails?.dob || rx.patientDetails?.dob || rx.appointment?.patient?.dob || rx.dob;
+    const rawFallbackAge = patient.user?.age || patient.age || rx.appointment?.patientDetails?.age || rx.age || '';
+    const rawFallbackUnit = patient.user?.ageUnit || patient.ageUnit || rx.appointment?.patientDetails?.ageUnit || rx.ageUnit || 'Years';
+    const computedAge = computeAgeFromDob(patientDob, rawFallbackAge, rawFallbackUnit);
+    const patientAge = (computedAge && computedAge !== 'N/A') ? computedAge : (rawFallbackAge ? (/[a-zA-Z]/.test(String(rawFallbackAge)) ? String(rawFallbackAge) : `${rawFallbackAge} ${rawFallbackUnit}`) : 'N/A');
     const patientGender = patient.user?.gender || patient.gender || rx.appointment?.patientDetails?.gender || rx.gender || 'N/A';
     const patientName = patient.user?.name || patient.name || rx.appointment?.patient?.name || 'NAME';
     const patientMrn = patient.mrn || rx.user?.mrn || rx.appointment?.mrn || rx.mrn || 'N/A';
@@ -123,7 +128,7 @@ export const CardiologyPrescriptionDocument: React.FC<CardiologyPrescriptionDocu
                 <div className="grid-3" style={{ borderBottom: '2px solid #ef4444', paddingBottom: '10px', marginBottom: '20px' }}>
                     <div>
                         <span style={{ display: 'block', fontSize: '7px', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8' }}>Patient Info</span>
-                        <span style={{ fontSize: '11px', fontWeight: 700 }}>{patientName?.toUpperCase()} ({patientAge}Y/{patientGender?.toUpperCase()})</span>
+                        <span style={{ fontSize: '11px', fontWeight: 700 }}>{patientName?.toUpperCase()} ({patientAge} / {patientGender?.toUpperCase()})</span>
                     </div>
                     <div style={{ textAlign: 'center' }}>
                         <span style={{ display: 'block', fontSize: '7px', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8' }}>MRN / ID</span>

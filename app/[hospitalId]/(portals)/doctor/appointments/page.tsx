@@ -11,6 +11,8 @@ import { useRouter } from 'next/navigation';
 import { useTenantLink } from '@/hooks/useTenantLink';
 import { useRealtimeRefetch } from '@/hooks/useRealtimeRefetch';
 import { useAppointmentStore } from '@/stores/domainStores';
+import { formatPatientNameWithPrefix, sanitizePatientName } from '@/lib/utils/name-utils';
+import { computeAgeFromDob } from '@/lib/print-utils';
 
 function DoctorAppointmentsPage() {
    const router = useRouter();
@@ -350,10 +352,12 @@ function DoctorAppointmentsPage() {
                                  <td className="px-1.5 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-3">
                                        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-700 dark:text-blue-400 font-black text-[10px] capitalize">
-                                          {(apt.patientName || '?').charAt(0)}
+                                          {(sanitizePatientName(apt.patientName) || '?').charAt(0)}
                                        </div>
                                        <div>
-                                          <p className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm group-hover:text-blue-600">{apt.patientName}</p>
+                                          <p className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm group-hover:text-blue-600">
+                                             {formatPatientNameWithPrefix(sanitizePatientName(apt.patientName), apt.patient?.honorific || apt.honorific)}
+                                          </p>
                                           <div className="flex items-center gap-1.5 mt-0.5">
                                              <p className="text-[10px] text-gray-500 font-medium">{apt.patientId || apt.mrn}</p>
                                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${apt.patientType === 'IPD' ? 'bg-rose-50 text-rose-600 dark:bg-rose-900/20' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20'}`}>
@@ -443,14 +447,26 @@ function DoctorAppointmentsPage() {
                               {(selectedAppointment.patientName || '?').charAt(0)}
                            </div>
                            <div>
-                              <div className="text-lg font-bold text-gray-900 dark:text-white">{selectedAppointment.patientName}</div>
+                              <div className="text-lg font-bold text-gray-900 dark:text-white">{formatPatientNameWithPrefix(sanitizePatientName(selectedAppointment.patientName), selectedAppointment.patient?.honorific || selectedAppointment.honorific)}</div>
                               <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">MRN: {selectedAppointment.patient?.mrn || selectedAppointment.mrn || 'N/A'}</div>
                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                            <div className="space-y-1">
                               <div className="text-gray-500">Age</div>
-                              <div className="font-semibold text-gray-900 dark:text-white">{selectedAppointment.patient?.age || 'N/A'} Years</div>
+                              <div className="font-semibold text-gray-900 dark:text-white">
+                                 {(() => {
+                                    const pDob = selectedAppointment.patient?.dob || selectedAppointment.dob;
+                                    const pAge = selectedAppointment.patient?.age ?? selectedAppointment.age;
+                                    const pUnit = selectedAppointment.patient?.ageUnit || selectedAppointment.ageUnit;
+                                    const computed = computeAgeFromDob(pDob, pAge, pUnit);
+                                    if (computed && computed !== 'N/A') return computed;
+                                    if (pAge !== undefined && pAge !== null && pAge !== '' && pAge !== '---') {
+                                       return /[a-zA-Z]/.test(String(pAge)) ? String(pAge) : `${pAge} ${pUnit || 'Years'}`;
+                                    }
+                                    return 'N/A';
+                                 })()}
+                              </div>
                            </div>
                            <div className="space-y-1">
                               <div className="text-gray-500">Gender</div>

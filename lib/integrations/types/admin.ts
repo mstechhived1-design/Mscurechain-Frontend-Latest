@@ -44,6 +44,8 @@ export interface Hospital {
   medicalStaffCount?: number;
   unitTypes?: string[];
   logo?: string;
+  locationLink?: string;
+  buildingImages?: string[];
   availablePortals?: string[];
   portalLicenses?: {
     masterhelpdesk?: PortalLicense;
@@ -368,6 +370,8 @@ export interface CreateHospitalRequest {
   email: string;
   phone: string;
   website?: string;
+  locationLink?: string;
+  buildingImages?: string[];
   establishedYear?: string | number;
   address: string;
   street?: string;

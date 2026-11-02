@@ -17,10 +17,13 @@ import { LabSampleService } from '@/lib/integrations/services/labSample.service'
 import { apiClient, clearApiCache, invalidateCachePattern } from '@/lib/integrations/api/apiClient';
 import { patientService } from '@/lib/integrations/services/patient.service';
 import BillPrintView from '@/components/lab/BillPrintView';
-import { formatPatientDisplayName, formatPatientNameWithPrefix, HONORIFIC_OPTIONS, cleanPatientName } from '@/lib/utils/name-utils';
+import { formatPatientDisplayName, formatPatientNameWithPrefix, HONORIFIC_OPTIONS, cleanPatientName, getHospitalHonorificOptions, getHospitalHonorificItems, addHospitalCustomHonorific, cleanHonorificPrefix } from '@/lib/utils/name-utils';
+import { useParams } from 'next/navigation';
 
 function LabBillingPage() {
     const router = useRouter();
+    const params = useParams() as any;
+    const hospitalId = params?.hospitalId as string;
     const { user } = useAuthStore();
     const [loading, setLoading] = useState(false);
     const [testsLoading, setTestsLoading] = useState(true);
@@ -698,15 +701,32 @@ function LabBillingPage() {
                                 <label className="text-xs font-medium text-gray-500">Patient Name</label>
                                 <div className="flex gap-2">
                                     <select
-                                        value={patient.honorific || ''}
-                                        onChange={e => setPatient(prev => ({ ...prev, honorific: e.target.value }))}
-                                        className="w-28 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-xs font-semibold text-gray-700 dark:text-gray-200"
+                                        value={cleanHonorificPrefix(patient.honorific || '')}
+                                        onChange={e => {
+                                            if (e.target.value === '__ADD_CUSTOM__') {
+                                                const customVal = window.prompt("Enter Custom Prefix / Honorific for this hospital:");
+                                                if (customVal && customVal.trim()) {
+                                                    const added = cleanHonorificPrefix(customVal.trim().toUpperCase());
+                                                    addHospitalCustomHonorific(added, hospitalId);
+                                                    setPatient(prev => ({ ...prev, honorific: added }));
+                                                }
+                                            } else {
+                                                setPatient(prev => ({ ...prev, honorific: cleanHonorificPrefix(e.target.value) }));
+                                            }
+                                        }}
+                                        className="w-28 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-xs font-semibold text-gray-700 dark:text-gray-200 cursor-pointer"
                                         title="Patient Title/Honorific"
                                     >
                                         <option value="">Title</option>
-                                        {HONORIFIC_OPTIONS.map((opt) => (
-                                            <option key={opt} value={opt}>{opt}</option>
+                                        {getHospitalHonorificItems(hospitalId).map((opt) => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
                                         ))}
+                                        {patient.honorific && !getHospitalHonorificItems(hospitalId).some(h => h.value.toLowerCase() === (patient.honorific || '').toLowerCase()) && (
+                                            <option value={cleanHonorificPrefix(patient.honorific)}>{cleanHonorificPrefix(patient.honorific).toUpperCase()}</option>
+                                        )}
+                                        <option value="__ADD_CUSTOM__" className="font-bold text-indigo-600">
+                                            + Add Custom...
+                                        </option>
                                     </select>
                                     <div className="relative flex-1">
                                         <input

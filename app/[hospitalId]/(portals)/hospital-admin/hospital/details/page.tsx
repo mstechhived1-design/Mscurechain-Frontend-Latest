@@ -24,6 +24,7 @@ import { toast } from 'react-hot-toast';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import { PageHeader, Card, Button, FormInput, FormTextarea } from '@/components/admin';
 import { LogoManager } from '@/components/hospital-admin/LogoManager';
+import { HospitalImagesManager } from '@/components/hospital-admin/HospitalImagesManager';
 import { ipdService } from '@/lib/integrations/services/ipd.service';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
@@ -107,6 +108,8 @@ const HospitalDetailsPage = () => {
         email: enrichedHospital.email || '',
         pincode: enrichedHospital.pincode || '',
         website: enrichedHospital.website || '',
+        locationLink: enrichedHospital.locationLink || enrichedHospital.googleMapLink || '',
+        buildingImages: enrichedHospital.buildingImages || [],
         establishedYear: enrichedHospital.establishedYear || '',
         gstNumber: enrichedHospital.gstNumber || '',
         rating: enrichedHospital.rating || '',
@@ -143,6 +146,9 @@ const HospitalDetailsPage = () => {
       console.log("[HospitalDetailsPage] Saving form data:", formData);
       const payload = {
         ...formData,
+        website: formData.website || '',
+        locationLink: formData.locationLink || '',
+        buildingImages: formData.buildingImages || [],
         operatingHours: formData.operatingHours || '09:00 AM - 09:00 PM',
         appointmentSettings: {
           bookingWindowDays: Number(formData.bookingWindowDays) || 10,
@@ -175,6 +181,17 @@ const HospitalDetailsPage = () => {
       setSaving(false);
     }
   }, [formData, fetchHospitalData]);
+
+  const handleBuildingImagesUpdate = async (images: string[]) => {
+    try {
+      setFormData((prev: any) => ({ ...prev, buildingImages: images }));
+      await hospitalAdminService.updateHospital({ buildingImages: images });
+      setHospital((prev: any) => ({ ...prev, buildingImages: images }));
+    } catch (error) {
+      console.error("[HospitalDetailsPage] Failed to update building images:", error);
+      throw error;
+    }
+  };
 
   const handleLogoUpload = async (base64: string) => {
     try {
@@ -382,6 +399,15 @@ const HospitalDetailsPage = () => {
               </div>
             </div>
 
+            {/* Section: Building Photos Gallery */}
+            <div className="p-4 md:p-8 border-b border-slate-100 bg-white">
+              <HospitalImagesManager
+                currentImages={formData.buildingImages || hospital?.buildingImages || []}
+                onUpdate={handleBuildingImagesUpdate}
+                readOnly={!isEdit}
+              />
+            </div>
+
             {/* Section: Connectivity */}
             <div className="p-2 md:p-4 md:p-8 border-b border-slate-100 bg-slate-50/30">
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 mb-8">
@@ -415,6 +441,15 @@ const HospitalDetailsPage = () => {
                   readOnly={!isEdit}
                   icon={<Globe size={14} className="text-slate-400" />}
                   className={!isEdit ? "bg-transparent border-none p-0 font-bold text-emerald-600" : "lowercase"}
+                />
+                <FormInput
+                  label="Location Link / Google Maps"
+                  value={formData.locationLink}
+                  onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })}
+                  readOnly={!isEdit}
+                  placeholder="https://maps.google.com/?q=..."
+                  icon={<MapPin size={14} className="text-slate-400" />}
+                  className={!isEdit ? "bg-transparent border-none p-0 font-bold text-blue-600" : ""}
                 />
                 <FormInput
                   label="Quality Rating (Scale 1-5)"

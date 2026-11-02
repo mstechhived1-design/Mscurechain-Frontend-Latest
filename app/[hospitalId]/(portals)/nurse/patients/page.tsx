@@ -22,23 +22,13 @@ import ClinicalNotesModal from '../components/ClinicalNotesModal';
 import MedicationAdministrationModal from '../components/MedicationAdministrationModal';
 import AddClinicalChargeModal from '@/components/ipd/AddClinicalChargeModal';
 import { formatPatientDisplayName, cleanPatientName } from '@/lib/utils/name-utils';
+import { computeAgeFromDob } from '@/lib/print-utils';
 
 // Helper to calculate age from DOB
-const calculateAge = (dob: any) => {
-    if (!dob) return "N/A";
-    try {
-        const birthDate = new Date(dob.$date || dob);
-        if (isNaN(birthDate.getTime())) return "N/A";
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        return age >= 0 ? `${age} Yrs` : "N/A";
-    } catch (e) {
-        return "N/A";
-    }
+const calculateAge = (dob: any, fallbackAge?: any, fallbackUnit?: any) => {
+    const rawDob = dob?.$date || dob;
+    const res = computeAgeFromDob(rawDob, fallbackAge, fallbackUnit);
+    return (res && res !== "N/A") ? res : (fallbackAge ? `${fallbackAge} ${fallbackUnit || 'Yrs'}` : "N/A");
 };
 
 // Helper to format gender
@@ -166,8 +156,8 @@ export default function PatientMonitoringPage() {
                             paginatedAdmissions.map((adm) => {
                                 const patient = adm.patient || {};
                                 const profile = adm.patientProfile || {};
-                                const dob = patient.dateOfBirth || profile.dob || profile.dateOfBirth;
-                                const ageDisplay = calculateAge(dob);
+                                const dob = patient.dob || profile.dob || patient.dateOfBirth || profile.dateOfBirth;
+                                const ageDisplay = calculateAge(dob, patient.age || profile.age, patient.ageUnit || profile.ageUnit);
                                 const genderDisplay = formatGender(patient.gender || profile.gender);
                                 const mrnDisplay = patient.mrn || profile.mrn || adm.admissionId || 'N/A';
 
@@ -254,8 +244,8 @@ export default function PatientMonitoringPage() {
                 paginatedAdmissions.map((adm) => {
                     const patient = adm.patient || {};
                     const profile = adm.patientProfile || {};
-                    const dob = patient.dateOfBirth || profile.dob || profile.dateOfBirth;
-                    const ageDisplay = calculateAge(dob);
+                    const dob = patient.dob || profile.dob || patient.dateOfBirth || profile.dateOfBirth;
+                    const ageDisplay = calculateAge(dob, patient.age || profile.age, patient.ageUnit || profile.ageUnit);
                     const genderDisplay = formatGender(patient.gender || profile.gender);
                     const mrnDisplay = patient.mrn || profile.mrn || adm.admissionId || 'N/A';
 

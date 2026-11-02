@@ -17,6 +17,8 @@ import { useVitalsSocket } from '@/lib/hooks/useVitalsSocket';
 import { useTenantLink } from '@/hooks/useTenantLink';
 import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
+import { formatPatientNameWithPrefix, sanitizePatientName } from '@/lib/utils/name-utils';
+import { computeAgeFromDob } from '@/lib/print-utils';
 
 const MonitoringTimer = ({ lastRecorded, nextDue, status }: { lastRecorded?: string | Date; nextDue?: string | Date; status?: string }): any => {
     const [timeLeft, setTimeLeft] = useState<string>("");
@@ -525,13 +527,25 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 </div>
 
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary-theme to-indigo-600 text-white flex items-center justify-center text-xl sm:text-2xl font-black shadow-xl shadow-primary-theme/20 relative z-10 shrink-0">
-                    {pUser.name?.charAt(0) || patient.name?.charAt(0) || 'P'}
+                    {sanitizePatientName(pUser.name || patient.name).charAt(0) || 'P'}
                 </div>
 
                 <div className="flex-1 relative z-10">
-                    <h1 className="text-lg md:text-xl lg:text-xl font-bold text-foreground tracking-tighter uppercase">{pUser.name || patient.name || 'Unknown Patient'}</h1>
+                    <h1 className="text-lg md:text-xl lg:text-xl font-bold text-foreground tracking-tighter uppercase">
+                        {formatPatientNameWithPrefix(sanitizePatientName(pUser.name || patient.name || 'Unknown Patient'), patient.honorific || pUser.honorific || patient.personal?.honorific)}
+                    </h1>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 sm:mt-3 text-[10px] sm:text-xs text-muted font-bold uppercase tracking-widest leading-none">
-                        <span className="flex items-center gap-1.5"><User size={14} className="text-primary-theme/50" /> {patient.age || '--'} Y / {patient.gender || '---'}</span>
+                        <span className="flex items-center gap-1.5">
+                            <User size={14} className="text-primary-theme/50" />
+                            {(() => {
+                                const pDob = patient.dob || patient.personal?.dob || pUser.dob;
+                                const pAge = patient.age ?? patient.personal?.age ?? pUser.age;
+                                const pUnit = patient.ageUnit || patient.personal?.ageUnit || pUser.ageUnit;
+                                const computed = computeAgeFromDob(pDob, pAge, pUnit);
+                                const ageStr = (computed && computed !== 'N/A') ? computed : (pAge !== undefined && pAge !== null && pAge !== '' && pAge !== '---' ? (/[a-zA-Z]/.test(String(pAge)) ? String(pAge) : `${pAge} ${pUnit || 'Y'}`) : '--');
+                                return `${ageStr} / ${patient.gender || patient.personal?.gender || pUser.gender || '---'}`;
+                            })()}
+                        </span>
                         <span className="flex items-center gap-1.5"><Activity size={14} className="text-primary-theme/50" /> {patient.bloodGroup || patient.personal?.bloodGroup || 'BLOOD ---'}</span>
                         <div className="hidden sm:block w-px h-3 bg-border-theme" />
                         <span className="flex items-center gap-1.5"><Phone size={14} className="text-primary-theme/50" /> {patient?.personal?.mobile && patient.personal.mobile !== 'N/A' ? patient.personal.mobile : pUser.mobile || patient.mobile || '---'}</span>

@@ -10,13 +10,14 @@ import { apiClient } from '@/lib/integrations/api/apiClient';
 import LabReportTemplate from '@/components/lab/LabReportTemplate';
 import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
 import PrintSettingsToggle from '@/components/printers/PrintSettingsToggle';
+import { computeAgeFromDob } from '@/lib/print-utils';
 
 export default function DoctorLabResultDetailPage() {
     const params = useParams() as any;
     const id = params?.id as string;
     const router = useRouter();
     const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    const isDoctorNotified = ((searchParams?.get('notified') ?? null) ?? null) === 'true';
+    const isDoctorNotified = searchParams.get('notified') === 'true';
 
     const [order, setOrder] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -71,9 +72,15 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 const rawOrder = data;
 
                 // Construct patient details with better fallbacks and official MRN from profile if available
+                const patientDob = rawOrder.patient?.dob || rawOrder.patient?.dateOfBirth || rawOrder.patientDetails?.dob || rawOrder.patientDetails?.dateOfBirth;
+                const rawAge = rawOrder.patient?.age ?? rawOrder.patientDetails?.age;
+                const rawUnit = rawOrder.patient?.ageUnit || rawOrder.patientDetails?.ageUnit;
                 const patientDetails = {
                     name: rawOrder.patient?.name || rawOrder.patientDetails?.name || 'Unknown Patient',
-                    age: rawOrder.patient?.age || calculateAge(rawOrder.patient?.dob || rawOrder.patient?.dateOfBirth) || rawOrder.patientDetails?.age || 0,
+                    honorific: rawOrder.patient?.honorific || rawOrder.patientDetails?.honorific,
+                    dob: patientDob,
+                    age: computeAgeFromDob(patientDob, rawAge, rawUnit) || rawAge || 0,
+                    ageUnit: rawUnit,
                     gender: rawOrder.patient?.gender || rawOrder.patientDetails?.gender || 'N/A',
                     mobile: rawOrder.patient?.mobile || rawOrder.patientDetails?.mobile || '',
                     refDoctor: rawOrder.referredBy || rawOrder.doctor?.name || rawOrder.patientDetails?.refDoctor || 'Self',

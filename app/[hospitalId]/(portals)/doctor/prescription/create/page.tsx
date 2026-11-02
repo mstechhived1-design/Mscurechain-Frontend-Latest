@@ -979,10 +979,10 @@ function CreatePrescriptionPage({ params }: { params: Promise<{ hospitalId: stri
     const resolvedParams = use(params);
     const hospitalId = resolvedParams.hospitalId;
     const router = useRouter();
-    const searchParams = useSearchParams() as any;
-    const appointmentId = ((searchParams?.get('appointmentId') ?? null) ?? null);
-    const patientId = ((searchParams?.get('patientId') ?? null) ?? null);
-    const admissionId = ((searchParams?.get('admissionId') ?? null) ?? null);
+    const searchParams = useSearchParams();
+    const appointmentId = searchParams?.get('appointmentId') ?? null;
+    const patientId = searchParams?.get('patientId') ?? null;
+    const admissionId = searchParams?.get('admissionId') ?? null;
 
 
     const [formData, setFormData] = useState<PrescriptionForm>(INITIAL_FORM);
@@ -3523,6 +3523,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 age: formData.age,
                 gender: formData.gender,
                 sendToPharma: sendToPharmaFlag,
+                finalize: !sendToPharmaFlag,
                 // ── Specialty module payloads (persisted as linked documents) ──
                 cardiologyData: activeSpecialty.toUpperCase().includes('CARDIO') ? (() => {
                     const c = { ...formData.cardiologyData };
@@ -3635,6 +3636,15 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
 
             // Clear Draft
             localStorage.removeItem(`prescription_draft_${appointmentId || patientId || 'default'}`);
+
+            // Automatically complete consultation on finalize if appointmentId is present
+            if (appointmentId && !sendToPharmaFlag) {
+                doctorService.endConsultation(appointmentId, {
+                    duration: 0,
+                    diagnosis: formData.diagnosis,
+                    clinicalNotes: formData.symptoms
+                }).catch(err => console.warn("Background endConsultation sync notice:", err));
+            }
 
         } catch (error: any) {
             toast.error(error.message || "Failed to save prescription");

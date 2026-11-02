@@ -1,5 +1,6 @@
-﻿import React, { useRef } from 'react';
+import React, { useRef } from 'react';
 import { Cropper, CropperRef, CircleStencil, RectangleStencil, ImageRestriction } from 'react-advanced-cropper';
+// @ts-ignore
 import 'react-advanced-cropper/dist/style.css';
 import { X, Check, Maximize2 } from 'lucide-react';
 import { createPortal } from 'react-dom';

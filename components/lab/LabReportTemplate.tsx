@@ -3,6 +3,7 @@ import { LabSample } from '@/lib/integrations/types/labSample';
 import HeaderPrint from './HeaderPrint';
 import FooterPrint from './FooterPrint';
 import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
+import { computeAgeFromDob } from '@/lib/print-utils';
 
 
 interface LabReportTemplateProps {
@@ -118,13 +119,13 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
         };
 
         return (
-            <div ref={ref} style={{ padding: 0, background: '#fff', fontFamily: '"Segoe UI", Arial, sans-serif', width: '100%', maxWidth: '210mm', minHeight: '290mm', margin: '0 auto' }}>
+            <div ref={ref} style={{ padding: 0, background: '#fff', fontFamily: '"Segoe UI", Arial, sans-serif', width: '100%', maxWidth: '210mm', minHeight: '280mm', margin: '0 auto', boxSizing: 'border-box' }}>
                 <style>{`
                     .print-content {
                         display: block;
                         width: 100%;
                         max-width: 210mm;
-                        min-height: 290mm;
+                        min-height: 280mm;
                         margin: 0 auto;
                         position: relative;
                         background: #ffffff;
@@ -132,22 +133,35 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                         box-sizing: border-box;
                     }
                     @media (min-width: 800px) {
-                        .report-body   { padding: 10mm 12mm !important; }
+                        .report-body   { padding: 8mm 12mm !important; }
                         .lab-patient-grid {
                             font-size: 13px !important;
                         }
                         .lab-test-table { font-size: 13px !important; }
                         .lab-test-table th,
-                        .lab-test-table td { padding: 8px 10px !important; }
+                        .lab-test-table td { padding: 7px 10px !important; }
                     }
                     .report-body {
                         display: flex;
                         flex-direction: column;
                         justify-content: space-between;
-                        padding: 10mm 12mm;
+                        padding: 8mm 12mm;
                         box-sizing: border-box;
                         position: relative;
-                        min-height: 290mm;
+                        min-height: 280mm;
+                    }
+                    .report-main-content {
+                        flex: 1 0 auto;
+                        display: flex;
+                        flex-direction: column;
+                        width: 100%;
+                    }
+                    .report-footer-section {
+                        flex-shrink: 0;
+                        margin-top: auto;
+                        width: 100%;
+                        page-break-inside: avoid;
+                        break-inside: avoid;
                     }
                     .lab-print-footer {
                         display: block;
@@ -159,10 +173,10 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                         display: grid;
                         grid-template-columns: 1fr 1fr;
                         gap: 20px;
-                        margin: 15px 0;
+                        margin: 10px 0 14px 0;
                         font-size: 12px;
                         background: #f8f9fa;
-                        padding: 15px;
+                        padding: 12px 14px;
                         border-radius: 4px;
                     }
                     .info-row {
@@ -176,7 +190,7 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                     }
                     .lab-test-title {
                         text-align: center;
-                        margin: 15px 0;
+                        margin: 12px 0 8px 0;
                         color: #333;
                     }
                     .lab-test-dept {
@@ -216,8 +230,46 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                     }
                     @media print {
                         @page {
-                            size: auto;
-                            margin: 8mm;
+                            size: A4 portrait;
+                            margin: 0;
+                        }
+                        html, body {
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            height: 100% !important;
+                            background: #fff !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        .print-content {
+                            width: 100% !important;
+                            max-width: 210mm !important;
+                            min-height: 295mm !important;
+                            margin: 0 auto !important;
+                            box-sizing: border-box !important;
+                            display: block !important;
+                            background: #fff !important;
+                        }
+                        .report-body {
+                            display: flex !important;
+                            flex-direction: column !important;
+                            justify-content: space-between !important;
+                            min-height: 295mm !important;
+                            padding: 8mm 12mm !important;
+                            box-sizing: border-box !important;
+                        }
+                        .report-main-content {
+                            flex: 1 0 auto !important;
+                            display: flex !important;
+                            flex-direction: column !important;
+                            width: 100% !important;
+                        }
+                        .report-footer-section {
+                            flex-shrink: 0 !important;
+                            margin-top: auto !important;
+                            width: 100% !important;
+                            page-break-inside: avoid !important;
+                            break-inside: avoid !important;
                         }
                         .lab-test-table td.abnormal-result {
                             font-weight: 900 !important;
@@ -225,56 +277,11 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                             -webkit-print-color-adjust: exact !important;
                             print-color-adjust: exact !important;
                         }
-                        .lab-report-template, .print-content, .report-body {
-                            position: static !important;
-                            display: block !important;
-                            border: none !important;
-                            padding: 0 !important;
-                            margin: 0 !important;
-                            overflow: visible !important;
-                            transform: none !important;
-                        }
-                        table.lab-master-print-table {
-                            display: table !important;
-                            width: 100% !important;
-                            border-collapse: collapse !important;
-                            border: none !important;
-                            margin: 0 !important;
-                        }
-                        table.lab-master-print-table > thead {
-                            display: table-header-group !important;
-                        }
-                        table.lab-master-print-table > tbody {
-                            display: table-row-group !important;
-                        }
-                        table.lab-master-print-table > tfoot {
-                            display: table-footer-group !important;
-                        }
-                        table.lab-master-print-table > thead > tr {
-                            page-break-inside: avoid !important;
-                            break-inside: avoid !important;
-                        }
-                        table.lab-master-print-table > thead > tr > td,
-                        table.lab-master-print-table > thead > tr > th,
-                        table.lab-master-print-table > tbody > tr > td,
-                        table.lab-master-print-table > tbody > tr > th,
-                        table.lab-master-print-table > tfoot > tr > td,
-                        table.lab-master-print-table > tfoot > tr > th {
-                            border: none !important;
-                            padding: 0 !important;
-                            position: static !important;
-                        }
-                        table.lab-master-print-table > thead * {
-                            position: static !important;
-                            z-index: auto !important;
-                            transform: none !important;
-                            box-shadow: none !important;
-                        }
                         .lab-patient-grid {
                             display: table !important;
                             width: 100% !important;
                             table-layout: fixed !important;
-                            margin: 15px 0 !important;
+                            margin: 10px 0 14px 0 !important;
                         }
                         .lab-patient-grid > div {
                             display: table-cell !important;
@@ -294,7 +301,7 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                             break-after: avoid !important;
                         }
                     }
-                    .test-section { margin-bottom: 24px; }
+                    .test-section { margin-bottom: 20px; }
                 `}</style>
 
                 <div className="print-content">
@@ -316,202 +323,202 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                     </div>
 
                     <div className="report-body">
-                        <table className="lab-master-print-table" style={{ width: '100%', borderCollapse: 'collapse', border: 'none' }}>
-                            <thead>
-                                <tr>
-                                    <td colSpan={4} style={{ border: 'none', padding: 0 }}>
-                                        <div style={{ position: 'relative', zIndex: 1 }}>
-                                            <HeaderPrint />
-                                        </div>
+                        {/* Top: Header, Patient Details, and Test Results */}
+                        <div className="report-main-content">
+                            <div style={{ position: 'relative', zIndex: 1 }}>
+                                <HeaderPrint />
+                            </div>
 
-                                        <div style={{ textAlign: 'center', fontWeight: 'bold', margin: '10px 0', fontSize: '14px' }}>
-                                            TEST REPORT
-                                        </div>
+                            <div style={{ textAlign: 'center', fontWeight: 'bold', margin: '8px 0', fontSize: '14px', letterSpacing: '0.5px' }}>
+                                TEST REPORT
+                            </div>
 
-                                        <div className="lab-patient-grid" style={{ position: 'relative', zIndex: 1 }}>
-                                            <div>
-                                                <div className="info-row"><span className="info-label">Reg No</span><span>:</span><span>{sample.sampleId}</span></div>
-                                                <div className="info-row"><span className="info-label">Patient Name</span><span>:</span><span>{formatPatientNameWithPrefix(sample.patientDetails.originalPatientName || sample.patientDetails.name, (sample.patientDetails as any).honorific, true)}</span></div>
-                                                <div className="info-row"><span className="info-label">Age</span><span>:</span><span>{(() => {
-                                                    const rawAge: any = sample.patientDetails.age;
-                                                    const unit = (sample.patientDetails as any).ageUnit || '';
-                                                    if (rawAge === undefined || rawAge === null || rawAge === '' || rawAge === '-' || rawAge === 'N/A') return '-';
-                                                    if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
-                                                    return unit ? `${rawAge} ${unit}` : `${rawAge} Y`;
-                                                })()}</span></div>
-                                                <div className="info-row"><span className="info-label">Gender</span><span>:</span><span>{sample.patientDetails.gender?.charAt(0).toUpperCase()}</span></div>
-                                                <div className="info-row"><span className="info-label">Ref By</span><span>:</span><span>{sample.patientDetails.refDoctor || sample.referredBy || ''}</span></div>
-                                                <div className="info-row"><span className="info-label">Ref By Client</span><span>:</span><span>_</span></div>
-                                            </div>
-                                            <div>
-                                                <div className="info-row"><span className="info-label">Reg On</span><span>:</span><span>{formatDate(sample.createdAt)} {formatTime(sample.createdAt)}</span></div>
-                                                <div className="info-row"><span className="info-label">Sample Drawn On</span><span>:</span><span>{formatDate(sample.collectionDate)} {formatTime(sample.collectionDate)}</span></div>
-                                                <div className="info-row"><span className="info-label">Reported On</span><span>:</span><span>{formatDate(sample.reportDate)} {formatTime(sample.reportDate)}</span></div>
-                                                <div className="info-row"><span className="info-label">Sample Type</span><span>:</span><span>{sample.sampleType || 'blood'}</span></div>
-                                                <div className="info-row"><span className="info-label">Report Status</span><span>:</span><span>{sample.status === 'Completed' ? 'Final' : sample.status}</span></div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #1e293b' }}>
-                                    <th style={{ width: '35%', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold' }}>Parameter</th>
-                                    <th style={{ width: '25%', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold' }}>Result</th>
-                                    <th style={{ width: '15%', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold' }}>Units</th>
-                                    <th style={{ width: '25%', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold' }}>Reference Range</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sample.tests.map((test, testIdx) => {
-                                    if (!hasTestResults(test)) return null;
+                            <div className="lab-patient-grid" style={{ position: 'relative', zIndex: 1 }}>
+                                <div>
+                                    <div className="info-row"><span className="info-label">Reg No</span><span>:</span><span>{sample.sampleId}</span></div>
+                                    <div className="info-row"><span className="info-label">Patient Name</span><span>:</span><span>{formatPatientNameWithPrefix(sample.patientDetails.originalPatientName || sample.patientDetails.name, (sample.patientDetails as any).honorific, true)}</span></div>
+                                    <div className="info-row"><span className="info-label">Age</span><span>:</span><span>{(() => {
+                                        const dob = (sample.patientDetails as any)?.dob || (sample.patientDetails as any)?.dateOfBirth || (sample as any)?.patient?.dob || (sample as any)?.patientProfile?.dob;
+                                        const rawAge: any = sample.patientDetails.age ?? (sample as any)?.patient?.age;
+                                        const unit = (sample.patientDetails as any).ageUnit || (sample as any)?.patient?.ageUnit || '';
+                                        const computed = computeAgeFromDob(dob, rawAge, unit);
+                                        if (computed && computed !== 'N/A') return computed;
+                                        if (rawAge === undefined || rawAge === null || rawAge === '' || rawAge === '-' || rawAge === 'N/A') return '-';
+                                        if (/[a-zA-Z]/.test(String(rawAge))) return String(rawAge);
+                                        return unit ? `${rawAge} ${unit}` : `${rawAge} Y`;
+                                    })()}</span></div>
+                                    <div className="info-row"><span className="info-label">Gender</span><span>:</span><span>{sample.patientDetails.gender?.charAt(0).toUpperCase()}</span></div>
+                                    <div className="info-row"><span className="info-label">Ref By</span><span>:</span><span>{sample.patientDetails.refDoctor || sample.referredBy || ''}</span></div>
+                                    <div className="info-row"><span className="info-label">Ref By Client</span><span>:</span><span>_</span></div>
+                                </div>
+                                <div>
+                                    <div className="info-row"><span className="info-label">Reg On</span><span>:</span><span>{formatDate(sample.createdAt)} {formatTime(sample.createdAt)}</span></div>
+                                    <div className="info-row"><span className="info-label">Sample Drawn On</span><span>:</span><span>{formatDate(sample.collectionDate)} {formatTime(sample.collectionDate)}</span></div>
+                                    <div className="info-row"><span className="info-label">Reported On</span><span>:</span><span>{formatDate(sample.reportDate)} {formatTime(sample.reportDate)}</span></div>
+                                    <div className="info-row"><span className="info-label">Sample Type</span><span>:</span><span>{sample.sampleType || 'blood'}</span></div>
+                                    <div className="info-row"><span className="info-label">Report Status</span><span>:</span><span>{sample.status === 'Completed' ? 'Final' : sample.status}</span></div>
+                                </div>
+                            </div>
 
-                                    const validParams = (test.resultParameters ?? []).filter((param: any) => {
-                                        const sub = test.subTests?.find((st: any) =>
-                                            st.name === param.label || st.name === param.key
-                                        );
-                                        return sub && sub.result !== undefined && sub.result !== null && sub.result !== '';
-                                    });
+                            <table className="lab-test-table" style={{ width: '100%', borderCollapse: 'collapse', border: 'none' }}>
+                                <thead>
+                                    <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #1e293b' }}>
+                                        <th style={{ width: '35%', padding: '7px 10px', textAlign: 'left', fontWeight: 'bold' }}>Parameter</th>
+                                        <th style={{ width: '25%', padding: '7px 10px', textAlign: 'left', fontWeight: 'bold' }}>Result</th>
+                                        <th style={{ width: '15%', padding: '7px 10px', textAlign: 'left', fontWeight: 'bold' }}>Units</th>
+                                        <th style={{ width: '25%', padding: '7px 10px', textAlign: 'left', fontWeight: 'bold' }}>Reference Range</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sample.tests.map((test, testIdx) => {
+                                        if (!hasTestResults(test)) return null;
 
-                                    const adhocSubTests = !validParams.length && test.subTests
-                                        ? test.subTests.filter((st: any) =>
-                                            st.result !== undefined && st.result !== null && st.result !== ''
-                                        )
-                                        : [];
+                                        const validParams = (test.resultParameters ?? []).filter((param: any) => {
+                                            const sub = test.subTests?.find((st: any) =>
+                                                st.name === param.label || st.name === param.key
+                                            );
+                                            return sub && sub.result !== undefined && sub.result !== null && sub.result !== '';
+                                        });
 
-                                    const mainRes = (test as any).result || test.resultValue;
-                                    const hasMainResult =
-                                        !validParams.length && !adhocSubTests.length &&
-                                        mainRes && mainRes.toString().trim() !== '';
+                                        const adhocSubTests = !validParams.length && test.subTests
+                                            ? test.subTests.filter((st: any) =>
+                                                st.result !== undefined && st.result !== null && st.result !== ''
+                                            )
+                                            : [];
 
-                                    return (
-                                        <React.Fragment key={testIdx}>
-                                            <tr style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                                                <td colSpan={4} style={{ padding: '16px 10px 12px', textAlign: 'center' }}>
-                                                    <div style={{ 
-                                                        display: 'inline-block', 
-                                                        fontWeight: 'bold', 
-                                                        fontSize: '15px', 
-                                                        color: '#1e293b',
-                                                        borderBottom: '2px solid #3b82f6',
-                                                        paddingBottom: '4px',
-                                                        textTransform: 'uppercase',
-                                                        letterSpacing: '0.5px'
-                                                    }}>
-                                                        {test.testName}
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                        const mainRes = (test as any).result || test.resultValue;
+                                        const hasMainResult =
+                                            !validParams.length && !adhocSubTests.length &&
+                                            mainRes && mainRes.toString().trim() !== '';
 
-                                            {validParams.map((param: any, idx: number) => {
-                                                const sub = test.subTests?.find(
-                                                    st => st.name === param.label || st.name === param.key
-                                                );
-                                                if (!sub) return null;
-                                                const rangeObj = getDisplayRangeObj(sub, sample);
-                                                const rangeText = getDisplayRangeText(sub, sample, sub.range || param.range);
-                                                const isAbnormal = test.isAbnormal || (sub as any).isAbnormal || String(sub.result || '').includes('(L)') || String(sub.result || '').includes('(H)'); 
-                                                const flag = getResultFlag(sub.result as string, rangeObj, isAbnormal, rangeText);
-                                                const isHighlight = flag !== '' || isAbnormal;
-                                                
-                                                return (
-                                                    <tr key={`p-${idx}`} style={{ pageBreakInside: 'avoid', breakInside: 'avoid', borderBottom: '1px solid #e2e8f0' }}>
-                                                        <td style={{ padding: '6px 10px', textTransform: 'uppercase' }}>{param.label}</td>
-                                                        <td className={isHighlight ? 'abnormal-result' : ''} style={{ padding: '6px 10px', fontWeight: isHighlight ? 900 : 'normal', color: isHighlight ? '#dc2626' : 'inherit' }}>
-                                                            {flag}{sub.result}
-                                                        </td>
-                                                        <td style={{ padding: '6px 10px' }}>{sub.unit || param.unit || '-'}</td>
-                                                        <td style={{ padding: '6px 10px' }}>{rangeText}</td>
-                                                    </tr>
-                                                );
-                                            })}
-                                            {!validParams.length && adhocSubTests.map((st: any, idx: number) => {
-                                                const rangeObj = getDisplayRangeObj(st, sample);
-                                                const rangeText = getDisplayRangeText(st, sample, st.range);
-                                                const isAbnormal = test.isAbnormal || (st as any).isAbnormal || String(st.result || '').includes('(L)') || String(st.result || '').includes('(H)'); 
-                                                const flag = getResultFlag(st.result as string, rangeObj, isAbnormal, rangeText);
-                                                const isHighlight = flag !== '' || isAbnormal;
-                                                return (
-                                                    <tr key={`a-${idx}`} style={{ pageBreakInside: 'avoid', breakInside: 'avoid', borderBottom: '1px solid #e2e8f0' }}>
-                                                        <td style={{ padding: '6px 10px', textTransform: 'uppercase' }}>{st.name}</td>
-                                                        <td className={isHighlight ? 'abnormal-result' : ''} style={{ padding: '6px 10px', fontWeight: isHighlight ? 900 : 'normal', color: isHighlight ? '#dc2626' : 'inherit' }}>
-                                                            {flag}{st.result}
-                                                        </td>
-                                                        <td style={{ padding: '6px 10px' }}>{st.unit || '-'}</td>
-                                                        <td style={{ padding: '6px 10px' }}>{rangeText}</td>
-                                                    </tr>
-                                                );
-                                            })}
-                                            {!validParams.length && !adhocSubTests.length && hasMainResult && (() => {
-                                                const res = (test as any).result || test.resultValue;
-                                                const rangeObj = getDisplayRangeObj(test, sample);
-                                                const rangeText = getDisplayRangeText(test, sample, test.normalRange);
-                                                const isAbnormal = test.isAbnormal || String(res || '').includes('(L)') || String(res || '').includes('(H)'); 
-                                                const flag = getResultFlag(res, rangeObj, isAbnormal, rangeText);
-                                                const isHighlight = flag !== '' || isAbnormal;
-                                                return (
-                                                    <tr style={{ pageBreakInside: 'avoid', breakInside: 'avoid', borderBottom: '1px solid #e2e8f0' }}>
-                                                        <td style={{ padding: '6px 10px', textTransform: 'uppercase' }}>{test.testName}</td>
-                                                        <td className={isHighlight ? 'abnormal-result' : ''} style={{ padding: '6px 10px', fontWeight: isHighlight ? 900 : 'normal', color: isHighlight ? '#dc2626' : 'inherit' }}>
-                                                            {flag}{res}
-                                                        </td>
-                                                        <td style={{ padding: '6px 10px' }}>{test.unit || '-'}</td>
-                                                        <td style={{ padding: '6px 10px' }}>{rangeText}</td>
-                                                    </tr>
-                                                );
-                                            })()}
-                                            {test.remarks && (
+                                        return (
+                                            <React.Fragment key={testIdx}>
                                                 <tr style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                                                    <td colSpan={4} style={{ padding: '4px 10px 14px', fontSize: '13px', color: '#555' }}>
-                                                        <strong>Remarks:</strong> {test.remarks}
+                                                    <td colSpan={4} style={{ padding: '14px 10px 10px', textAlign: 'center' }}>
+                                                        <div style={{ 
+                                                            display: 'inline-block', 
+                                                            fontWeight: 'bold', 
+                                                            fontSize: '15px', 
+                                                            color: '#1e293b',
+                                                            borderBottom: '2px solid #3b82f6',
+                                                            paddingBottom: '4px',
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.5px'
+                                                        }}>
+                                                            {test.testName}
+                                                        </div>
                                                     </td>
                                                 </tr>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
 
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colSpan={4} style={{ border: 'none', padding: 0 }}>
-                                        <div 
-                                            className="lab-signature-container"
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'flex-end',
-                                                alignItems: 'center',
-                                                marginTop: '40px',
-                                                marginBottom: '15px',
-                                                paddingRight: '15px',
-                                                pageBreakInside: 'avoid',
-                                                breakInside: 'avoid',
-                                            }}
-                                        >
-                                            <div style={{ textAlign: 'center', minWidth: '200px' }}>
-                                                {/* Blank space for signing after print */}
-                                                <div style={{ height: '45px' }}></div>
-                                                <div style={{ 
-                                                    borderTop: '1.5px solid #000', 
-                                                    paddingTop: '5px', 
-                                                    fontWeight: 'bold', 
-                                                    fontSize: '12px', 
-                                                    color: '#1e293b',
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '0.5px'
-                                                }}>
-                                                    Lab Incharge Signature
-                                                </div>
-                                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                                                    (Lab Technician / Incharge)
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="lab-print-footer mt-4">
-                                            <FooterPrint />
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                                                {validParams.map((param: any, idx: number) => {
+                                                    const sub = test.subTests?.find(
+                                                        st => st.name === param.label || st.name === param.key
+                                                    );
+                                                    if (!sub) return null;
+                                                    const rangeObj = getDisplayRangeObj(sub, sample);
+                                                    const rangeText = getDisplayRangeText(sub, sample, sub.range || param.range);
+                                                    const isAbnormal = test.isAbnormal || (sub as any).isAbnormal || String(sub.result || '').includes('(L)') || String(sub.result || '').includes('(H)'); 
+                                                    const flag = getResultFlag(sub.result as string, rangeObj, isAbnormal, rangeText);
+                                                    const isHighlight = flag !== '' || isAbnormal;
+                                                    
+                                                    return (
+                                                        <tr key={`p-${idx}`} style={{ pageBreakInside: 'avoid', breakInside: 'avoid', borderBottom: '1px solid #e2e8f0' }}>
+                                                            <td style={{ padding: '6px 10px', textTransform: 'uppercase' }}>{param.label}</td>
+                                                            <td className={isHighlight ? 'abnormal-result' : ''} style={{ padding: '6px 10px', fontWeight: isHighlight ? 900 : 'normal', color: isHighlight ? '#dc2626' : 'inherit' }}>
+                                                                {flag}{sub.result}
+                                                            </td>
+                                                            <td style={{ padding: '6px 10px' }}>{sub.unit || param.unit || '-'}</td>
+                                                            <td style={{ padding: '6px 10px' }}>{rangeText}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                {!validParams.length && adhocSubTests.map((st: any, idx: number) => {
+                                                    const rangeObj = getDisplayRangeObj(st, sample);
+                                                    const rangeText = getDisplayRangeText(st, sample, st.range);
+                                                    const isAbnormal = test.isAbnormal || (st as any).isAbnormal || String(st.result || '').includes('(L)') || String(st.result || '').includes('(H)'); 
+                                                    const flag = getResultFlag(st.result as string, rangeObj, isAbnormal, rangeText);
+                                                    const isHighlight = flag !== '' || isAbnormal;
+                                                    return (
+                                                        <tr key={`a-${idx}`} style={{ pageBreakInside: 'avoid', breakInside: 'avoid', borderBottom: '1px solid #e2e8f0' }}>
+                                                            <td style={{ padding: '6px 10px', textTransform: 'uppercase' }}>{st.name}</td>
+                                                            <td className={isHighlight ? 'abnormal-result' : ''} style={{ padding: '6px 10px', fontWeight: isHighlight ? 900 : 'normal', color: isHighlight ? '#dc2626' : 'inherit' }}>
+                                                                {flag}{st.result}
+                                                            </td>
+                                                            <td style={{ padding: '6px 10px' }}>{st.unit || '-'}</td>
+                                                            <td style={{ padding: '6px 10px' }}>{rangeText}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                {!validParams.length && !adhocSubTests.length && hasMainResult && (() => {
+                                                    const res = (test as any).result || test.resultValue;
+                                                    const rangeObj = getDisplayRangeObj(test, sample);
+                                                    const rangeText = getDisplayRangeText(test, sample, test.normalRange);
+                                                    const isAbnormal = test.isAbnormal || String(res || '').includes('(L)') || String(res || '').includes('(H)'); 
+                                                    const flag = getResultFlag(res, rangeObj, isAbnormal, rangeText);
+                                                    const isHighlight = flag !== '' || isAbnormal;
+                                                    return (
+                                                        <tr style={{ pageBreakInside: 'avoid', breakInside: 'avoid', borderBottom: '1px solid #e2e8f0' }}>
+                                                            <td style={{ padding: '6px 10px', textTransform: 'uppercase' }}>{test.testName}</td>
+                                                            <td className={isHighlight ? 'abnormal-result' : ''} style={{ padding: '6px 10px', fontWeight: isHighlight ? 900 : 'normal', color: isHighlight ? '#dc2626' : 'inherit' }}>
+                                                                {flag}{res}
+                                                            </td>
+                                                            <td style={{ padding: '6px 10px' }}>{test.unit || '-'}</td>
+                                                            <td style={{ padding: '6px 10px' }}>{rangeText}</td>
+                                                        </tr>
+                                                    );
+                                                })()}
+                                                {test.remarks && (
+                                                    <tr style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                                                        <td colSpan={4} style={{ padding: '4px 10px 12px', fontSize: '13px', color: '#555' }}>
+                                                            <strong>Remarks:</strong> {test.remarks}
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Bottom: Signature & Footer pinned to downside */}
+                        <div className="report-footer-section">
+                            <div 
+                                className="lab-signature-container"
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'flex-end',
+                                    alignItems: 'center',
+                                    marginTop: '20px',
+                                    marginBottom: '10px',
+                                    paddingRight: '15px',
+                                    pageBreakInside: 'avoid',
+                                    breakInside: 'avoid',
+                                }}
+                            >
+                                <div style={{ textAlign: 'center', minWidth: '200px' }}>
+                                    {/* Blank space for signing after print */}
+                                    <div style={{ height: '35px' }}></div>
+                                    <div style={{ 
+                                        borderTop: '1.5px solid #000', 
+                                        paddingTop: '5px', 
+                                        fontWeight: 'bold', 
+                                        fontSize: '12px', 
+                                        color: '#1e293b',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px'
+                                    }}>
+                                        Lab Incharge Signature
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                                        (Lab Technician / Incharge)
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="lab-print-footer">
+                                <FooterPrint />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

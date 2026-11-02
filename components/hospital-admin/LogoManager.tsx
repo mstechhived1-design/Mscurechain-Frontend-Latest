@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useRef } from 'react';
 import { Cropper, CropperRef } from 'react-advanced-cropper';
+// @ts-ignore
 import 'react-advanced-cropper/dist/style.css';
 import { Upload, X, Check, Eye } from 'lucide-react';
 import { Button, Modal } from '@/components/admin';

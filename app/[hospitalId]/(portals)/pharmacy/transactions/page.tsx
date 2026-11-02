@@ -14,7 +14,10 @@ import {
     Package,
     LayoutTemplate,
     X,
-    Filter
+    Filter,
+    Pencil,
+    CheckCircle2,
+    Loader2
 } from 'lucide-react';
 import { usePrintStore } from '@/stores/printStore';
 import { clearApiCache } from '@/lib/integrations/api/apiClient';
@@ -32,7 +35,7 @@ import { useAuthStore } from '@/stores/authStore';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PharmacyDashboardService, PharmacyDashboardStats } from '@/lib/integrations/services/pharmacyDashboard.service';
-import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
+import { formatPatientNameWithPrefix, formatPatientDisplayName, getHospitalHonorificOptions, getHospitalHonorificItems, addHospitalCustomHonorific, cleanHonorificPrefix } from '@/lib/utils/name-utils';
 
 const TransactionsPage = () => {
     const { user } = useAuthStore();
@@ -55,6 +58,74 @@ const TransactionsPage = () => {
     const printRef = useRef<HTMLDivElement>(null);
     const modalPrintRef = useRef<HTMLDivElement>(null);
     const [isDownloading, setIsDownloading] = useState(false);
+
+    // Edit Patient Data state
+    const [isEditPatientOpen, setIsEditPatientOpen] = useState(false);
+    const [editForm, setEditForm] = useState({
+        patientName: '',
+        honorific: '',
+        customerPhone: '',
+        patientAddress: '',
+        patientType: 'OPD',
+        doctorName: '',
+        mrn: '',
+    });
+    const [isSavingPatient, setIsSavingPatient] = useState(false);
+
+    const handleOpenEditPatient = (bill: PharmacyBill) => {
+        setEditForm({
+            patientName: bill.patientName || '',
+            honorific: cleanHonorificPrefix((bill as any).honorific || ''),
+            customerPhone: bill.customerPhone && bill.customerPhone !== '-' ? bill.customerPhone : '',
+            patientAddress: bill.patientAddress || '',
+            patientType: bill.patientType || 'OPD',
+            doctorName: bill.doctorName && bill.doctorName !== '-' ? bill.doctorName : '',
+            mrn: bill.mrn && bill.mrn !== 'N/A' ? bill.mrn : '',
+        });
+        setIsEditPatientOpen(true);
+    };
+
+    const handleSavePatient = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedBill?._id) return;
+        if (!editForm.patientName.trim()) {
+            toast.error('Patient Name is required');
+            return;
+        }
+
+        setIsSavingPatient(true);
+        try {
+            const cleanHon = cleanHonorificPrefix(editForm.honorific);
+            const res = await PharmacyBillingService.updateInvoicePatient(selectedBill._id, {
+                ...editForm,
+                honorific: cleanHon,
+            });
+            if (res && res.success !== false) {
+                toast.success('Patient details updated on bill!');
+
+                const updated: PharmacyBill = {
+                    ...selectedBill,
+                    patientName: editForm.patientName.trim(),
+                    honorific: cleanHon,
+                    customerPhone: editForm.customerPhone.trim() || '-',
+                    patientAddress: editForm.patientAddress.trim(),
+                    patientType: editForm.patientType.trim(),
+                    doctorName: editForm.doctorName.trim() || '-',
+                    mrn: editForm.mrn.trim() || undefined,
+                };
+                setSelectedBill(updated);
+                setBills(prev => prev.map(b => b._id === selectedBill._id ? updated : b));
+                setIsEditPatientOpen(false);
+            } else {
+                toast.error(res?.message || 'Failed to update patient details');
+            }
+        } catch (err: any) {
+            console.error('Update patient error:', err);
+            toast.error(err.message || 'Failed to update patient details');
+        } finally {
+            setIsSavingPatient(false);
+        }
+    };
 
     const shopDetails: ShopDetails = {
         name: (user as any)?.shopName || user?.name || 'Pharmacy Store',
@@ -835,6 +906,17 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                         />
                                     )}
 
+                                    {/* Edit Patient Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => selectedBill && handleOpenEditPatient(selectedBill)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                                        title="Edit Patient Details on Bill"
+                                    >
+                                        <Pencil size={13} />
+                                        <span>Edit Patient</span>
+                                    </button>
+
                                     {/* Print Now Button */}
                                     <button
                                         onClick={() => { if (selectedBill) onPrintClick(selectedBill); }}
@@ -869,6 +951,181 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                     </div>
                 )
             }
+
+            {/* Edit Patient Modal Popup */}
+            {isEditPatientOpen && selectedBill && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+                        {/* Header */}
+                        <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 bg-white/10 rounded-lg">
+                                    <Pencil size={16} className="text-teal-400" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-sm tracking-wide">Edit Bill Patient Details</h3>
+                                    <p className="text-[10px] text-slate-400">Invoice #{selectedBill.invoiceId} • Updates data printed on bill</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsEditPatientOpen(false)}
+                                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Form */}
+                        <form onSubmit={handleSavePatient} className="p-5 space-y-4">
+                            {/* Patient Name & Title */}
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                                    Patient Name &amp; Title <span className="text-red-500">*</span>
+                                </label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    <select
+                                        value={cleanHonorificPrefix(editForm.honorific)}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__ADD_CUSTOM__') {
+                                                const customVal = window.prompt("Enter Custom Prefix / Honorific for this hospital:");
+                                                if (customVal && customVal.trim()) {
+                                                    const added = cleanHonorificPrefix(customVal.trim().toUpperCase());
+                                                    addHospitalCustomHonorific(added, hospitalId);
+                                                    setEditForm(prev => ({ ...prev, honorific: added }));
+                                                    toast.success(`Custom prefix "${added}" added for this hospital`);
+                                                }
+                                            } else {
+                                                setEditForm(prev => ({ ...prev, honorific: cleanHonorificPrefix(e.target.value) }));
+                                            }
+                                        }}
+                                        className="col-span-1 border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold text-slate-800 bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none cursor-pointer"
+                                    >
+                                        <option value="">Title</option>
+                                        {getHospitalHonorificItems(hospitalId).map((opt) => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                        {editForm.honorific && !getHospitalHonorificItems(hospitalId).some(h => h.value.toLowerCase() === editForm.honorific.toLowerCase()) && (
+                                            <option value={cleanHonorificPrefix(editForm.honorific)}>{cleanHonorificPrefix(editForm.honorific).toUpperCase()}</option>
+                                        )}
+                                        <option value="__ADD_CUSTOM__" className="font-bold text-teal-600">
+                                            + Add Custom...
+                                        </option>
+                                    </select>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={editForm.patientName}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, patientName: e.target.value }))}
+                                        placeholder="Full Name"
+                                        className="col-span-3 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Phone & Patient Type */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                                        Phone Number
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        value={editForm.customerPhone}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                                        placeholder="e.g. 9876543210"
+                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                                        Patient Type
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editForm.patientType}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, patientType: e.target.value }))}
+                                        placeholder="OPD / IPD / Walk-in"
+                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Doctor Name & MRN */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                                        Prescribed / Doctor Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editForm.doctorName}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, doctorName: e.target.value }))}
+                                        placeholder="e.g. Dr. Ramesh or Self / Walk-in"
+                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                                        MRN / Token ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editForm.mrn}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, mrn: e.target.value }))}
+                                        placeholder="e.g. MRN-12345"
+                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Patient Address */}
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                                    Patient Address
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={editForm.patientAddress}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, patientAddress: e.target.value }))}
+                                    placeholder="City, State / Full Address"
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none resize-none"
+                                />
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEditPatientOpen(false)}
+                                    className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                                    disabled={isSavingPatient}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSavingPatient}
+                                    className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                >
+                                    {isSavingPatient ? (
+                                        <>
+                                            <Loader2 size={13} className="animate-spin" />
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 size={13} />
+                                            <span>Save &amp; Update Bill</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

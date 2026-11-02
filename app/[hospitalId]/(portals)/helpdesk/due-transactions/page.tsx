@@ -845,7 +845,7 @@ export default function TransactionsPage() {
 
                                     const rawType = tx.type || "appointment_booking";
                                     // 🔧 FIX: Don't use "Emergency Patient" fallback
-                                    const patientName = (tx.patientName || tx.patient?.name || tx.referenceId?.patientName || "Unknown").toUpperCase();
+                                    const patientName = (tx.user?.name || tx.patient?.name || tx.patientName || tx.referenceId?.patientName || "Unknown").toUpperCase();
 
                                     // Map transaction type to human-readable format
                                     const typeMapping: Record<string, string> = {
@@ -1126,8 +1126,8 @@ export default function TransactionsPage() {
                         appointment={{
                             appointmentId: tx.referenceId?.appointmentId || tx.referenceId?.admissionId || tx.referenceId?.sampleId || tx.transactionId || tx.receiptNumber || 'N/A',
                             type: isDischargeTx ? 'IPD_FINAL_SETTLEMENT' : (tx.type || 'consultation'),
-                            date: tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
-                            time: tx.appointmentTime || tx.time || '10:00 AM',
+                            date: tx.createdAt || new Date().toISOString(),
+                                                        time: tx.appointmentTime || tx.time || '10:00 AM',
                             doctorName: tx.referenceId?.primaryDoctor || tx.referenceId?.doctorName || 'Doctor',
                             specialization: isDischargeTx ? 'IPD DISCHARGE' : (tx.type || 'Consultation'),
                             symptoms: tx.symptoms || apptData.symptoms || tx.reason || apptData.reason,
@@ -1137,7 +1137,8 @@ export default function TransactionsPage() {
                         payment={{
                             amount: isDischargeTx ? settlementPaid : Number(tx.payment?.amount || tx.amount || 0),
                             fee: grandTotal,
-                            totalBillAmount: isDischargeTx ? grandTotal : Number(tx.amount || 0),
+                            date: tx.createdAt || new Date().toISOString(),
+                                                        totalBillAmount: isDischargeTx ? grandTotal : Number(tx.amount || 0),
                             grandTotal: grandTotal,
                             advanceAmount: advanceAmount,
                             remainingPaid: settlementPaid,

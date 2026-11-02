@@ -16,11 +16,14 @@ import {
 import { helpdeskService } from "@/lib/integrations";
 import { calculateExactAge, calculateDobFromAge } from "@/lib/utils/date-utils";
 import toast from "react-hot-toast";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { getAllHospitalPrefixes, addHospitalCustomHonorific, cleanHonorificPrefix } from "@/lib/utils/name-utils";
 
 function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> }) {
   const router = useRouter();
+  const routeParams = useParams();
+  const hospitalId = (routeParams?.hospitalId as string) || '';
   const { patientId } = React.use(params);
 
   const [loading, setLoading] = useState(true);
@@ -28,6 +31,25 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
   const [saving, setSaving] = useState(false);
   const [patientData, setPatientData] = useState<any>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const [customPrefixInput, setCustomPrefixInput] = useState('');
+  const [hospitalPrefixes, setHospitalPrefixes] = useState(() => getAllHospitalPrefixes(hospitalId));
+
+  useEffect(() => {
+    setHospitalPrefixes(getAllHospitalPrefixes(hospitalId));
+  }, [hospitalId]);
+
+  const handleSaveCustomPrefix = () => {
+    if (!customPrefixInput.trim()) return;
+    const added = customPrefixInput.trim().toUpperCase();
+    addHospitalCustomHonorific(added, hospitalId);
+    setHospitalPrefixes(getAllHospitalPrefixes(hospitalId));
+    setFormData(prev => ({ ...prev, honorific: added }));
+    setIsAddingCustom(false);
+    setCustomPrefixInput('');
+    toast.success(`Custom prefix "${added}" saved for this hospital`);
+  };
 
   const [formData, setFormData] = useState({
     honorific: '',
@@ -58,7 +80,7 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
       const exact = calculateExactAge(dobStr);
 
       setFormData({
-        honorific: data.profile?.honorific || '',
+        honorific: cleanHonorificPrefix(data.profile?.honorific || ''),
         name: data.user?.name || '',
         mobile: data.user?.mobile || '',
         email: data.user?.email || '',
@@ -88,6 +110,10 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
     const { name, value } = e.target;
     let finalValue = value;
     
+    if (name === 'honorific') {
+      finalValue = cleanHonorificPrefix(value);
+    }
+
     // Restrictions
     if (name === 'mobile' || name === 'emergencyContact') {
       finalValue = value.replace(/\D/g, '');
@@ -193,6 +219,7 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
       setSaving(true);
       await helpdeskService.updatePatient(patientId, {
         ...formData,
+        honorific: cleanHonorificPrefix(formData.honorific),
         name: formData.name.toUpperCase(),
         address: formData.address.toUpperCase(),
         age: Number(formData.age) || 0
@@ -278,16 +305,58 @@ function ViewEditPatient({ params }: { params: Promise<{ patientId: string }> })
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
               <ProfileField label="Honorific" editing={editing}>
-                <select name="honorific" value={formData.honorific} onChange={handleChange} className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-teal-500 focus:bg-white outline-none text-xs font-bold appearance-none">
-                  <option value="">NONE / NOT SET</option>
-                  <option value="Mr">MR</option>
-                  <option value="Mrs">MRS</option>
-                  <option value="Ms">MS</option>
-                  <option value="Dr">DR</option>
-                  <option value="Master">MASTER</option>
-                  <option value="Baby of">BABY OF</option>
-                  <option value="B/o">B/O</option>
-                </select>
+                {isAddingCustom ? (
+                  <div className="flex items-center gap-1.5 animate-in fade-in">
+                    <input
+                      type="text"
+                      placeholder="CUSTOM PREFIX (e.g. LATE)"
+                      value={customPrefixInput}
+                      onChange={(e) => setCustomPrefixInput(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-teal-500 focus:outline-none text-xs font-bold uppercase"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveCustomPrefix}
+                      className="px-3 py-2 bg-teal-600 text-white rounded-xl text-[10px] font-bold uppercase hover:bg-teal-700 shrink-0"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setIsAddingCustom(false); setCustomPrefixInput(''); }}
+                      className="px-2.5 py-2 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-200 shrink-0"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    name="honorific"
+                    value={formData.honorific}
+                    onChange={(e) => {
+                      if (e.target.value === '__ADD_CUSTOM__') {
+                        setIsAddingCustom(true);
+                      } else {
+                        handleChange(e);
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-teal-500 focus:bg-white outline-none text-xs font-bold appearance-none cursor-pointer"
+                  >
+                    <option value="">NONE / NOT SET</option>
+                    {hospitalPrefixes.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                    {formData.honorific && !hospitalPrefixes.some(p => p.value.toLowerCase() === formData.honorific.toLowerCase()) && (
+                      <option value={cleanHonorificPrefix(formData.honorific)}>{cleanHonorificPrefix(formData.honorific).toUpperCase()}</option>
+                    )}
+                    <option value="__ADD_CUSTOM__" className="font-bold text-teal-600">
+                      + ADD CUSTOM HONORIFIC...
+                    </option>
+                  </select>
+                )}
               </ProfileField>
 
               <ProfileField label="Legal Name" editing={editing} error={errors.name}>

@@ -87,7 +87,10 @@ export default function TransactionReportPrint({ data }: { data: PrintData }) {
     const totMed  = meds.reduce((s, r) => s + r.rate * r.quantity, 0);
     const totSvc  = services.reduce((s, r) => s + r.rate * r.quantity, 0);
     const totDiag = diags.reduce((s, r) => s + r.rate * r.quantity, 0);
-    const totPaid = payments.filter(p => p.status === 'Paid').reduce((s, r) => s + r.amount, 0);
+    const totPaid = payments.filter(p => {
+        const st = String(p.status || '').trim().toLowerCase();
+        return (!st || st === 'paid' || st === 'completed' || st === 'settlement' || st === 'advance' || st === 'success') && !st.includes('fail') && !st.includes('pend');
+    }).reduce((s, r) => s + Number(r.amount || 0), 0);
     const grand   = totDoc + totAdm + totMed + totSvc + totDiag;
     const balance = grand - totPaid;
 
