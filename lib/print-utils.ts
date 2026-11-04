@@ -911,17 +911,23 @@ export const generateLabReceiptHtml = (data: any) => {
     testItems = [{ testName: appointment.testName || data.testName || data.name, price: payment.amount || 0 }];
   }
 
-  const totalAmount = Number(
-    payment.totalBillAmount ??
-    payment.fee ??
-    payment.originalAmount ??
-    data.totalAmount ??
-    data.amount ??
-    payment.amount ??
-    testItems.reduce((acc: number, t: any) => acc + (Number(t.price ?? t.cost) || 0), 0)
+  const testsTotal = testItems.reduce((acc: number, t: any) => acc + (Number(t.price ?? t.cost) || 0), 0);
+  const discountAmount = Number(
+    payment.discount ||
+    payment.discountAmount ||
+    appointment.discount ||
+    appointment.discountAmount ||
+    data.discount ||
+    data.discountAmount ||
+    (testsTotal > 0 && payment.amount && testsTotal > Number(payment.amount) ? testsTotal - Number(payment.amount) : 0) ||
+    0
   );
-  const discountAmount = Number(payment.discount || payment.discountAmount || appointment.discount || data.discount || 0);
-  const paidAmount = Number(payment.amount != null ? payment.amount : (data.paidAmount ?? payment.paidAmount ?? totalAmount));
+  const totalAmount = Number(
+    payment.totalBillAmount && payment.totalBillAmount > (payment.amount || 0)
+      ? payment.totalBillAmount
+      : (testsTotal > 0 ? testsTotal : (payment.totalBillAmount ?? payment.fee ?? payment.originalAmount ?? data.totalAmount ?? (discountAmount > 0 ? Number(payment.amount || 0) + discountAmount : payment.amount)))
+  );
+  const paidAmount = Number(payment.amount != null ? payment.amount : (data.paidAmount ?? payment.paidAmount ?? Math.max(0, totalAmount - discountAmount)));
   const balanceAmount = Number(payment.balance ?? data.balance ?? (totalAmount - discountAmount - paidAmount > 0 ? totalAmount - discountAmount - paidAmount : 0));
   const paymentMode = formatReceiptPaymentMode(payment, appointment) || data.paymentMode || "Cash";
 
@@ -1124,13 +1130,17 @@ export const generateLabReceiptHtml = (data: any) => {
           <td style="width: 50%; vertical-align: top; padding: 0;">
             <table style="width: 100%; border: 1px solid #000000; border-collapse: collapse; font-size: 11px;">
               <tr>
-                <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">Total Amount:</td>
+                <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">${discountAmount > 0 ? "Subtotal:" : "Total Amount:"}</td>
                 <td style="padding: 6px 10px; text-align: right; font-weight: 700; border-bottom: 1px solid #000000;">₹${totalAmount.toFixed(2)}</td>
               </tr>
               ${discountAmount > 0 ? `
               <tr>
                 <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">Discount:</td>
                 <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #000000;">- ₹${discountAmount.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 10px; font-weight: 700; color: #000000; border-bottom: 1px solid #000000;">Net Payable:</td>
+                <td style="padding: 6px 10px; text-align: right; font-weight: 700; border-bottom: 1px solid #000000;">₹${Math.max(0, totalAmount - discountAmount).toFixed(2)}</td>
               </tr>` : ""}
               <tr style="background-color: #e5e7eb;">
                 <td style="padding: 6px 10px; font-weight: 700; color: #000000;">Balance Due:</td>

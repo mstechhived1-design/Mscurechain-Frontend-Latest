@@ -105,8 +105,26 @@ export const printIPDLedger = (summary: any, hospitalDetails?: any, options: { f
 
             // ── LAB: Expand nested tests into individual rows ──
             if (targetCategory === 'INVESTIGATION CHARGES' && item.tests && Array.isArray(item.tests) && item.tests.length > 0) {
-                const totalAmount = item.amount || 0;
+                const itemDiscount = Number(item.discount || item.discountAmount || 0);
+                let totalAmount = Number(item.amount || 0);
+                if (itemDiscount > 0 && item.subtotal && totalAmount === Number(item.subtotal)) {
+                    totalAmount = Math.max(0, totalAmount - itemDiscount);
+                }
                 const testCount = item.tests.length;
+
+                // Calculate sum of test prices to detect if discount was applied on the order
+                let sumTestPrices = 0;
+                item.tests.forEach((test: any) => {
+                    if (typeof test === 'object') {
+                        const possiblePrices = [
+                            test.amount, test.cost, test.price, test.testPrice, 
+                            test.test?.price, test.test?.cost, test.test?.amount, 
+                            test.testId?.price, test.testId?.cost
+                        ];
+                        const foundPrice = possiblePrices.find(p => p !== undefined && p !== null);
+                        if (foundPrice !== undefined) sumTestPrices += Number(foundPrice);
+                    }
+                });
 
                 item.tests.forEach((test: any, tIdx: number) => {
                     const testName = typeof test === 'string' ? test : (test.testName || test.test?.testName || test.test?.name || test.name || test.test || 'Unknown Test');
@@ -114,7 +132,7 @@ export const printIPDLedger = (summary: any, hospitalDetails?: any, options: { f
                     let testPrice = totalAmount / testCount;
                     if (typeof test === 'object') {
                         const possiblePrices = [
-                            test.cost, test.price, test.amount, test.testPrice, 
+                            test.amount, test.cost, test.price, test.testPrice, 
                             test.test?.price, test.test?.cost, test.test?.amount, 
                             test.testId?.price, test.testId?.cost
                         ];
@@ -122,6 +140,17 @@ export const printIPDLedger = (summary: any, hospitalDetails?: any, options: { f
                         if (foundPrice !== undefined) {
                             testPrice = Number(foundPrice);
                         }
+                    }
+
+                    // If totalAmount is known and represents the actual net lab order charge:
+                    // 1) For a single test, the net charge is exactly totalAmount
+                    // 2) For multiple tests, scale proportionally if sumTestPrices differs from totalAmount
+                    if (testCount === 1 && totalAmount > 0) {
+                        testPrice = totalAmount;
+                    } else if (itemDiscount > 0) {
+                        testPrice = Math.max(0, testPrice - (itemDiscount / testCount));
+                    } else if (totalAmount > 0 && sumTestPrices > 0 && Math.abs(sumTestPrices - totalAmount) > 0.01) {
+                        testPrice = Math.round((testPrice / sumTestPrices) * totalAmount);
                     }
 
                     const testCode = (typeof test === 'object' && test._id) ? test._id.toString().substring(0, 7).toUpperCase() :

@@ -103,6 +103,7 @@ interface ReceiptProps {
     originalAmount?: number;
     discount?: number;
     discountAmount?: number;
+    discountReason?: string;
     discountType?: string;
     discountValue?: number;
     totalPaidAmount?: number;
@@ -170,6 +171,12 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
   const [showGuardianDetails, setShowGuardianDetails] = React.useState(true);
   
   // Manual discount / waiver adjustment before printing
+  const rawTestsList = propLabTests || appointment.tests || (payment as any).tests || [];
+  const testsSumCalc = Array.isArray(rawTestsList) ? rawTestsList.reduce((acc: number, t: any) => acc + (Number(t.price ?? t.cost) || 0), 0) : 0;
+  const inferredDiscountFromTests = (testsSumCalc > 0 && payment.amount && testsSumCalc > Number(payment.amount))
+    ? (testsSumCalc - Number(payment.amount))
+    : 0;
+
   const initialDiscount = Number(
     payment.discount ||
     (payment as any).discountAmount ||
@@ -177,6 +184,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
     (appointment as any).discount ||
     (appointment as any).discountAmount ||
     (appointment as any).discountDetails?.amount ||
+    inferredDiscountFromTests ||
     0
   );
   const [customDiscount, setCustomDiscount] = React.useState<number>(initialDiscount);

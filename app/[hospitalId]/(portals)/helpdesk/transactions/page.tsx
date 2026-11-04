@@ -1769,7 +1769,7 @@ export default function TransactionsPage() {
                     Boolean(apptData.dischargeDate || apptData.conditionAtDischarge || previewTx.isDischarge || apptData.isDischarge);
 
                 // Collect all matching payment transactions for this patient / admission to guarantee accurate receipts
-                const matchingTxList = transactions.filter((t: any) => {
+                const matchingTxList = isDischargeTx ? transactions.filter((t: any) => {
                     const targetAdmissionId = apptData.admissionId || previewTx.referenceId?.admissionId || previewTx.admissionId;
                     const targetApptId = apptData._id || previewTx.referenceId?._id || (typeof previewTx.referenceId === 'string' ? previewTx.referenceId : null);
 
@@ -1816,7 +1816,7 @@ export default function TransactionsPage() {
                     const sameMrn = (resolvedMrn && resolvedMrn !== 'N/A' && (t.patientMRN === resolvedMrn || t.referenceId?.mrn === resolvedMrn));
                     const sameName = cleanPatientName(t.patientName || '').toUpperCase() === cleanPatientName(previewTx.patientName || '').toUpperCase();
                     return sameAdmission || sameMrn || (sameName && (t.type || '').toLowerCase().includes('ipd'));
-                });
+                }) : [];
 
                 const collectedReceipts = matchingTxList
                     .filter((t: any) => Number(t.amount || t.payment?.amount || 0) > 0)
@@ -1838,22 +1838,25 @@ export default function TransactionsPage() {
                     })
                     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-                const collectedAdvance = collectedReceipts
+                const collectedAdvance = isDischargeTx ? collectedReceipts
                     .filter((r: any) => r.type === 'Advance')
-                    .reduce((sum: number, r: any) => sum + r.amount, 0);
+                    .reduce((sum: number, r: any) => sum + r.amount, 0) : 0;
 
-                const collectedSettlement = collectedReceipts
+                const collectedSettlement = isDischargeTx ? collectedReceipts
                     .filter((r: any) => r.type === 'Settlement')
-                    .reduce((sum: number, r: any) => sum + r.amount, 0);
+                    .reduce((sum: number, r: any) => sum + r.amount, 0) : 0;
+
+                const labTestsSum = Array.isArray(labTestsList) ? labTestsList.reduce((acc: number, t: any) => acc + Number(t.cost || t.price || t.amount || 0), 0) : 0;
+                const txPaidAmount = Number(previewTx.amount || previewTx.paidAmount || previewTx.payment?.amount || 0);
 
                 let discount = Number(
+                    previewTx.discountAmount ||
+                    previewTx.discount ||
                     apptData.discount ||
                     apptData.discountAmount ||
                     apptData.discountDetails?.amount ||
                     apptData.financials?.discount ||
                     apptData.billingDetails?.discount ||
-                    previewTx.discount ||
-                    previewTx.discountAmount ||
                     previewTx.discountDetails?.amount ||
                     (previewTx.paymentDetails as any)?.discount ||
                     (previewTx.referenceId as any)?.discount ||
@@ -1862,30 +1865,54 @@ export default function TransactionsPage() {
                     0
                 );
 
-                const grandTotal = Number(
-                    apptData.totalBillAmount ||
-                    apptData.grandTotal ||
-                    previewTx.totalBillAmount ||
-                    previewTx.grandTotal ||
-                    (collectedAdvance + collectedSettlement) ||
-                    0
-                );
+                // Auto-infer discount if test prices exceed transaction amount
+                if (discount === 0 && isLabTx && labTestsSum > txPaidAmount && txPaidAmount > 0) {
+                    discount = labTestsSum - txPaidAmount;
+                }
 
-                const advanceAmount = collectedAdvance > 0 
+                let grandTotal = 0;
+                if (isLabTx) {
+                    if (previewTx.subtotal && Number(previewTx.subtotal) > 0) {
+                        grandTotal = Number(previewTx.subtotal);
+                    } else if (labTestsSum > 0) {
+                        grandTotal = labTestsSum;
+                    } else if (discount > 0) {
+                        grandTotal = txPaidAmount + discount;
+                    } else {
+                        grandTotal = txPaidAmount;
+                    }
+                } else if (isDischargeTx) {
+                    grandTotal = Number(
+                        previewTx.totalBillAmount ||
+                        previewTx.subtotal ||
+                        previewTx.grandTotal ||
+                        apptData.totalBillAmount ||
+                        apptData.grandTotal ||
+                        (collectedAdvance + collectedSettlement) ||
+                        0
+                    );
+                } else {
+                    grandTotal = Number(
+                        previewTx.totalBillAmount ||
+                        previewTx.subtotal ||
+                        previewTx.grandTotal ||
+                        (discount > 0 ? (txPaidAmount + discount) : txPaidAmount)
+                    );
+                }
+
+                const advanceAmount = isDischargeTx ? (collectedAdvance > 0 
                     ? collectedAdvance 
-                    : Number(apptData.advanceAmount ?? previewTx.advanceAmount ?? apptData.totalAdvancePaid ?? apptData.advancePaid ?? 0);
+                    : Number(apptData.advanceAmount ?? previewTx.advanceAmount ?? apptData.totalAdvancePaid ?? apptData.advancePaid ?? 0)) : 0;
 
-                // Settlement paid is either from collected receipts, previewTx, or remaining bill after advance
-                let settlementPaid = collectedSettlement > 0
+                let settlementPaid = isDischargeTx ? (collectedSettlement > 0
                     ? collectedSettlement
-                    : Number(previewTx.amount || previewTx.payment?.amount || apptData.settlementAmount || apptData.remainingPaid || 0);
+                    : Number(previewTx.amount || previewTx.payment?.amount || apptData.settlementAmount || apptData.remainingPaid || 0)) : txPaidAmount;
 
                 if (isDischargeTx) {
                     const isFullySettled = (previewTx.status || '').toLowerCase() === 'completed' || 
                                           (previewTx.status || '').toLowerCase() === 'paid' || 
                                           Number(apptData.dueAmount ?? apptData.balance ?? 0) === 0;
 
-                    // If discount wasn't explicitly supplied, but grandTotal exceeds the paid amounts and transaction is paid/completed
                     if (discount === 0 && isFullySettled && grandTotal > (advanceAmount + settlementPaid)) {
                         discount = Math.max(0, grandTotal - advanceAmount - settlementPaid);
                     }
@@ -1898,12 +1925,12 @@ export default function TransactionsPage() {
                     }
                 }
 
-                const totalPaid = Number(apptData.totalPaidAmount || (advanceAmount + settlementPaid));
-                const balanceDue = Number(apptData.dueAmount ?? apptData.balance ?? Math.max(0, grandTotal - discount - totalPaid));
+                const totalPaid = isDischargeTx ? Number(apptData.totalPaidAmount || (advanceAmount + settlementPaid)) : txPaidAmount;
+                const balanceDue = isDischargeTx ? Number(apptData.dueAmount ?? apptData.balance ?? Math.max(0, grandTotal - discount - totalPaid)) : Math.max(0, grandTotal - discount - totalPaid);
 
-                const receiptList = collectedReceipts.length > 0 
+                const receiptList = isDischargeTx ? (collectedReceipts.length > 0 
                     ? collectedReceipts 
-                    : (apptData.payments || apptData.receipts || previewTx.payments || previewTx.receipts || []);
+                    : (apptData.payments || apptData.receipts || previewTx.payments || previewTx.receipts || [])) : [];
 
                 return (
                     <ClinicalReceipt
@@ -1944,16 +1971,18 @@ export default function TransactionsPage() {
                             amount: isDischargeTx ? settlementPaid : Number(previewTx.amount || previewTx.payment?.amount || 0),
                             fee: grandTotal,
                             date: previewTx.createdAt || new Date().toISOString(),
-                                                        totalBillAmount: isDischargeTx ? grandTotal : Number(previewTx.amount || 0),
+                            totalBillAmount: isDischargeTx ? grandTotal : grandTotal,
                             grandTotal: grandTotal,
                             advanceAmount: advanceAmount,
                             remainingPaid: settlementPaid,
                             settlementAmount: settlementPaid,
-                            totalPaidAmount: isDischargeTx ? totalPaid : Number(previewTx.amount || 0),
-                            paidAmount: isDischargeTx ? totalPaid : Number(previewTx.amount || 0),
+                            totalPaidAmount: isDischargeTx ? totalPaid : totalPaid,
+                            paidAmount: isDischargeTx ? totalPaid : totalPaid,
                             discount: discount,
-                            balance: isDischargeTx ? balanceDue : 0,
-                            dueAmount: isDischargeTx ? balanceDue : 0,
+                            discountAmount: discount,
+                            discountReason: previewTx.discountReason || apptData.discountReason || '',
+                            balance: isDischargeTx ? balanceDue : balanceDue,
+                            dueAmount: isDischargeTx ? balanceDue : balanceDue,
                             method: (previewTx.paymentMethod || previewTx.paymentMode || 'cash').toLowerCase(),
                             mode: previewTx.paymentMethod || previewTx.paymentMode || 'Cash',
                             status: previewTx.status || 'Paid',
