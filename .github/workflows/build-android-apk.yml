@@ -66,3 +66,4 @@ jobs:
             src-tauri/gen/android/app/build/outputs/apk/**/*.apk
             src-tauri/target/**/release/bundle/apk/*.apk
           if-no-files-found: warn
+
