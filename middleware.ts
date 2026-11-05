@@ -127,8 +127,18 @@ async function silentRefresh(
   sessionId?: string,
   role?: string,
 ) {
-  let API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5003/api";
+  let rawApiUrl =
+    process.env.BACKEND_INTERNAL_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://mscurechain-backend-latest-production.up.railway.app/api";
+
+  if (rawApiUrl.startsWith("/")) {
+    rawApiUrl =
+      process.env.BACKEND_INTERNAL_URL ||
+      "https://mscurechain-backend-latest-production.up.railway.app/api";
+  }
+
+  let API_URL = rawApiUrl.trim().replace(/\/+$/, "");
   if (API_URL && !/^https?:\/\//i.test(API_URL)) {
     API_URL = `https://${API_URL}`;
   }

@@ -19,5 +19,10 @@
   ],
   "observability": {
     "enabled": true
+  },
+  "vars": {
+    "NEXT_PUBLIC_API_URL": "/api/proxy",
+    "BACKEND_INTERNAL_URL": "https://mscurechain-backend-latest-production.up.railway.app/api",
+    "NEXT_PUBLIC_SUPPORT_DASHBOARD_URL": "https://curechain-report-system.vercel.app"
   }
 }
