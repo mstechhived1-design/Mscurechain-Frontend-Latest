@@ -1,0 +1,51 @@
+name: Build Windows Desktop App (.exe)
+
+on:
+  workflow_dispatch: # Allows manual trigger from GitHub Actions with a single click
+  push:
+    tags:
+      - 'v*' # Trigger build on version tags (e.g. v1.0.0)
+
+jobs:
+  build-windows:
+    name: Build MSCureChain .exe
+    runs-on: windows-latest
+
+    permissions:
+      contents: write # Needed to create GitHub Releases and upload .exe
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build Tauri Application (.exe)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'MSCureChain Desktop v__VERSION__'
+          releaseBody: 'Official Windows Desktop Release for MSCureChain Hospital Management System.'
+          releaseDraft: false
+          prerelease: false
+
+      - name: Upload .exe Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MSCureChain-Windows-Setup
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: warn
