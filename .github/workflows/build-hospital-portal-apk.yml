@@ -1,0 +1,64 @@
+name: Build MSCureChain Hospital Portal (.apk)
+
+on:
+  workflow_dispatch: # Allows 1-click manual trigger from GitHub Actions
+  push:
+    branches:
+      - main
+    paths:
+      - 'android/**'
+      - '.github/workflows/build-hospital-portal-apk.yml'
+    tags:
+      - 'v*'
+
+jobs:
+  build-hospital-apk:
+    name: Build MSCureChain Hospital Portal APK
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant Execute Permission to Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: Build Hospital Portal Release APK
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Rename APK for Distribution
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/MSCureChain-Hospital-Portal.apk || cp android/app/build/outputs/apk/release/*.apk android/app/build/outputs/apk/release/MSCureChain-Hospital-Portal.apk || true
+
+      - name: Upload Hospital Portal .apk Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MSCureChain-Hospital-Portal-APK
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release (On Tag Push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/app/build/outputs/apk/release/*.apk
+          name: MSCureChain Hospital Portal ${{ github.ref_name }}
+          body: 'Official MSCureChain Hospital Management System Android APK for hospital tablets and phones.'
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
