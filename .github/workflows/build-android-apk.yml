@@ -70,9 +70,9 @@ jobs:
       - name: Attach Raw Patient App APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.2
+          tag_name: v1.0.3
           files: android/app/build/outputs/apk/release/MSCureChain-Patient-App.apk
-          name: 'MSCureChain Hospital Management System v1.0.2'
+          name: 'MSCureChain Hospital Management System v1.0.3'
           body: 'Official MSCureChain Hospital System Installers for Windows Desktop and Android Devices.'
           draft: false
           prerelease: false
