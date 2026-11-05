@@ -3,6 +3,8 @@ name: Build Android Mobile App (.apk)
 on:
   workflow_dispatch: # Allows 1-click manual trigger from the GitHub Actions tab
   push:
+    branches:
+      - main
     tags:
       - 'v*'
 
@@ -15,8 +17,11 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Mobile App Repository
         uses: actions/checkout@v4
+        with:
+          repository: mstechhived1-design/mscurechian-app-
+          ref: main
 
       - name: Setup Java (JDK 17)
         uses: actions/setup-java@v4
@@ -24,46 +29,45 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK & NDK
-        uses: nttld/setup-ndk@v1
-        id: setup-ndk
-        with:
-          ndk-version: r26d
-          add-to-path: true
-
-      - name: Setup Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
-
-      - name: Setup Node.js 22
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Build Tauri Android APK
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        with:
-          args: android build --apk
-          tagName: v__VERSION__
-          releaseName: 'MSCureChain Mobile v__VERSION__'
-          releaseBody: 'Official Android Mobile Release (.apk) for MSCureChain Hospital Management System.'
-          releaseDraft: false
-          prerelease: false
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant Execute Permission to Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: Build Android Release APK
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Rename APK for Distribution
+        run: |
+          mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/MSCureChain-Patient-App.apk || true
 
       - name: Upload .apk Artifact
         uses: actions/upload-artifact@v4
         with:
           name: MSCureChain-Android-APK
-          path: |
-            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-            src-tauri/target/**/release/bundle/apk/*.apk
-          if-no-files-found: warn
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
+      - name: Create GitHub Release (On Tag Push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/app/build/outputs/apk/release/*.apk
+          name: MSCureChain Mobile App ${{ github.ref_name }}
+          body: 'Official Android APK Release for MSCureChain Patient Mobile App.'
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

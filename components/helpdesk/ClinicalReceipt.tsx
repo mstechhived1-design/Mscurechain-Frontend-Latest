@@ -134,10 +134,21 @@ interface ReceiptProps {
   isBooking?: boolean;
 }
 
+const defaultHospitalInfo = {
+  name: "Horizin Hospital",
+  address: "",
+  contact: "",
+  email: "",
+  logo: "/assets/logo.png",
+  opdFollowUpDays: 7,
+  ipdFollowUpDays: 15,
+  enableFollowUpExpiry: false,
+};
+
 function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment, isLab: propIsLab, labTests: propLabTests, onClose, onConfirm, isBooking }: ReceiptProps) {
   const isBookingMode = Boolean(onConfirm || isBooking);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [hospital, setHospital] = React.useState(propHospital);
+  const [hospital, setHospital] = React.useState(propHospital || defaultHospitalInfo);
   const [dataLoaded, setDataLoaded] = React.useState(false);
   const { printWithHeader, setPrintWithHeader } = usePrintStore();
   const params = useParams();
@@ -210,14 +221,14 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
         if (response?.hospital) {
           const h = response.hospital as any;
           setHospital({
-            name: h.name || propHospital.name,
-            address: h.address || propHospital.address,
-            contact: h.phone || propHospital.contact,
-            email: h.email || propHospital.email,
-            logo: h.logo || propHospital.logo,
-            opdFollowUpDays: h.opdFollowUpDays ?? propHospital.opdFollowUpDays,
-            ipdFollowUpDays: h.ipdFollowUpDays ?? propHospital.ipdFollowUpDays,
-            enableFollowUpExpiry: h.enableFollowUpExpiry ?? propHospital.enableFollowUpExpiry
+            name: h.name || propHospital?.name || defaultHospitalInfo.name,
+            address: h.address || propHospital?.address || defaultHospitalInfo.address,
+            contact: h.phone || propHospital?.contact || defaultHospitalInfo.contact,
+            email: h.email || propHospital?.email || defaultHospitalInfo.email,
+            logo: h.logo || propHospital?.logo || defaultHospitalInfo.logo,
+            opdFollowUpDays: h.opdFollowUpDays ?? propHospital?.opdFollowUpDays ?? defaultHospitalInfo.opdFollowUpDays,
+            ipdFollowUpDays: h.ipdFollowUpDays ?? propHospital?.ipdFollowUpDays ?? defaultHospitalInfo.ipdFollowUpDays,
+            enableFollowUpExpiry: h.enableFollowUpExpiry ?? propHospital?.enableFollowUpExpiry ?? defaultHospitalInfo.enableFollowUpExpiry
           });
         }
       } catch (error) {
@@ -276,22 +287,23 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
         };
 
         // 1. Render React Components to Static HTML
+        const safeHospital = hospital || propHospital || defaultHospitalInfo;
         const headerHtml = renderToStaticMarkup(
           <MainHeader initialDetails={{
-            name: hospital.name,
-            logo: hospital.logo,
-            address: hospital.address || "",
-            phone: hospital.contact || "",
-            email: hospital.email || "",
+            name: safeHospital.name || defaultHospitalInfo.name,
+            logo: safeHospital.logo || defaultHospitalInfo.logo,
+            address: safeHospital.address || "",
+            phone: safeHospital.contact || "",
+            email: safeHospital.email || "",
           }} />
         );
 
         const footerHtml = renderToStaticMarkup(
           <MainFooter initialDetails={{
-            name: hospital.name,
-            address: hospital.address || "",
-            phone: hospital.contact || "",
-            email: hospital.email || "",
+            name: safeHospital.name || defaultHospitalInfo.name,
+            address: safeHospital.address || "",
+            phone: safeHospital.contact || "",
+            email: safeHospital.email || "",
           }} />
         );
 
@@ -331,7 +343,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
 
         const rawHtml = isLab || receiptFormat === 'lab_receipt'
           ? generateLabReceiptHtml({
-              hospital,
+              hospital: safeHospital,
               patient: mappedPatient,
               appointment: mappedAppointment,
               payment: mappedPayment,
@@ -343,7 +355,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
             })
           : receiptFormat === 'opd_slip'
           ? generateOPDRegistrationSlipHtml({
-              hospital,
+              hospital: safeHospital,
               patient: mappedPatient,
               appointment: mappedAppointment,
               payment: mappedPayment,
@@ -355,7 +367,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
             })
           : generateClinicalReceiptHtml({
               forceDetailed: true,
-              hospital,
+              hospital: safeHospital,
               patient: mappedPatient,
               appointment: mappedAppointment,
               payment: mappedPayment,
@@ -453,9 +465,13 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
           </script>
         `;
 
-        doc.open();
-        doc.write(docWithScript);
-        doc.close();
+        try {
+          doc.open();
+          doc.write(docWithScript);
+          doc.close();
+        } catch (iframeErr) {
+          console.warn("[ClinicalReceipt] iframe write warning:", iframeErr);
+        }
 
         // Adjust iframe height to content to prevent huge blank void in modal preview
         setTimeout(() => {
@@ -681,8 +697,9 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
                     false
                   );
 
+                  const currentHospitalName = hospital?.name || propHospital?.name || defaultHospitalInfo.name;
                   const labWhatsAppCaption = formatDynamicWhatsAppCaption(
-                    `*${(hospital.name || 'HOSPITAL').toUpperCase()}*
+                    `*${currentHospitalName.toUpperCase()}*
 ━━━━━━━━━━━━━━━━━━
 🔬 *LAB BILL & RECEIPT*
 *Patient:* ${fullPatientName}
@@ -694,9 +711,9 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
                     `📌 *Important Instructions:*
 • Present this receipt at laboratory to collect reports.
 • Reports verified by pathologist before release.
-• Contact ${hospital.name} helpdesk for assistance.
+• Contact ${currentHospitalName} helpdesk for assistance.
 
-Thank you for choosing ${hospital.name}. Stay Healthy.`
+Thank you for choosing ${currentHospitalName}. Stay Healthy.`
                   );
 
                   return (
@@ -722,7 +739,7 @@ Thank you for choosing ${hospital.name}. Stay Healthy.`
                         specialty: appointment.specialization,
                         date: appointment.date,
                         timeSlot: appointment.time,
-                        hospitalName: hospital.name,
+                        hospitalName: currentHospitalName,
                         fee: payment.amount,
                         paymentStatus: payment.status || 'PAID',
                         paymentMode: formatReceiptPaymentMode(payment, appointment),

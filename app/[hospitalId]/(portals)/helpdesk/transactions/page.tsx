@@ -158,7 +158,13 @@ export default function TransactionsPage() {
     const [datePreset, setDatePreset] = useState<string>("all");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-    const [hospital, setHospital] = useState<any>(null);
+    const [hospital, setHospital] = useState<any>({
+        name: "Horizin Hospital",
+        address: "",
+        contact: "",
+        email: "",
+        logo: "/assets/logo.png"
+    });
     const [showEditedOnly, setShowEditedOnly] = useState(false);
     const [editingTx, setEditingTx] = useState<any>(null);
     const [deletingTx, setDeletingTx] = useState<any>(null);
@@ -1735,7 +1741,9 @@ export default function TransactionsPage() {
                 const activeProfile = fullPatient?.profile || fullPatient?.patientProfile || activePatient?.profile || {};
 
                 const rawType = (previewTx.type || '').toLowerCase();
-                const apptData = previewTx.referenceId || {};
+                const apptData = (typeof previewTx.referenceId === 'object' && previewTx.referenceId !== null) 
+                    ? previewTx.referenceId 
+                    : {};
 
                 const resolvedAddress = activeProfile?.address || activePatient?.address || (fullPatient as any)?.address || previewTx.patientDetails?.address || previewTx.patient?.address || previewTx.address || 'N/A';
                 const resolvedBloodGroup = activeProfile?.bloodGroup || activePatient?.bloodGroup || (fullPatient as any)?.bloodGroup || previewTx.patientDetails?.bloodGroup || previewTx.patient?.bloodGroup || 'N/A';

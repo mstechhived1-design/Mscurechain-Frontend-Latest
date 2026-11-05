@@ -54,7 +54,13 @@ export default function TransactionsPage() {
     const [ipdPaymentType, setIpdPaymentType] = useState<'all' | 'advance' | 'discharge'>('all');
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-    const [hospital, setHospital] = useState<any>(null);
+    const [hospital, setHospital] = useState<any>({
+        name: "Horizin Hospital",
+        address: "",
+        contact: "",
+        email: "",
+        logo: "/assets/logo.png"
+    });
     const [previewTx, setPreviewTx] = useState<any>(null);
 
     // Fetch hospital branding for receipts

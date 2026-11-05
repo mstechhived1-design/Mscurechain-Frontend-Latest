@@ -3,6 +3,8 @@ name: Build Windows Desktop App (.exe)
 on:
   workflow_dispatch: # Allows manual trigger from GitHub Actions with a single click
   push:
+    branches:
+      - main
     tags:
       - 'v*' # Trigger build on version tags (e.g. v1.0.0)
 
