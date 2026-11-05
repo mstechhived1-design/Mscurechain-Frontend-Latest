@@ -10,6 +10,7 @@ import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { generateTransactionReportHTML } from '@/lib/utils/print-transaction-report';
 import { generateDischargeSummaryHTML, DischargeSummaryData } from '@/lib/utils/print-discharge-summary';
+import { printHtmlContent } from '@/lib/print-utils';
 import DischargeSummaryView from '@/components/frontdesk/DischargeSummaryView';
 import ReportFormatToggle, { ReportTemplateFormat } from '@/components/frontdesk/ReportFormatToggle';
 import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
@@ -1294,12 +1295,6 @@ export default function TransactionReportsPage() {
     const balance = (rawBalance < 0 && rawBalance > -1) ? 0 : rawBalance;
 
     const handlePrint = () => {
-        const win = window.open('', '_blank');
-        if (!win) {
-            alert('Please allow popups to print');
-            return;
-        }
-
         const h = hospital || { name: 'Hospital Name', address: 'Hospital Address', phone: 'Contact Info' };
 
         const currentAdm = activeEncounterType === 'IPD' ? (admission || availableEncounters.ipd || {}) : (admission || {});
@@ -1359,14 +1354,7 @@ export default function TransactionReportsPage() {
             ? generateDischargeSummaryHTML(h, patient || {}, currentAdm, reportData, dischargeData)
             : generateTransactionReportHTML(h, patient || {}, currentAdm, reportData, totals, printConfig);
 
-        win.document.write(html);
-        win.document.close();
-
-        // Let the iframe/window load resources before printing
-        setTimeout(() => {
-            win.print();
-            win.onafterprint = function () { win.close(); }
-        }, 500);
+        printHtmlContent(html);
     };
 
     const isManualReport = loadReportId && !loadReportId.startsWith('AUTO_BILL_');

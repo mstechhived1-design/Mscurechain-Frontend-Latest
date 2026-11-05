@@ -52,7 +52,7 @@ const ProductsPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All Stock');
     const [supplierFilter, setSupplierFilter] = useState('All Suppliers');
-    const [expiryStatusFilter, setExpiryStatusFilter] = useState(((searchParams?.get('expiryStatus') ?? null) ?? null) || 'All');
+    const [expiryStatusFilter, setExpiryStatusFilter] = useState((searchParams?.get('expiryStatus') ?? null) || 'All');
 
     const fetchProducts = React.useCallback(async (page = 1) => {
         setIsLoading(true);

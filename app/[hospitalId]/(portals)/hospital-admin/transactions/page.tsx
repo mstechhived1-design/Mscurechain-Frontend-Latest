@@ -22,7 +22,7 @@ import { formatPatientNameWithPrefix, cleanPatientName } from '@/lib/utils/name-
 
 function TransactionContent() {
   const searchParams = useSearchParams() as any;
-  const initialType = ((searchParams?.get('type') ?? null) ?? null)?.toLowerCase() || "opd"; // Default to OPD as per request
+  const initialType = (searchParams?.get('type') ?? null)?.toLowerCase() || "opd"; // Default to OPD as per request
 
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("all");

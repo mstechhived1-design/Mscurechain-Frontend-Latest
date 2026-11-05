@@ -12,7 +12,7 @@ import ResultParametersManager from '@/components/lab/ResultParametersManager';
 function ManageTestPage() {
     const router = useRouter();
     const searchParams = useSearchParams() as any;
-    const testId = ((searchParams?.get('id') ?? null) ?? null);
+    const testId = (searchParams?.get('id') ?? null);
     const isEditMode = !!testId;
 
     const [departments, setDepartments] = useState<Department[]>([]);

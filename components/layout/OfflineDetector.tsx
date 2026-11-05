@@ -68,17 +68,24 @@ export default function OfflineDetector() {
 
   // Robust Heartbeat Poller for Real-World Network Outages
   useEffect(() => {
-    // Poll the network every 3 seconds (faster than 5s) to catch silent failures 
+    let failureCount = 0;
     const interval = setInterval(async () => {
       const isActuallyOnline = await checkConnectivity();
       const currentlyOnline = useOnlineStore.getState().isOnline;
 
-      if (!isActuallyOnline && currentlyOnline) {
-        handleOffline();
-      } else if (isActuallyOnline && !currentlyOnline) {
-        handleOnline();
+      if (!isActuallyOnline) {
+        failureCount++;
+        // Require 2 consecutive failures before showing offline screen to prevent flickering
+        if (failureCount >= 2 && currentlyOnline) {
+          handleOffline();
+        }
+      } else {
+        failureCount = 0;
+        if (!currentlyOnline) {
+          handleOnline();
+        }
       }
-    }, 500);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [checkConnectivity, handleOffline, handleOnline]);

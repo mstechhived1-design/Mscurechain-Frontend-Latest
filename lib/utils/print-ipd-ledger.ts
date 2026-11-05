@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { formatDoctorName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
-import { computeAgeFromDob } from '@/lib/print-utils';
+import { computeAgeFromDob, printHtmlContent } from '@/lib/print-utils';
 
 function numberToWords(num: number): string {
     const a = [
@@ -275,9 +275,6 @@ export const printIPDLedger = (summary: any, hospitalDetails?: any, options: { f
     const address = summary?.patientAddress || summary?.address || "";
     const phoneNo = summary?.patientContact || summary?.phone || "";
     const refDoctor = summary?.doctorReference || summary?.referredBy || summary?.patient?.doctorReference || summary?.patient?.profile?.doctorReference || summary?.patientProfile?.doctorReference || "";
-
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
 
     const htmlContent = `
     <!DOCTYPE html>
@@ -722,19 +719,9 @@ export const printIPDLedger = (summary: any, hospitalDetails?: any, options: { f
         </table>
         
         <div class="print-time">Printed Dt & Time : ${format(new Date(), 'dd-MMM-yyyy hh:mm a')}</div>
-
-        <script>
-            window.onload = function() {
-                setTimeout(function() {
-                    window.print();
-                }, 500);
-            }
-        </script>
     </body>
     </html>
     `;
 
-    printWindow.document.open();
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+    printHtmlContent(htmlContent);
 };

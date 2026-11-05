@@ -180,31 +180,53 @@ export default function MasterPatientsPage() {
     };
 
     // Select appointment & generate receipt
-    const handleSelectAppointment = async (appt: any) => {
+    const handleSelectAppointment = (appt: any) => {
         try {
             const patient = selectedPatientForHistory;
             if (!patient || !appt) return;
 
+            // Instantly transition to receipt modal without any network lag
             setShowHistoryModal(false);
 
             const doctorName = resolveDoctorName(appt);
-            
-            // Refetch fresh hospital info to ensure opdFollowUpDays is up-to-date!
-            let freshHospitalInfo = hospitalInfo;
-            try {
-                const hRes = await hospitalAdminService.getHospital();
-                if (hRes?.hospital) {
-                    freshHospitalInfo = hRes.hospital;
-                    setHospitalInfo(hRes.hospital);
-                }
-            } catch (e) {
-                console.error("Failed to refetch fresh hospital info", e);
-            }
+            const freshHospitalInfo = hospitalInfo || {
+                name: "Horizin Hospital",
+                address: "",
+                contact: "",
+                email: "",
+                logo: "/assets/logo.png"
+            };
 
             const data = {
                 hospital: {
-                    allergies: patient.profile?.allergies || "None",
-                    symptoms: appt.symptoms || appt.reason || appt.notes || appt.chiefComplaint || "None",
+                    name: freshHospitalInfo?.name || appt.hospitalInfo?.name || appt.hospital?.name || "Horizin Hospital",
+                    address: freshHospitalInfo?.address || appt.hospitalInfo?.address || appt.hospital?.address || "",
+                    contact: freshHospitalInfo?.phone || appt.hospitalInfo?.phone || appt.hospital?.phone || "",
+                    email: freshHospitalInfo?.email || appt.hospitalInfo?.email || appt.hospital?.email || "",
+                    logo: freshHospitalInfo?.logo || "/assets/logo.png",
+                    opdFollowUpDays: freshHospitalInfo?.opdFollowUpDays ?? appt.hospitalInfo?.opdFollowUpDays ?? appt.hospital?.opdFollowUpDays,
+                    ipdFollowUpDays: freshHospitalInfo?.ipdFollowUpDays ?? appt.hospitalInfo?.ipdFollowUpDays ?? appt.hospital?.ipdFollowUpDays,
+                    enableFollowUpExpiry: freshHospitalInfo?.enableFollowUpExpiry ?? appt.hospitalInfo?.enableFollowUpExpiry ?? appt.hospital?.enableFollowUpExpiry
+                },
+                patient: {
+                    name: formatPatientNameWithPrefix(sanitizePatientName(patient.name || patient.user?.name), patient.profile?.honorific || patient.honorific),
+                    honorific: patient.profile?.honorific || patient.honorific,
+                    mrn: patient.profile?.mrn || patient.mrn || appt.patient?.mrn || "N/A",
+                    age: computeAgeFromDob(patient.profile?.dob || patient.dob, patient.profile?.age || patient.age, patient.profile?.ageUnit || patient.ageUnit),
+                    gender: patient.profile?.gender || patient.gender || appt.patientDetails?.gender || appt.patient?.gender,
+                    mobile: patient.mobile || patient.user?.mobile || appt.patient?.mobile,
+                    bloodGroup: patient.profile?.bloodGroup || patient.bloodGroup || appt.patientDetails?.bloodGroup,
+                    address: patient.address || patient.profile?.address || appt.patient?.address,
+                    email: patient.profile?.emergencyContactEmail || patient.emergencyContactEmail || patient.email || patient.user?.email || appt.patient?.email,
+                    dateOfBirth: patient.profile?.dob || appt.patient?.dob,
+                    emergencyContact: patient.profile?.alternateNumber || appt.patient?.emergencyContact,
+                    medicalHistory: patient.profile?.medicalHistory || appt.profileInfo?.medicalHistory,
+                    allergies: patient.profile?.allergies || appt.profileInfo?.allergies,
+                    symptoms: appt.symptoms || appt.reason || appt.chiefComplaint,
+                    guardianName: appt.guardianName || appt.patientDetails?.guardianName || '',
+                    guardianRelation: appt.guardianRelation || appt.patientDetails?.guardianRelation || '',
+                    guardianMobile: appt.guardianMobile || appt.patientDetails?.guardianMobile || '',
+                    doctorReference: appt.doctorReference || appt.patientDetails?.doctorReference || '',
                     vitals: {
                         height: appt.vitals?.height || patient.profile?.height,
                         weight: appt.vitals?.weight || patient.profile?.weight,

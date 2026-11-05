@@ -18,6 +18,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { printHtmlContent } from "@/lib/print-utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Hospital {
@@ -142,9 +143,7 @@ export default function SuperAdminQRGeneratorPage() {
   const handlePrint = useCallback(() => {
     const content = printFrameRef.current?.innerHTML;
     if (!content) return;
-    const win = window.open("", "_blank", "width=680,height=900");
-    if (!win) return;
-    win.document.write(`
+    const html = `
       <!DOCTYPE html><html>
       <head>
         <title>QR – ${selected?.name || "Hospital"}</title>
@@ -175,9 +174,8 @@ export default function SuperAdminQRGeneratorPage() {
         </style>
       </head>
       <body><div class="card">${content}</div></body></html>
-    `);
-    win.document.close();
-    setTimeout(() => { win.focus(); win.print(); }, 400);
+    `;
+    printHtmlContent(html);
   }, [selected]);
 
   const presets = [

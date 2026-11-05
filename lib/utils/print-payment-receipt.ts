@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { usePrintStore } from '@/stores/printStore';
 import { cleanDoctorName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
+import { printHtmlContent } from '@/lib/print-utils';
 
 function numberToWords(num: number): string {
     const a = [
@@ -22,9 +23,6 @@ function numberToWords(num: number): string {
 }
 
 export const printPaymentReceipt = (payment: any, summary: any, hospitalDetails?: any) => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-
     const printWithHeader = usePrintStore.getState().printWithHeader;
 
     const txDate = payment.createdAt || payment.transactionTime || payment.date || new Date();
@@ -174,17 +172,9 @@ export const printPaymentReceipt = (payment: any, summary: any, hospitalDetails?
 
                 <div class="print-time">Printed On: ${format(new Date(), 'dd-MMM-yyyy hh:mm a')}</div>
             </div>
-            <script>
-                window.onload = function() {
-                    window.print();
-                    setTimeout(function() { window.close(); }, 500);
-                }
-            </script>
         </body>
         </html>
     `;
 
-    printWindow.document.open();
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+    printHtmlContent(htmlContent);
 };

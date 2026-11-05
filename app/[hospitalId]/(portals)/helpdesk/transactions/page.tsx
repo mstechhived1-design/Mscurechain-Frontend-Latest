@@ -23,6 +23,7 @@ import {
 import { helpdeskService, ipdService } from "@/lib/integrations";
 import { hospitalAdminService } from "@/lib/integrations/services/hospitalAdmin.service";
 import toast from "react-hot-toast";
+import { printHtmlContent } from "@/lib/print-utils";
 import Link from "next/link";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
@@ -954,9 +955,6 @@ export default function TransactionsPage() {
 
     // 🖨️ PRINT: Single transaction receipt
     const handlePrintTransaction = async (tx: any) => {
-        const win = window.open('', '_blank');
-        if (!win) { toast.error('Please allow popups to print'); return; }
-
         const h = hospital || {};
         const patientName = getPatientNameWithPrefix(tx, patientHonorificMap, patientCanonicalNameMap);
         
@@ -1139,17 +1137,13 @@ export default function TransactionsPage() {
         </div>
         ${ipdBreakdownHtml}
         <div id="print-footer" style="margin-top:30px">${footerHtml}</div>
-        <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}<\/script>
         </body></html>`;
-        win.document.write(receiptHtml);
-        win.document.close();
+        printHtmlContent(receiptHtml);
     };
 
     // 🖨️ PRINT ALL: Print current page of transactions
     const handlePrintAll = () => {
         if (filteredTransactions.length === 0) { toast.error('No transactions to print'); return; }
-        const win = window.open('', '_blank');
-        if (!win) { toast.error('Please allow popups to print'); return; }
         const h = hospital || {};
         const headerHtml = renderToStaticMarkup(
             <MainHeader initialDetails={{ name: h.name || 'Hospital', address: h.address || '', phone: h.phone || h.mobile || '', email: h.email || '', logo: h.logo }} />
@@ -1196,10 +1190,8 @@ export default function TransactionsPage() {
         <table><thead><tr><th>Date</th><th>Patient</th><th>Type</th><th>Amount</th><th>Mode</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
         <div class="summary">Total Revenue: ₹${Math.round(totalAmount).toLocaleString('en-IN')}</div>
         <div id="print-footer" style="margin-top:30px">${footerHtml}</div>
-        <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}<\/script>
         </body></html>`;
-        win.document.write(html);
-        win.document.close();
+        printHtmlContent(html);
     };
 
     const totalPages = Math.ceil(total / limit);

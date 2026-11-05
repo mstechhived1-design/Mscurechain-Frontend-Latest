@@ -25,8 +25,8 @@ export default function TransactionSummaryPage() {
     const searchParams = useSearchParams() as any;
     const hospitalId = params?.hospitalId as string;
 
-    const startDate = ((searchParams?.get('startDate') ?? null) ?? null) || new Date().toISOString().split('T')[0];
-    const endDate = ((searchParams?.get('endDate') ?? null) ?? null) || new Date().toISOString().split('T')[0];
+    const startDate = (searchParams?.get('startDate') ?? null) || new Date().toISOString().split('T')[0];
+    const endDate = (searchParams?.get('endDate') ?? null) || new Date().toISOString().split('T')[0];
 
     const { data: txRaw, isLoading, isFetching, refetch } = useMasterTransactions(
         1,

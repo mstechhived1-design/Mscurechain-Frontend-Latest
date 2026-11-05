@@ -53,8 +53,8 @@ export default function IPDIssuancePage() {
     const params = useParams() as any;
     const searchParams = useSearchParams() as any;
     const hospitalId = params?.hospitalId as string;
-    const urlAdmissionId = ((searchParams?.get("admissionId") ?? null) ?? null);
-    const pName = ((searchParams?.get("patientName") ?? null) ?? null);
+    const urlAdmissionId = (searchParams?.get("admissionId") ?? null);
+    const pName = (searchParams?.get("patientName") ?? null);
     const queryClient = useQueryClient();
     const { getPath } = useTenantLink();
 

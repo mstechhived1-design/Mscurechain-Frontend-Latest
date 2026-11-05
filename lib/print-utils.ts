@@ -4681,3 +4681,49 @@ export const generateAddBillsReceiptHtml = (data: any) => {
     </html>
   `;
 };
+
+/**
+ * Universal, zero-popup print utility for Desktop (.exe / WebView2), Android (.apk), and Web.
+ * Renders into an off-screen, zero-size iframe and calls native window.print()
+ * completely bypassing popup blockers and eliminating "Please allow popups to print" errors.
+ */
+export const printHtmlContent = (htmlContent: string) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    let iframe = document.getElementById('msc-universal-print-iframe') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'msc-universal-print-iframe';
+      iframe.setAttribute(
+        'style',
+        'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;z-index:-99999;'
+      );
+      document.body.appendChild(iframe);
+    }
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      const sanitizedHtml = htmlContent
+        .replace(/onload="[^"]*window\.print\(\)[^"]*"/gi, '')
+        .replace(/window\.onload\s*=\s*function\(\)\s*\{[^}]*window\.print\(\);?[^}]*\};?/gi, '')
+        .replace(/window\.onafterprint\s*=\s*function\(\)\s*\{[^}]*\};?/gi, '');
+      doc.write(sanitizedHtml);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          }
+        } catch (err) {
+          console.error('[printHtmlContent] print() invocation error:', err);
+        }
+      }, 350);
+    }
+  } catch (err) {
+    console.error('[printHtmlContent] Failed to render or print:', err);
+  }
+};

@@ -194,7 +194,7 @@ function ManageInventoryItemPage() {
     const params = useParams() as any;
     const hospitalId = params?.hospitalId as string;
     const searchParams = useSearchParams() as any;
-    const itemId = ((searchParams?.get('id') ?? null) ?? null);
+    const itemId = (searchParams?.get('id') ?? null);
     const isEditMode = !!itemId;
 
     const categories = useLocalList('inv_categories', DEFAULT_CATEGORIES);

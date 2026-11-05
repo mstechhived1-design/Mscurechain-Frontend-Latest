@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { generateTransactionReportHTML } from '@/lib/utils/print-transaction-report';
+import { printHtmlContent } from '@/lib/print-utils';
 import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -152,8 +153,8 @@ export default function TransactionReportsPage() {
     const router = useRouter();
     const params = useParams() as any;
     const searchParams = useSearchParams() as any;
-    const patientId = ((searchParams?.get('patientId') ?? null) ?? null);
-    const loadReportId = ((searchParams?.get('loadReport') ?? null) ?? null);
+    const patientId = searchParams?.get('patientId') ?? null;
+    const loadReportId = searchParams?.get('loadReport') ?? null;
 
     const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
     const [printConfig, setPrintConfig] = useState({
@@ -309,12 +310,6 @@ export default function TransactionReportsPage() {
     const balance = grand - totPaid;
 
     const handlePrint = () => {
-        const win = window.open('', '_blank');
-        if (!win) {
-            alert('Please allow popups to print');
-            return;
-        }
-
         const h = hospital || { name: 'Hospital Name', address: 'Hospital Address', phone: 'Contact Info' };
 
         const docRef = 
@@ -337,15 +332,7 @@ export default function TransactionReportsPage() {
         const totals = { grandTotal: grand, totalPaid: totPaid, balance: balance, discount: 0 };
 
         const html = generateTransactionReportHTML(h, patient || {}, admission || {}, reportData, totals, printConfig);
-
-        win.document.write(html);
-        win.document.close();
-
-        // Let the iframe/window load resources before printing
-        setTimeout(() => {
-            win.print();
-            win.onafterprint = function () { win.close(); }
-        }, 500);
+        printHtmlContent(html);
     };
 
     const isManualReport = loadReportId && !loadReportId.startsWith('AUTO_BILL_');

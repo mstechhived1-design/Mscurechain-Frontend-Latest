@@ -330,6 +330,23 @@ export async function apiClient<T>(
     headers.set("X-Hospital-Id", activeHospitalId);
   }
 
+  // ✅ NATIVE CONTAINER IDENTIFIER: Inform backend if running in desktop (.exe) or mobile (.apk)
+  if (typeof window !== "undefined") {
+    const isNative = Boolean(
+      (window as any).__TAURI__ ||
+      (window as any).__TAURI_INTERNALS__ ||
+      (window as any).AndroidPrintBridge ||
+      (window as any).AndroidBridge ||
+      /MSCureChain|Tauri|AndroidBridge|Electron/i.test(navigator.userAgent) ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname === 'tauri.localhost'
+    );
+    if (isNative) {
+      headers.set("x-client-platform", "desktop");
+    }
+  }
+
   const url = `${API_CONFIG.BASE_URL}${path}`;
   const method = options?.method || "GET";
   const cacheKey = `${method}:${url}`;
@@ -361,10 +378,6 @@ export async function apiClient<T>(
         credentials: "include", // ✅ CRITICAL: Send HttpOnly cookies for Auth
         cache: "no-store",
       }).catch((fetchError) => {
-        if (isClient && fetchError.message === "Failed to fetch") {
-          useOnlineStore.getState().setOnline(false);
-        }
-
         const networkError = new Error(
           fetchError.message === "Failed to fetch"
             ? `Cannot connect to server. Please ensure the backend is running at ${API_CONFIG.BASE_URL}`

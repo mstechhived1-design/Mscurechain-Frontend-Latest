@@ -134,7 +134,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     }, [invoiceId]);
 
     useEffect(() => {
-        if (!isLoading && bill && ((searchParams?.get('print') ?? null) ?? null) === 'true') {
+        if (!isLoading && bill && (searchParams?.get('print') ?? null) === 'true') {
             const timer = setTimeout(() => {
                 triggerPrintAndWhatsApp();
             }, 1000); // Small delay to ensure rendering is complete

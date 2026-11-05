@@ -209,7 +209,7 @@ export default function MasterPatientRegistration() {
     useEffect(() => {
         const init = async () => {
             try {
-                const initialType = ((searchParams?.get('type') ?? null) ?? null) as 'OPD' | 'IPD' || 'OPD';
+                const initialType = (searchParams?.get('type') ?? null) as 'OPD' | 'IPD' || 'OPD';
                 setFormData(prev => ({ ...prev, registrationType: initialType }));
             } catch (err) {
                 console.error("Error initializing registration", err);

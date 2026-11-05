@@ -155,21 +155,21 @@ function LabBillingPage() {
 
     // 1. Capture Patient & Sample params immediately
     React.useEffect(() => {
-        const name = ((searchParams?.get('name') ?? null) ?? null);
-        const mobile = ((searchParams?.get('mobile') ?? null) ?? null);
-        const age = ((searchParams?.get('age') ?? null) ?? null);
-        const gender = ((searchParams?.get('gender') ?? null) ?? null);
-        const honorific = ((searchParams?.get('honorific') ?? null) ?? null);
-        const refDoctor = ((searchParams?.get('refDoctor') ?? null) ?? null);
-        const sampleIdParam = ((searchParams?.get('sampleId') ?? null) ?? null);
-        const patientType = ((searchParams?.get('patientType') ?? null) ?? null) as 'opd' | 'ipd' | 'lab' | null;
-        const originalPatientName = ((searchParams?.get('originalPatientName') ?? null) ?? null);
+        const name = (searchParams?.get('name') ?? null);
+        const mobile = (searchParams?.get('mobile') ?? null);
+        const age = (searchParams?.get('age') ?? null);
+        const gender = (searchParams?.get('gender') ?? null);
+        const honorific = (searchParams?.get('honorific') ?? null);
+        const refDoctor = (searchParams?.get('refDoctor') ?? null);
+        const sampleIdParam = (searchParams?.get('sampleId') ?? null);
+        const patientType = (searchParams?.get('patientType') ?? null) as 'opd' | 'ipd' | 'lab' | null;
+        const originalPatientName = (searchParams?.get('originalPatientName') ?? null);
 
         if (sampleIdParam) {
             setSampleId(sampleIdParam);
         }
 
-        const displayIdParam = ((searchParams?.get('displayId') ?? null) ?? null);
+        const displayIdParam = (searchParams?.get('displayId') ?? null);
         if (displayIdParam) {
             setDisplayId(displayIdParam);
         }
@@ -214,7 +214,7 @@ function LabBillingPage() {
     // 2. Map Test Names to Objects (Requires availableTests)
     React.useEffect(() => {
         if (!testsLoading && availableTests.length > 0) {
-            const tests = ((searchParams?.get('tests') ?? null) ?? null);
+            const tests = (searchParams?.get('tests') ?? null);
             if (tests) {
                 const testList = tests.split(',');
                 const testsToAdd: BillItem[] = [];

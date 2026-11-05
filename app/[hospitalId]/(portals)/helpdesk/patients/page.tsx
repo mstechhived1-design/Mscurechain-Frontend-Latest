@@ -249,51 +249,35 @@ export default function PatientsPage() {
     };
 
     // 2. Select Appointment & Generate Receipt
-    const handleSelectAppointment = async (appt: any) => {
+    const handleSelectAppointment = (appt: any) => {
         try {
-            console.log("Selected Appointment for Receipt:", appt); // Debug Log
+            console.log("Selected Appointment for Receipt:", appt);
 
             const patient = selectedPatientForHistory;
             if (!patient || !appt) return;
 
-            // Close history modal, open receipt modal
+            // Instantly transition to receipt modal without any network lag
             setShowHistoryModal(false);
 
             // Resolve Doctor Name
             const doctorName = resolveDoctorName(appt);
 
-            // Refetch fresh hospital info to ensure opdFollowUpDays is up-to-date!
-            let freshHospitalInfo = hospitalInfo;
-            try {
-                const hRes = await hospitalAdminService.getHospital();
-                const hData = (hRes as any)?.hospital || hRes;
-                if (hData && (hData._id || hData.id)) {
-                    freshHospitalInfo = hData;
-                    setHospitalInfo(hData);
-                } else {
-                    throw new Error("Invalid structure from hospitalAdmin API");
-                }
-            } catch (e) {
-                try {
-                    const me = await helpdeskService.getMe();
-                    const myHospital = (me as any)?.hospital || me;
-                    if (myHospital && (myHospital._id || myHospital.id)) {
-                        freshHospitalInfo = myHospital;
-                        setHospitalInfo(myHospital);
-                    }
-                } catch (err) {
-                    console.error("Failed to refetch fresh hospital info", err);
-                }
-            }
+            const freshHospitalInfo = hospitalInfo || {
+                name: "Horizin Hospital",
+                address: "",
+                contact: "",
+                email: "",
+                logo: "/assets/logo.png"
+            };
 
-            // Construct Receipt Data using the SELECTED appointment
+            // Construct Receipt Data using the SELECTED appointment immediately
             const data = {
                 hospital: {
-                    name: freshHospitalInfo?.name || appt.hospitalInfo?.name || appt.hospital?.name || "CureChain Hospital",
+                    name: freshHospitalInfo?.name || appt.hospitalInfo?.name || appt.hospital?.name || "Horizin Hospital",
                     address: freshHospitalInfo?.address || appt.hospitalInfo?.address || appt.hospital?.address || "",
                     contact: freshHospitalInfo?.phone || appt.hospitalInfo?.phone || appt.hospital?.phone || "",
                     email: freshHospitalInfo?.email || appt.hospitalInfo?.email || appt.hospital?.email || "",
-                    logo: freshHospitalInfo?.logo,
+                    logo: freshHospitalInfo?.logo || "/assets/logo.png",
                     opdFollowUpDays: freshHospitalInfo?.opdFollowUpDays ?? appt.hospitalInfo?.opdFollowUpDays ?? appt.hospital?.opdFollowUpDays,
                     ipdFollowUpDays: freshHospitalInfo?.ipdFollowUpDays ?? appt.hospitalInfo?.ipdFollowUpDays ?? appt.hospital?.ipdFollowUpDays,
                     enableFollowUpExpiry: freshHospitalInfo?.enableFollowUpExpiry ?? appt.hospitalInfo?.enableFollowUpExpiry ?? appt.hospital?.enableFollowUpExpiry

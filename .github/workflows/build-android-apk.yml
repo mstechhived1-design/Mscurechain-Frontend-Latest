@@ -54,7 +54,11 @@ jobs:
 
       - name: Rename APK for Distribution
         run: |
-          mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/MSCureChain-Patient-App.apk || true
+          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/MSCureChain-Patient-App.apk
+          else
+            cp $(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1) android/app/build/outputs/apk/release/MSCureChain-Patient-App.apk
+          fi
 
       - name: Upload .apk Artifact
         uses: actions/upload-artifact@v4
@@ -63,13 +67,13 @@ jobs:
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-      - name: Create GitHub Release (On Tag Push)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Attach Raw Patient App APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/release/*.apk
-          name: MSCureChain Mobile App ${{ github.ref_name }}
-          body: 'Official Android APK Release for MSCureChain Patient Mobile App.'
+          tag_name: v1.0.2
+          files: android/app/build/outputs/apk/release/MSCureChain-Patient-App.apk
+          name: 'MSCureChain Hospital Management System v1.0.2'
+          body: 'Official MSCureChain Hospital System Installers for Windows Desktop and Android Devices.'
           draft: false
           prerelease: false
         env:

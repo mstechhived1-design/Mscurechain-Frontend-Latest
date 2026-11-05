@@ -11,9 +11,9 @@ import { useAuthStore } from '@/stores/authStore';
 export function DischargeContent() {
     const router = useRouter();
     const searchParams = useSearchParams() as any;
-    const admissionId = ((searchParams?.get('admissionId') ?? null) ?? null);
-    const recordId = ((searchParams?.get('id') ?? null) ?? null);
-    const mode = ((searchParams?.get('mode') ?? null) ?? null);
+    const admissionId = (searchParams?.get('admissionId') ?? null);
+    const recordId = (searchParams?.get('id') ?? null);
+    const mode = (searchParams?.get('mode') ?? null);
     const isEditingOrCreating = admissionId || recordId || mode === 'sample';
 
     // Lifted state for Pending Queue

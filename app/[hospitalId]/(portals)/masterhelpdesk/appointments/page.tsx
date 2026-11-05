@@ -32,9 +32,9 @@ export default function MasterAppointmentsLedger() {
     const hospitalId = params.hospitalId as string;
     
     const searchParams = useSearchParams() as any;
-    const doctorIdParam = ((searchParams?.get('doctorId') ?? null) ?? null);
-    const startDateParam = ((searchParams?.get('startDate') ?? null) ?? null);
-    const endDateParam = ((searchParams?.get('endDate') ?? null) ?? null);
+    const doctorIdParam = (searchParams?.get('doctorId') ?? null);
+    const startDateParam = (searchParams?.get('startDate') ?? null);
+    const endDateParam = (searchParams?.get('endDate') ?? null);
     
     // Filters State
     const [searchTerm, setSearchTerm] = useState("");

@@ -73,6 +73,7 @@ import medicineData from '@/medicine.json';
 import { doctorService } from '@/lib/integrations/services/doctor.service';
 import { Frequency, StandardFrequency, CustomFrequency, FoodTiming, INITIAL_FREQUENCY, mapFrequency, formatFrequency } from '@/lib/frequencyUtils';
 import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
+import { printHtmlContent } from '@/lib/print-utils';
 import { computeAgeFromDob } from '@/lib/print-utils';
 
 // --- Types ---
@@ -3656,32 +3657,24 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     const handlePrintDocument = async (type: 'prescription' | 'billing') => {
         if (!generatedHtml) return;
         const html = type === 'prescription' ? generatedHtml.prescription : generatedHtml.billing;
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write(html);
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => { printWindow.print(); }, 500);
+        printHtmlContent(html);
 
-            // Automatically complete the consultation and redirect to dashboard
-            if (appointmentId) {
-                try {
-                    await doctorService.endConsultation(appointmentId, {
-                        duration: 0,
-                        diagnosis: formData.diagnosis,
-                        clinicalNotes: formData.symptoms
-                    });
-                    toast.success("Consultation Completed Successfully!");
-                    
-                    setTimeout(() => {
-                        router.push(`/${hospitalId}/doctor`);
-                    }, 1500);
-                } catch (error) {
-                    console.error("Failed to complete consultation", error);
-                }
+        // Automatically complete the consultation and redirect to dashboard
+        if (appointmentId) {
+            try {
+                await doctorService.endConsultation(appointmentId, {
+                    duration: 0,
+                    diagnosis: formData.diagnosis,
+                    clinicalNotes: formData.symptoms
+                });
+                toast.success("Consultation Completed Successfully!");
+                
+                setTimeout(() => {
+                    router.push(`/${hospitalId}/doctor`);
+                }, 1500);
+            } catch (error) {
+                console.error("Failed to complete consultation", error);
             }
-        } else {
-            toast.error('Please allow popups to print documents');
         }
     };
 

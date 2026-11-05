@@ -16,7 +16,7 @@ function HospitalAdminManageTestPage() {
     const router = useRouter();
     const { getPath } = useTenantLink();
     const searchParams = useSearchParams() as any;
-    const testId = ((searchParams?.get('id') ?? null) ?? null);
+    const testId = (searchParams?.get('id') ?? null);
     const isEditMode = !!testId;
     const [isNavigating, startNavigation] = useTransition();
 

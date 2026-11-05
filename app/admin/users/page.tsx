@@ -69,7 +69,7 @@ const getRoleGradient = (role: string) => {
 
 const UsersList = () => {
     const searchParams = useSearchParams() as any;
-    const role = ((searchParams?.get('role') ?? null) ?? null);
+    const role = (searchParams?.get('role') ?? null);
 
     const { isAuthenticated } = useAuthStore();
     const [users, setUsers] = useState<any[]>([]);

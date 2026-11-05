@@ -19,7 +19,7 @@ export default function LabResultsEntryPage() {
     const [isNavigating, startNavigation] = useTransition();
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState<TabType>((((searchParams?.get('tab') ?? null) ?? null) as TabType) || 'pending');
+    const [activeTab, setActiveTab] = useState<TabType>(((searchParams?.get('tab') ?? null) as TabType) || 'pending');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
@@ -47,7 +47,7 @@ export default function LabResultsEntryPage() {
 
     // Sync tab with URL
     useEffect(() => {
-        const tab = ((searchParams?.get('tab') ?? null) ?? null);
+        const tab = (searchParams?.get('tab') ?? null);
         if (tab === 'submitted' || tab === 'pending') {
             setActiveTab(tab);
         }

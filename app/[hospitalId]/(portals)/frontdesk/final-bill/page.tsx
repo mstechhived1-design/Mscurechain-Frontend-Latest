@@ -8,7 +8,7 @@ import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.
 import { useHelpdeskPatients } from "@/lib/integrations";
 import { sanitizePatientName, formatPatientDisplayName } from "@/lib/utils/name-utils";
 import { calculateAge } from "@/lib/utils/date-utils";
-import { computeAgeFromDob } from "@/lib/print-utils";
+import { computeAgeFromDob, printHtmlContent } from "@/lib/print-utils";
 import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import toast from 'react-hot-toast';
@@ -555,15 +555,8 @@ export default function FinalBillPage() {
             return;
         }
 
-        const win = window.open('', '_blank');
-        if (!win) {
-            alert('Please allow popups to print');
-            return;
-        }
-
         const html = generateFullBillMarkup(true);
-        win.document.write(html);
-        win.document.close();
+        printHtmlContent(html);
     };
 
     return (

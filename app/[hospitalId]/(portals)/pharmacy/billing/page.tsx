@@ -64,7 +64,7 @@ const BillingPage = () => {
     const hasLoadedPrescription = React.useRef(false);
 
     const searchParams = useSearchParams() as any;
-    const orderId = ((searchParams?.get('orderId') ?? null) ?? null);
+    const orderId = (searchParams?.get('orderId') ?? null);
 
     // Autocomplete & Validation States
     const [recentPatients, setRecentPatients] = useState<{ name: string; phone: string }[]>([]);

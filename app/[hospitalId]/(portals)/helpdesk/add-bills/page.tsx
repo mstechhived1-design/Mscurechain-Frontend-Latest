@@ -12,7 +12,7 @@ import {
 import { helpdeskService, ipdService } from '@/lib/integrations';
 import { apiClient } from '@/lib/integrations/api/apiClient';
 import toast from 'react-hot-toast';
-import { generateAddBillsReceiptHtml, computeAgeFromDob } from '@/lib/print-utils';
+import { generateAddBillsReceiptHtml, computeAgeFromDob, printHtmlContent } from '@/lib/print-utils';
 import { useAuthStore } from '@/stores/authStore';
 import { formatPatientNameWithPrefix, formatPatientDisplayName } from '@/lib/utils/name-utils';
 import { usePrintStore } from '@/stores/printStore';
@@ -2647,13 +2647,8 @@ export default function AddBillsPage() {
                                             setTriggerWhatsApp(true);
                                             setTimeout(() => setTriggerWhatsApp(false), 2000);
                                         }
-                                        const printWindow = window.open('', '_blank');
-                                        if (printWindow) {
-                                            printWindow.document.open();
-                                            printWindow.document.write(previewHtml);
-                                            printWindow.document.close();
-                                            setShowPrintModal(false);
-                                        }
+                                        printHtmlContent(previewHtml);
+                                        setShowPrintModal(false);
                                     }}
                                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderRadius: 10, background: '#0f172a', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}
                                 >

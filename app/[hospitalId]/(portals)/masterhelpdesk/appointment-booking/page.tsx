@@ -47,7 +47,7 @@ export default function MasterAppointmentBooking() {
     const searchParams = useSearchParams() as any;
     const params = useParams() as any;
     const hospitalId = params.hospitalId as string;
-    const patientIdFromQuery = ((searchParams?.get('patientId') ?? null) ?? null);
+    const patientIdFromQuery = (searchParams?.get('patientId') ?? null);
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);

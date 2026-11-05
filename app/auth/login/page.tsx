@@ -127,7 +127,7 @@ const LoginForm = () => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const searchParams = useSearchParams() as any;
-  const redirectPath = ((searchParams?.get('redirect') ?? null) ?? null);
+  const redirectPath = (searchParams?.get('redirect') ?? null);
 
   const [cookiesAccepted, setCookiesAccepted] = useState(false);
 

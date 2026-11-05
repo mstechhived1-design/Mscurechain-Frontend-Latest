@@ -190,7 +190,7 @@ function ManageEquipmentPage() {
     const params = useParams() as any;
     const hospitalId = params?.hospitalId as string;
     const searchParams = useSearchParams() as any;
-    const equipmentId = ((searchParams?.get('id') ?? null) ?? null);
+    const equipmentId = (searchParams?.get('id') ?? null);
     const isEditMode = !!equipmentId;
 
     const categories = useLocalList('eq_categories', DEFAULT_CATEGORIES);

@@ -63,6 +63,7 @@
     import MainHeader from '@/components/printers/MainHeader';
     import MainFooter from '@/components/printers/MainFooter';
     import { OncologyModule } from './create/modules/OncologyModule';
+    import { printHtmlContent } from '@/lib/print-utils';
     import { DentistryModule } from './create/modules/DentistryModule';
     import { UrologyModule } from './create/modules/UrologyModule';
     import { RadiologyModule } from './create/modules/RadiologyModule';
@@ -826,8 +827,8 @@
         const searchParams = useSearchParams() as any;
         const params = useParams() as any;
         const hospitalId = params.hospitalId as string;
-        const appointmentId = ((searchParams?.get('appointmentId') ?? null) ?? null);
-        const patientId = ((searchParams?.get('patientId') ?? null) ?? null);
+        const appointmentId = searchParams?.get('appointmentId') ?? null;
+        const patientId = searchParams?.get('patientId') ?? null;
 
         const [mode, setMode] = useState<'AI' | 'SELF'>('SELF');
 
@@ -3127,33 +3128,25 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     const handlePrintDocument = async (type: 'prescription' | 'billing') => {
         if (!generatedHtml) return;
         const html = type === 'prescription' ? generatedHtml.prescription : generatedHtml.billing;
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write(html);
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => { printWindow.print(); }, 500);
+        printHtmlContent(html);
 
-            // Automatically complete the consultation and redirect to dashboard
-            if (appointmentId) {
-                try {
-                    await doctorService.endConsultation(appointmentId, {
-                        duration: 0,
-                        diagnosis: formData.diagnosis,
-                        clinicalNotes: formData.symptoms
-                    });
-                    toast.success("Consultation Completed Successfully!");
-                    
-                    // Delay redirect slightly to ensure print dialog triggers first
-                    setTimeout(() => {
-                        router.push(`/${hospitalId}/doctor`);
-                    }, 1500);
-                } catch (error) {
-                    console.error("Failed to complete consultation", error);
-                }
+        // Automatically complete the consultation and redirect to dashboard
+        if (appointmentId) {
+            try {
+                await doctorService.endConsultation(appointmentId, {
+                    duration: 0,
+                    diagnosis: formData.diagnosis,
+                    clinicalNotes: formData.symptoms
+                });
+                toast.success("Consultation Completed Successfully!");
+                
+                // Delay redirect slightly to ensure print dialog triggers first
+                setTimeout(() => {
+                    router.push(`/${hospitalId}/doctor`);
+                }, 1500);
+            } catch (error) {
+                console.error("Failed to complete consultation", error);
             }
-        } else {
-            toast.error('Please allow popups to print documents');
         }
     };
 

@@ -25,6 +25,7 @@ import MainHeader from '@/components/printers/MainHeader';
 import MainFooter from '@/components/printers/MainFooter';
 import { useTenantLink } from '@/hooks/useTenantLink';
 import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
+import { printHtmlContent } from '@/lib/print-utils';
 
 function CreateLabTokenPage({ params }: { params: Promise<{ hospitalId: string }> }) {
   const resolvedParams = use(params);
@@ -40,8 +41,8 @@ function CreateLabTokenPage({ params }: { params: Promise<{ hospitalId: string }
 
   const router = useRouter();
   const searchParams = useSearchParams() as any;
-  const appointmentId = ((searchParams?.get('appointmentId') ?? null) ?? null);
-  const patientId = ((searchParams?.get('patientId') ?? null) ?? null);
+  const appointmentId = searchParams?.get('appointmentId') ?? null;
+  const patientId = searchParams?.get('patientId') ?? null;
 
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -531,20 +532,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     if (!generatedHtml) return;
 
     const html = type === 'labToken' ? generatedHtml.labToken : generatedHtml.billing;
-    const printWindow = window.open('', '_blank');
-
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-
-      // Trigger print after content loads
-      setTimeout(() => {
-        printWindow.print();
-      }, 500);
-    } else {
-      toast.error('Please allow popups to print documents');
-    }
+    printHtmlContent(html);
   };
 
   return (
@@ -825,7 +813,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
             <div className="pt-4 border-t border-gray-100">
               <button
                 onClick={() => {
-                  const returnUrl = ((searchParams?.get('returnUrl') ?? null) ?? null);
+                  const returnUrl = searchParams?.get('returnUrl') ?? null;
                   if (returnUrl) {
                     router.push(returnUrl);
                   } else if (appointmentId) {

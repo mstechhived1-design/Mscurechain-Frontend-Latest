@@ -173,7 +173,7 @@ export function DischargeSummaryForm() {
     const { user } = useAuthStore();
     const isNurse = user?.role === 'nurse';
     const isHelpdesk = user?.role === 'helpdesk';
-    const recordId = ((searchParams?.get('id') ?? null) ?? null);
+    const recordId = (searchParams?.get('id') ?? null);
     const queryClient = useQueryClient();
 
     const [triggerWhatsApp, setTriggerWhatsApp] = useState(false);
@@ -616,15 +616,15 @@ export function DischargeSummaryForm() {
             }));
             setConsultants(recordData.consultants || ['']);
             setIsInitialized(true);
-        } else if (((searchParams?.get('mode') ?? null) ?? null) === 'sample') {
+        } else if ((searchParams?.get('mode') ?? null) === 'sample') {
             initializedRef.current = true;
             setFormData(SAMPLE_DATA);
             setConsultants(['Dr. Robert Smith', 'Dr. Sarah Williams']);
             setIsInitialized(true);
             toast.success("Viewing Sample Form with dummy data", { id: 'sample-mode-toast', icon: '🧪' });
         } else if (!recordId && !recordData) {
-            const mrn = ((searchParams?.get('mrn') ?? null) ?? null);
-            const admissionId = ((searchParams?.get('admissionId') ?? null) ?? null);
+            const mrn = (searchParams?.get('mrn') ?? null);
+            const admissionId = (searchParams?.get('admissionId') ?? null);
             const idToFetch = mrn || admissionId;
 
             if (idToFetch) {
@@ -773,7 +773,7 @@ export function DischargeSummaryForm() {
         e.preventDefault();
 
         // SAMPLE MODE: Never save to backend — just print/preview
-        if (((searchParams?.get('mode') ?? null) ?? null) === 'sample') {
+        if ((searchParams?.get('mode') ?? null) === 'sample') {
             toast.success("Sample preview only — no data saved to backend", { id: 'sample-print-toast', icon: '🖨️' });
             setTimeout(() => handlePrint(), 300);
             return;

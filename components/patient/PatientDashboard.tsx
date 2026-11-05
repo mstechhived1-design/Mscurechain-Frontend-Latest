@@ -43,7 +43,7 @@ function PatientDashboard({ initialData }: PatientDashboardProps) {
     const [activeEmergencyId, setActiveEmergencyId] = useState<string | null>(null);
 
     const searchParams = useSearchParams() as any;
-    const queryTab = ((searchParams?.get('tab') ?? null) ?? null) as TabType;
+    const queryTab = (searchParams?.get('tab') ?? null) as TabType;
 
     useEffect(() => {
         if (queryTab && ['appointments', 'prescriptions', 'lab-records', 'discharge', 'profile'].includes(queryTab)) {

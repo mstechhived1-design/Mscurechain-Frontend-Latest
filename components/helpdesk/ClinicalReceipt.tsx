@@ -149,7 +149,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
   const isBookingMode = Boolean(onConfirm || isBooking);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [hospital, setHospital] = React.useState(propHospital || defaultHospitalInfo);
-  const [dataLoaded, setDataLoaded] = React.useState(false);
+  const [dataLoaded, setDataLoaded] = React.useState(true);
   const { printWithHeader, setPrintWithHeader } = usePrintStore();
   const params = useParams();
   const getHospitalIdFromPath = () => {
@@ -427,8 +427,10 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
             .section-header { font-size: 11px !important; padding-bottom: 4px !important; border-bottom: 2px solid #334155 !important; }
             
             /* Print specific fixes */
+            @page { size: auto; margin: 5mm; }
             @media print {
-              .receipt-container { padding: 0 5mm !important; }
+              html, body { height: auto !important; min-height: auto !important; }
+              .receipt-container { padding: 0 5mm !important; min-height: auto !important; height: auto !important; }
               .section { page-break-inside: auto !important; }
               .section-header { -webkit-print-color-adjust: exact; }
               .print-table { width: 100% !important; page-break-inside: auto !important; }
@@ -442,7 +444,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
               .print-footer-spacer { margin-top: 0 !important; height: 125px !important; }
               ` : `
               .header-wrapper { position: relative !important; top: auto !important; left: auto !important; right: auto !important; width: 100% !important; page-break-inside: avoid !important; }
-              .footer-wrapper { position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; width: 100% !important; padding: 0 5mm !important; box-sizing: border-box !important; background: white !important; z-index: 1000 !important; page-break-inside: avoid !important; }
+              .footer-wrapper { position: relative !important; bottom: auto !important; left: auto !important; right: auto !important; width: 100% !important; margin-top: 15px !important; padding: 0 !important; box-sizing: border-box !important; background: white !important; page-break-inside: avoid !important; }
               .print-header-spacer, .print-footer-spacer, .footer-spacer { display: none !important; height: 0 !important; }
               `}
             }

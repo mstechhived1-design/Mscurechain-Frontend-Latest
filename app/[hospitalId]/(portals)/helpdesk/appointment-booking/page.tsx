@@ -48,8 +48,8 @@ export default function AppointmentBooking() {
     const searchParams = useSearchParams() as any;
     const routeParams = useParams();
     const hospitalId = (routeParams?.hospitalId as string) || '';
-    const patientIdFromQuery = ((searchParams?.get('patientId') ?? null) ?? null);
-    const editAppointmentId = ((searchParams?.get('editId') ?? searchParams?.get('appointmentId') ?? null) ?? null);
+    const patientIdFromQuery = (searchParams?.get('patientId') ?? null);
+    const editAppointmentId = (searchParams?.get('editId') ?? searchParams?.get('appointmentId') ?? null);
 
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingAppointmentId, setEditingAppointmentId] = useState<string | null>(null);
@@ -227,7 +227,7 @@ export default function AppointmentBooking() {
     };
 
     // IPD Specific State
-    const registrationTypeFromQuery = ((searchParams?.get('type') ?? null) ?? null) as 'OPD' | 'IPD' || 'OPD';
+    const registrationTypeFromQuery = (searchParams?.get('type') ?? null) as 'OPD' | 'IPD' || 'OPD';
     const [registrationType, setRegistrationType] = useState<'OPD' | 'IPD'>(registrationTypeFromQuery);
     const [beds, setBeds] = useState<Bed[]>([]);
     const [admissionData, setAdmissionData] = useState({

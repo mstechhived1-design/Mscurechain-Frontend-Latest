@@ -16,7 +16,7 @@ export function DischargeBillingProcess() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams() as any;
-    const admissionId = ((searchParams?.get('admissionId') ?? null) ?? null);
+    const admissionId = (searchParams?.get('admissionId') ?? null);
     // Extract hospitalId from URL path (e.g. /69a7b003c84f8f6e66180872/helpdesk/...)
     const hospitalId = pathname?.split('/')?.[1] || '';
     const [loading, setLoading] = useState(false);

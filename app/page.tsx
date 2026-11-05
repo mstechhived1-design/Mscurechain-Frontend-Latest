@@ -44,10 +44,13 @@ import LandingTestimonials from "@/components/home/LandingTestimonials";
 import ProblemBasedFeatures from "@/components/home/ProblemBasedFeatures";
 import SecurityComplianceNew from "@/components/home/SecurityComplianceNew";
 import Hero from "@/components/home/Hero";
-
+import { useAuthStore } from "@/stores/authStore";
+import { isNativeContainer, resolveUserDashboard } from "@/lib/utils/auth-redirect";
 
 export default function Home() {
     const router = useRouter();
+    const { isAuthenticated, user, isInitialized } = useAuthStore();
+    const [isNative, setIsNative] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = React.useRef<HTMLAudioElement>(null);
     const [progress, setProgress] = useState(0);
@@ -59,7 +62,20 @@ export default function Home() {
 
     useEffect(() => {
         setIsMounted(true);
-    }, []);
+        const native = isNativeContainer();
+        setIsNative(native);
+
+        if (isInitialized) {
+            if (isAuthenticated && user) {
+                // If logged in (on any platform, desktop, app, or web), jump directly to staff dashboard!
+                const target = resolveUserDashboard(user);
+                router.replace(target);
+            } else if (native) {
+                // In .exe and .apk native containers, bypass landing page completely and go straight to login!
+                router.replace('/auth/login');
+            }
+        }
+    }, [isInitialized, isAuthenticated, user, router]);
 
     // Custom smooth scroll with proportional duration (3500ms for full-page distance, scales down for shorter)
     const smoothScrollTo = (targetY: number) => {
@@ -200,6 +216,21 @@ export default function Home() {
         audioRef.current.currentTime = newTime;
         setProgress(parseFloat(e.target.value));
     };
+
+    if (isNative || (isMounted && isAuthenticated && user)) {
+        return (
+            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center select-none" suppressHydrationWarning>
+                <div className="relative mb-6">
+                    <img src="/assets/logo.png" alt="MSCureChain" className="w-20 h-20 object-contain animate-pulse" />
+                </div>
+                <h2 className="text-xl font-black text-white tracking-tight">MSCureChain Hospital System</h2>
+                <p className="text-[11px] font-bold text-teal-400 mt-2 uppercase tracking-widest flex items-center justify-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping"></span>
+                    Opening Portal Workspace...
+                </p>
+            </div>
+        );
+    }
 
     if (!isMounted) {
         return (

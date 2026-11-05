@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { hrService } from "@/lib/integrations/services/hr.service";
 import { toast } from "react-hot-toast";
-import { generatePayslipHtml } from "@/lib/print-utils";
+import { generatePayslipHtml, printHtmlContent } from "@/lib/print-utils";
 
 export default function PayrollResolutionPage() {
   const { hospitalId, id } = useParams() as any;
@@ -43,18 +43,12 @@ export default function PayrollResolutionPage() {
   };
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      const printData = {
-        payroll: { ...payroll, user: staff },
-        hospital: hospital
-      };
-      printWindow.document.write(generatePayslipHtml(printData));
-      printWindow.document.close();
-      toast.success("Pay Slip Generated");
-    } else {
-      toast.error("Please allow popups to print");
-    }
+    const printData = {
+      payroll: { ...payroll, user: staff },
+      hospital: hospital
+    };
+    printHtmlContent(generatePayslipHtml(printData));
+    toast.success("Pay Slip Generated");
   };
 
   if (loading) return (

@@ -247,7 +247,7 @@ export default function PatientRegistration() {
 
 
     useEffect(() => {
-        const initialType = ((searchParams?.get('type') ?? null) ?? null) as 'OPD' | 'IPD' || 'OPD';
+        const initialType = (searchParams?.get('type') ?? null) as 'OPD' | 'IPD' || 'OPD';
         setFormData(prev => ({ ...prev, registrationType: initialType }));
 
         const loadInit = async () => {
