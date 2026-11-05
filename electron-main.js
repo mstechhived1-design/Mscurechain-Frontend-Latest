@@ -1,10 +1,54 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
+const http = require('http');
+const { spawn } = require('child_process');
 
-function createWindow() {
+let nextProcess = null;
+let mainWindow = null;
+
+function checkServerReady(port = 3000) {
+  return new Promise((resolve) => {
+    const req = http.get(`http://localhost:${port}`, (res) => {
+      resolve(true);
+    });
+    req.on('error', () => {
+      resolve(false);
+    });
+    req.setTimeout(1000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function waitForServer(port = 3000, maxRetries = 40) {
+  for (let i = 0; i < maxRetries; i++) {
+    const ready = await checkServerReady(port);
+    if (ready) return true;
+    await new Promise((r) => setTimeout(r, 800));
+  }
+  return false;
+}
+
+function startNextDevServer() {
+  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  console.log('Starting local Next.js server connected to Railway backend...');
+  nextProcess = spawn(npmCmd, ['run', 'dev'], {
+    cwd: __dirname,
+    shell: true,
+    stdio: 'inherit',
+    env: { ...process.env, PORT: '3000' }
+  });
+
+  nextProcess.on('error', (err) => {
+    console.error('Failed to start Next dev server:', err);
+  });
+}
+
+async function createWindow() {
   const iconPath = path.join(__dirname, 'src-tauri', 'icons', 'icon.ico');
 
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1024,
@@ -18,27 +62,62 @@ function createWindow() {
     autoHideMenuBar: true,
   });
 
-  win.maximize();
+  mainWindow.maximize();
   Menu.setApplicationMenu(null);
 
-  const targetUrl = process.env.APP_URL || 'http://localhost:3000';
+  // Check if server is already running
+  const alreadyRunning = await checkServerReady(3000);
 
-  win.loadURL(targetUrl).catch((err) => {
-    console.log('Local dev server not detected, opening live portal: https://www.mscurechain.com');
-    win.loadURL('https://www.mscurechain.com');
-  });
+  if (!alreadyRunning) {
+    // Show quick loading screen while local server boots
+    mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { margin:0; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#f8fafc; font-family:sans-serif; color:#0f172a; }
+            .spinner { width:48px; height:48px; border:4px solid #e2e8f0; border-top-color:#0284c7; border-radius:50%; animation:spin 1s linear infinite; }
+            @keyframes spin { to { transform:rotate(360deg); } }
+            h2 { margin-top:20px; font-weight:600; font-size:20px; }
+            p { color:#64748b; font-size:14px; margin-top:6px; }
+          </style>
+        </head>
+        <body>
+          <div class="spinner"></div>
+          <h2>Starting MSCureChain Desktop</h2>
+          <p>Connecting local frontend to Railway backend...</p>
+        </body>
+      </html>
+    `)}`);
+
+    startNextDevServer();
+    await waitForServer(3000);
+  }
+
+  // Load local Next.js frontend (which talks to Railway backend via .env)
+  mainWindow.loadURL('http://localhost:3000');
 }
 
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(createWindow);
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
+function cleanup() {
+  if (nextProcess && nextProcess.pid) {
+    try {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/pid', nextProcess.pid.toString(), '/f', '/t']);
+      } else {
+        nextProcess.kill('SIGTERM');
+      }
+    } catch (e) {}
+    nextProcess = null;
+  }
+}
 
 app.on('window-all-closed', () => {
+  cleanup();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
+
+app.on('will-quit', cleanup);
