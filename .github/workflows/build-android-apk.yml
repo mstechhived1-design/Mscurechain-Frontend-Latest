@@ -1,0 +1,68 @@
+name: Build Android Mobile App (.apk)
+
+on:
+  workflow_dispatch: # Allows 1-click manual trigger from the GitHub Actions tab
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-android:
+    name: Build MSCureChain Android APK
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK & NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26d
+          add-to-path: true
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build Tauri Android APK
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        with:
+          args: android build --apk
+          tagName: v__VERSION__
+          releaseName: 'MSCureChain Mobile v__VERSION__'
+          releaseBody: 'Official Android Mobile Release (.apk) for MSCureChain Hospital Management System.'
+          releaseDraft: false
+          prerelease: false
+
+      - name: Upload .apk Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MSCureChain-Android-APK
+          path: |
+            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            src-tauri/target/**/release/bundle/apk/*.apk
+          if-no-files-found: warn
