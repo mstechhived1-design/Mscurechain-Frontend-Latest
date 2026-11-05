@@ -23,6 +23,12 @@ const nextConfig: NextConfig = {
 
   // ✅ Enable React Compiler for better performance
   experimental: {
+    // Prevent EMFILE: too many open files in containerized CI environments (Cloudflare)
+    cpus: 1,
+    workerThreads: false,
+    staticGenerationMaxConcurrency: 1,
+    parallelServerCompiles: false,
+    parallelServerBuildTraces: false,
     reactCompiler: false,
     optimizePackageImports: [
       "lucide-react", "recharts", "date-fns",
