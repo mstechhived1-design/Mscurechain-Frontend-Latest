@@ -46,7 +46,7 @@ function startNextDevServer() {
 }
 
 async function createWindow() {
-  const iconPath = path.join(__dirname, 'src-tauri', 'icons', 'icon.ico');
+  const iconPath = path.join(__dirname, 'public', 'assets', 'logo.png');
 
   mainWindow = new BrowserWindow({
     width: 1440,
