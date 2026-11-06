@@ -6,9 +6,16 @@ if (process.env.NODE_ENV === "development") {
   initOpenNextCloudflareForDev();
 }
 
-const withBundleAnalyzer = require("@next/bundle-analyzer")({
-  enabled: process.env.ANALYZE === "true",
-});
+const withBundleAnalyzer =
+  process.env.ANALYZE === "true"
+    ? (() => {
+        try {
+          return require("@next/bundle-analyzer")({ enabled: true });
+        } catch {
+          return (config: any) => config;
+        }
+      })()
+    : (config: any) => config;
 
 /**
  * MongoDB ObjectId pattern: exactly 24 hex characters
@@ -18,6 +25,9 @@ const HOSPITAL_ID_PATTERN =
   ":hospitalId([a-f0-9]{24}|[a-z0-9][a-z0-9-]{2,58}[a-z0-9])";
 
 const nextConfig: NextConfig = {
+  // Standalone server bundle for true self-contained Desktop and offline packaging
+  output: "standalone",
+
   // ✅ Production optimizations
   compress: true, // Enable gzip compression
 

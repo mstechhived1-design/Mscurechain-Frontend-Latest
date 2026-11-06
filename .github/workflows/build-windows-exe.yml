@@ -26,40 +26,27 @@ jobs:
           node-version: 22
           cache: 'npm'
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Install Node dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Build Tauri Application (.exe)
-        uses: tauri-apps/tauri-action@v0
+      - name: Build Standalone Electron Application (.exe)
+        run: npm run electron:build
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: v__VERSION__
-          releaseName: 'MSCureChain Hospital Management System v__VERSION__'
-          releaseBody: 'Official MSCureChain Hospital System Installers for Windows Desktop and Android Devices.'
-          releaseDraft: false
-          prerelease: false
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
       - name: Upload .exe Installer Artifact
         uses: actions/upload-artifact@v4
         with:
           name: MSCureChain-Windows-Setup
-          path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
-          if-no-files-found: warn
+          path: dist-electron/*.exe
+          if-no-files-found: error
 
       - name: Attach Raw Setup .exe to GitHub Release
         uses: softprops/action-gh-release@v2
         if: always()
         with:
           tag_name: v1.0.4
-          files: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
+          files: dist-electron/*.exe
           name: 'MSCureChain Hospital Management System v1.0.4'
           body: 'Official MSCureChain Hospital System Installers for Windows Desktop and Android Devices.'
           draft: false

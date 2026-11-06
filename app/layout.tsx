@@ -1,18 +1,13 @@
 import React from 'react';
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-// Optimized Inter font with display swap and preload
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  preload: true,
-  fallback: ['system-ui', 'arial'],
-  variable: '--font-inter',
-});
+// Robust local font definition to prevent build failure during offline builds
+const inter = {
+  className: "font-sans",
+  variable: "--font-inter",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.mscurechain.com'),

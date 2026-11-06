@@ -30,19 +30,45 @@ async function waitForServer(port = 3000, maxRetries = 40) {
   return false;
 }
 
-function startNextDevServer() {
-  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  console.log('Starting local Next.js server connected to Railway backend...');
-  nextProcess = spawn(npmCmd, ['run', 'dev'], {
-    cwd: __dirname,
-    shell: true,
-    stdio: 'inherit',
-    env: { ...process.env, PORT: '3000' }
-  });
+function startNextServer() {
+  const fs = require('fs');
+  const candidatePaths = [
+    path.join(__dirname, '.next', 'standalone', 'server.js'),
+    path.join(__dirname, 'server.js'),
+    path.join(process.resourcesPath || '', 'app', '.next', 'standalone', 'server.js'),
+  ];
 
-  nextProcess.on('error', (err) => {
-    console.error('Failed to start Next dev server:', err);
-  });
+  const serverPath = candidatePaths.find((p) => fs.existsSync(p));
+
+  if (serverPath) {
+    console.log(`Starting standalone Next.js server from: ${serverPath}`);
+    const { fork } = require('child_process');
+    nextProcess = fork(serverPath, [], {
+      cwd: path.dirname(serverPath),
+      env: {
+        ...process.env,
+        PORT: '3000',
+        NODE_ENV: 'production',
+        BACKEND_INTERNAL_URL: 'https://mscurechain-backend-latest-production.up.railway.app/api',
+      },
+      stdio: 'inherit',
+    });
+  } else {
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    console.log('Starting local Next dev server connected to Railway backend...');
+    nextProcess = spawn(npmCmd, ['run', 'dev'], {
+      cwd: __dirname,
+      shell: true,
+      stdio: 'inherit',
+      env: { ...process.env, PORT: '3000' },
+    });
+  }
+
+  if (nextProcess) {
+    nextProcess.on('error', (err) => {
+      console.error('Failed to start Next server:', err);
+    });
+  }
 }
 
 async function createWindow() {
@@ -90,7 +116,7 @@ async function createWindow() {
       </html>
     `)}`);
 
-    startNextDevServer();
+    startNextServer();
     await waitForServer(3000);
   }
 
