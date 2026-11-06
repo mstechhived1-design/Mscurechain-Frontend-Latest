@@ -20,11 +20,11 @@ let BACKEND =
   process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") ||
   RAILWAY_BACKEND_DEFAULT;
 
-if (!BACKEND || BACKEND.includes("43.204.32.80") || BACKEND.includes("localhost:5003")) {
+if (!BACKEND || BACKEND.includes("43.204.32.80") || BACKEND.startsWith("/")) {
   BACKEND = RAILWAY_BACKEND_DEFAULT;
 }
 if (!/^https?:\/\//i.test(BACKEND)) {
-  BACKEND = `https://${BACKEND}`;
+  BACKEND = BACKEND.includes("localhost") || BACKEND.includes("127.0.0.1") ? `http://${BACKEND}` : `https://${BACKEND}`;
 }
 
 // ---------------------------------------------------------------------------

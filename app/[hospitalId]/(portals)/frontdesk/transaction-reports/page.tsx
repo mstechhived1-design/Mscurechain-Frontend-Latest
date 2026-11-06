@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, Trash2, FileText, Stethoscope, Bed, Pill, Wrench, FlaskConical, CreditCard, Printer, Calendar, Search, Activity, RefreshCw, UserCheck, Save, UserCog, ArrowRightLeft } from 'lucide-react';
+import { Plus, Trash2, FileText, Stethoscope, Bed, Pill, Wrench, FlaskConical, CreditCard, Printer, Calendar, Search, Activity, RefreshCw, UserCheck, Save, UserCog, ArrowRightLeft, Clock, Check } from 'lucide-react';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import { helpdeskService } from '@/lib/integrations/services/helpdesk.service';
 import { ipdService } from '@/lib/integrations/services/ipd.service';
@@ -18,6 +18,8 @@ import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import PatientSearchDropdown from '@/components/shared/PatientSearchDropdown';
 import { apiClient } from '@/lib/integrations/api/apiClient';
+import ClockTimePicker from '@/components/ui/ClockTimePicker';
+import PrintReceiptPreviewModal from '@/components/common/PrintReceiptPreviewModal';
 
 interface DoctorCharge { id: string; code?: string; date?: string; doctorName: string; specialization: string; rate: number; visits: number; amount?: number; }
 interface AdmissionCharge { id: string; code?: string; date?: string; chargeType: string; description: string; rate: number; days: number | string; amount?: number; }
@@ -89,6 +91,187 @@ export const formatDateTimeWithBrackets = (d: any): string => {
     } catch {
         return typeof d === 'string' ? d : '-';
     }
+};
+
+export const parseRowDate = (val: any, fallback?: any): Date => {
+    if (val) {
+        if (val instanceof Date && !isNaN(val.getTime())) return val;
+        if (typeof val === 'string') {
+            const trimmed = val.trim();
+            const dmyMatch = trimmed.match(/^(\d{1,2})[-/]([A-Za-z]{3}|\d{1,2})[-/](\d{4})(?:\s*(?:\(?(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?\)?)?)?/i);
+            if (dmyMatch) {
+                const day = parseInt(dmyMatch[1], 10);
+                const monthPart = dmyMatch[2];
+                const year = parseInt(dmyMatch[3], 10);
+                let monthIdx = -1;
+                if (/^[A-Za-z]+$/.test(monthPart)) {
+                    const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+                    monthIdx = monthNames.indexOf(monthPart.toLowerCase());
+                } else {
+                    monthIdx = parseInt(monthPart, 10) - 1;
+                }
+                if (monthIdx >= 0 && monthIdx <= 11) {
+                    let h = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+                    const m = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
+                    const ampm = dmyMatch[6]?.toUpperCase();
+                    if (ampm === 'PM' && h < 12) h += 12;
+                    if (ampm === 'AM' && h === 12) h = 0;
+                    const parsed = new Date(year, monthIdx, day, h, m);
+                    if (!isNaN(parsed.getTime())) return parsed;
+                }
+            }
+            const d = new Date(trimmed);
+            if (!isNaN(d.getTime())) return d;
+        }
+    }
+    if (fallback) {
+        const fb = parseRowDate(fallback, null);
+        if (fb && !isNaN(fb.getTime())) return fb;
+    }
+    return new Date();
+};
+
+export const calculateAdmissionStayHelper = (
+    startDateStr: string | undefined | null,
+    rate: number,
+    dischargeDateStr?: string | null
+) => {
+    if (!startDateStr) return null;
+    const start = parseRowDate(startDateStr);
+    if (!start || isNaN(start.getTime())) return null;
+
+    const cutoff = dischargeDateStr ? parseRowDate(dischargeDateStr) : new Date();
+    const end = cutoff.getTime() > start.getTime() ? cutoff : start;
+    const diffMs = Math.max(0, end.getTime() - start.getTime());
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const fullDays = Math.floor(diffHours / 24);
+    const remainingMs = diffMs % (1000 * 60 * 60 * 24);
+    const remainingHours = remainingMs / (1000 * 60 * 60);
+    const ceilRemainingHours = Math.ceil(remainingHours);
+
+    const safeRate = Number(rate) || 0;
+    const hourlyRate = safeRate > 0 ? safeRate / 24 : 0;
+
+    let charge: number;
+    if (diffHours < 1) {
+        const chargeableHours = Math.max(1, Math.ceil(diffHours));
+        charge = Math.round(chargeableHours * hourlyRate);
+    } else if (ceilRemainingHours === 24) {
+        charge = (fullDays + 1) * safeRate;
+    } else {
+        const remainderCharge = Math.min(safeRate, Math.round(ceilRemainingHours * hourlyRate));
+        charge = (fullDays * safeRate) + remainderCharge;
+    }
+
+    let readableDuration: string;
+    if (fullDays > 0) {
+        readableDuration = `${fullDays} Days${ceilRemainingHours > 0 ? `, ${ceilRemainingHours} Hours` : ''}`;
+    } else if (ceilRemainingHours >= 1) {
+        readableDuration = `${ceilRemainingHours} Hours`;
+    } else {
+        readableDuration = `${Math.max(1, Math.ceil(diffMs / (1000 * 60)))} Mins`;
+    }
+
+    return {
+        readableDuration,
+        charge,
+        diffHours,
+        fullDays,
+        ceilRemainingHours,
+    };
+};
+
+export const parseDaysStringToAmount = (daysStr: string | number, rate: number): { daysDisplay: string | number; amount: number } => {
+    const safeRate = Number(rate) || 0;
+    if (typeof daysStr === 'number') {
+        return { daysDisplay: daysStr, amount: Math.round(safeRate * daysStr) };
+    }
+    const str = String(daysStr).trim();
+    const num = parseFloat(str);
+    if (!isNaN(num) && String(num) === str) {
+        return { daysDisplay: num, amount: Math.round(safeRate * num) };
+    }
+
+    const daysMatch = str.match(/(\d+)\s*Days?/i);
+    const hoursMatch = str.match(/(\d+)\s*Hours?/i);
+    const minsMatch = str.match(/(\d+)\s*Mins?/i);
+
+    const d = daysMatch ? parseInt(daysMatch[1], 10) : 0;
+    const h = hoursMatch ? parseInt(hoursMatch[1], 10) : 0;
+    const m = minsMatch ? parseInt(minsMatch[1], 10) : 0;
+
+    if (d === 0 && h === 0 && m === 0) {
+        return { daysDisplay: str, amount: safeRate };
+    }
+
+    const hourlyRate = safeRate > 0 ? safeRate / 24 : 0;
+    const hourCost = Math.min(safeRate, Math.round(h * hourlyRate));
+    const minCost = (d === 0 && h === 0 && m > 0) ? Math.round(hourlyRate) : 0;
+    const total = (d * safeRate) + hourCost + minCost;
+
+    return { daysDisplay: str, amount: total };
+};
+
+interface EditableDateTimeCellProps {
+    value?: string;
+    fallback?: string;
+    onChange: (isoString: string) => void;
+}
+
+const EditableDateTimeCell = ({ value, fallback, onChange }: EditableDateTimeCellProps) => {
+    const [isClockOpen, setIsClockOpen] = useState(false);
+    const dateObj = React.useMemo(() => parseRowDate(value, fallback), [value, fallback]);
+
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    const inputDateValue = `${yyyy}-${mm}-${dd}`;
+
+    let hours = dateObj.getHours();
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const timeFormatted = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+
+    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.value) return;
+        const [y, m, d] = e.target.value.split('-').map(Number);
+        const updated = new Date(y, m - 1, d, dateObj.getHours(), dateObj.getMinutes(), 0);
+        onChange(updated.toISOString());
+    };
+
+    const handleTimeSave = (h24: number, min: number) => {
+        const updated = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), h24, min, 0);
+        onChange(updated.toISOString());
+    };
+
+    return (
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <input
+                type="date"
+                value={inputDateValue}
+                onChange={handleDateChange}
+                className="text-[10px] font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
+                title="Change Date"
+            />
+            <button
+                type="button"
+                onClick={() => setIsClockOpen(true)}
+                className="flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-2 py-1 transition-all shadow-2xs cursor-pointer active:scale-95"
+                title="Change Time with Clock Dial"
+            >
+                <Clock className="w-3 h-3 text-indigo-600 shrink-0" />
+                <span>{timeFormatted}</span>
+            </button>
+            <ClockTimePicker
+                isOpen={isClockOpen}
+                initialHour24={dateObj.getHours()}
+                initialMinute={dateObj.getMinutes()}
+                onSave={handleTimeSave}
+                onClose={() => setIsClockOpen(false)}
+            />
+        </div>
+    );
 };
 
 export const cleanString = (val: any, fallback: string = ''): string => {
@@ -527,7 +710,11 @@ export default function TransactionReportsPage() {
     const params = useParams() as any;
     const searchParams = useSearchParams() as any;
     const patientId = searchParams?.get('patientId') || null;
-    const loadReportId = searchParams?.get('loadReport') || null;
+    const [loadReportId, setLoadReportId] = useState<string | null>(searchParams?.get('loadReport') || null);
+    useEffect(() => {
+        const idFromUrl = searchParams?.get('loadReport') || null;
+        if (idFromUrl) setLoadReportId(idFromUrl);
+    }, [searchParams]);
     const formatParam = (searchParams?.get('format') as ReportTemplateFormat) || null;
 
     const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
@@ -581,6 +768,9 @@ export default function TransactionReportsPage() {
         }
         return { dischargeMedications: [] };
     });
+
+    const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+    const [previewTitle, setPreviewTitle] = useState<string>('Document Print Preview');
 
     const handleFormatChange = useCallback((newFormat: ReportTemplateFormat) => {
         setTemplateFormat(newFormat);
@@ -1020,6 +1210,56 @@ export default function TransactionReportsPage() {
         setActiveEncounterType(type);
         setPatientType(type);
 
+        // First check local draft for instant persistence across page navigation
+        try {
+            const localDraftStr = localStorage.getItem(`txn_report_${patientId}`);
+            if (localDraftStr) {
+                const localDraft = JSON.parse(localDraftStr);
+                if (localDraft && Array.isArray(localDraft.admissions) && localDraft.admissions.length > 0) {
+                    setDoctors((localDraft.doctors || []).map(normalizeDoctor));
+                    setAdmis((localDraft.admissions || []).map(normalizeAdmission));
+                    setMeds((localDraft.meds || []).map(normalizeMed));
+                    setServices((localDraft.services || []).map(normalizeService));
+                    setDiags([...(localDraft.diags || []), ...(localDraft.rads || [])].map((x: any, i: number) => normalizeDiag(x, i, x.category || 'investigation')));
+                    setPay((localDraft.payments || []).map(normalizePayment));
+                    setDiscount(localDraft.discount || localDraft.totals?.discount || 0);
+                    if (localDraft.loadReportId) setLoadReportId(localDraft.loadReportId);
+                    if (localDraft.admission) setAdmission(localDraft.admission);
+                    setIsLoadingActive(false);
+                    return;
+                }
+            }
+        } catch (draftErr) {
+            console.warn("Could not load local draft:", draftErr);
+        }
+
+        // Prefer patient's latest saved report over raw data so edited dates and amounts are preserved
+        try {
+            const savedList = await helpdeskService.getPatientTransactionReports(patientId);
+            if (Array.isArray(savedList) && savedList.length > 0) {
+                const r = loadReportId ? (savedList.find((x: any) => x._id === loadReportId) || savedList[0]) : savedList[0];
+                setDoctors((r.reportData?.doctors || []).map(normalizeDoctor));
+                setAdmis((r.reportData?.admissions || []).map(normalizeAdmission));
+                setMeds((r.reportData?.meds || []).map(normalizeMed));
+                setServices((r.reportData?.services || []).map(normalizeService));
+                setDiags([
+                    ...(r.reportData?.diags || []).map((x: any, i: number) => normalizeDiag(x, i, 'investigation')),
+                    ...(r.reportData?.rads || []).map((x: any, i: number) => normalizeDiag(x, i, 'radiology'))
+                ]);
+                setPay((r.reportData?.payments || []).map(normalizePayment));
+                setDiscount(r.totals?.discount || 0);
+                if (r.admission) setAdmission(r.admission);
+                else if (r.reportData?.admission) setAdmission(r.reportData.admission);
+                if (r.reportData?.dischargeData) setDischargeData(r.reportData.dischargeData);
+                else if (r.dischargeData) setDischargeData(r.dischargeData);
+                if (!loadReportId) setLoadReportId(r._id);
+                setIsLoadingActive(false);
+                return;
+            }
+        } catch (e) {
+            console.warn("Could not check saved reports before loading encounter:", e);
+        }
+
         if (type === 'IPD') {
             const targetAdmission = ipdRecord || availableEncounters.ipd;
             if (targetAdmission) setAdmission(targetAdmission);
@@ -1187,7 +1427,7 @@ export default function TransactionReportsPage() {
         }
     }, [patientId, loadReportId, loadEncounterData]);
 
-    const fetchHistory = useCallback(() => {
+    const fetchHistory = useCallback((shouldPopulateForm: boolean = false) => {
         if (!patientId) return;
 
         const fetchStandard = helpdeskService.getPatientTransactionReports(patientId);
@@ -1200,9 +1440,13 @@ export default function TransactionReportsPage() {
                 const combinedReports = [...standardReports, ...(autoReports as any[])];
                 setSavedReports(combinedReports);
 
-                if (loadReportId) {
-                    const r = combinedReports.find((x: any) => x._id === loadReportId);
-                    if (r) {
+                if (shouldPopulateForm) {
+                    const activeReport = loadReportId
+                        ? combinedReports.find((x: any) => x._id === loadReportId)
+                        : (standardReports && standardReports.length > 0 ? standardReports[0] : null);
+
+                    if (activeReport) {
+                        const r = activeReport;
                         setDoctors((r.reportData?.doctors || []).map(normalizeDoctor));
                         setAdmis((r.reportData?.admissions || []).map(normalizeAdmission));
                         setMeds((r.reportData?.meds || []).map(normalizeMed));
@@ -1218,8 +1462,10 @@ export default function TransactionReportsPage() {
                         } else if (r.dischargeData) {
                             setDischargeData(r.dischargeData);
                         }
+                        if (r.admission) setAdmission(r.admission);
+                        else if (r.reportData?.admission) setAdmission(r.reportData.admission);
+                        if (!loadReportId) setLoadReportId(r._id);
 
-                        // Load from dedicated DischargeSummary database model
                         const admId = r.admission?._id || r.admissionId || r.reportData?.admissionId || r.reportData?.admission?._id;
                         if (patientId) {
                             helpdeskService.getDischargeSummary(patientId, admId)
@@ -1246,18 +1492,23 @@ export default function TransactionReportsPage() {
                         }
                         if (r.admission) setAdmission(r.admission);
                         else if (r.reportData?.admission) setAdmission(r.reportData.admission);
-                        toast.success("Report data loaded from history!");
-                    } else {
+                    } else if (loadReportId) {
                         toast.error("Could not find the specified report.");
                     }
                 }
             })
             .catch(err => console.error("Failed to fetch history:", err));
-    }, [patientId, loadReportId]);
+    }, [patientId, loadReportId, formatParam]);
 
+    const initialLoadedRef = useRef<string | null>(null);
     useEffect(() => {
         if (!patientId) return;
-        fetchHistory();
+        if (initialLoadedRef.current !== patientId) {
+            initialLoadedRef.current = patientId;
+            fetchHistory(true);
+        } else {
+            fetchHistory(false);
+        }
     }, [patientId, fetchHistory]);
 
     const totDoc = doctors.reduce((s, r) => s + (r.amount != null ? r.amount : r.rate * r.visits), 0);
@@ -1354,7 +1605,8 @@ export default function TransactionReportsPage() {
             ? generateDischargeSummaryHTML(h, patient || {}, currentAdm, reportData, dischargeData)
             : generateTransactionReportHTML(h, patient || {}, currentAdm, reportData, totals, printConfig);
 
-        printHtmlContent(html);
+        setPreviewTitle(templateFormat === 'discharge' ? 'Discharge Summary - Print Preview' : 'Detailed Financial Statement - Print Preview');
+        setPreviewHtml(html);
     };
 
     const isManualReport = loadReportId && !loadReportId.startsWith('AUTO_BILL_');
@@ -1425,7 +1677,7 @@ export default function TransactionReportsPage() {
                 });
                 toast.success("Transaction report updated successfully!");
             } else {
-                await helpdeskService.saveTransactionReport({
+                const saveRes: any = await helpdeskService.saveTransactionReport({
                     patientId,
                     admissionId: currentAdm?.admissionId || currentAdm?._id,
                     admission: currentAdm?._id,
@@ -1434,6 +1686,9 @@ export default function TransactionReportsPage() {
                     templateFormat,
                     generatedBy: "frontdesk"
                 });
+                if (saveRes?.report?._id) {
+                    setLoadReportId(saveRes.report._id);
+                }
                 toast.success("Transaction report saved successfully!");
             }
 
@@ -1462,7 +1717,6 @@ export default function TransactionReportsPage() {
             }
 
             fetchHistory();
-            localStorage.removeItem(`txn_report_${patientId || 'draft'}`);
         } catch (error) {
             console.error("Failed to save report:", error);
             toast.error("Failed to store report in database");
@@ -1488,22 +1742,183 @@ export default function TransactionReportsPage() {
         }
     };
 
-    const updD = (i: number, k: keyof DoctorCharge, v: any) => setDoctors(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'visits') nx.amount = nx.rate * nx.visits; return nx; }));
-    const updA = (i: number, k: keyof AdmissionCharge, v: any) => setAdmis(p => p.map((x, j) => {
-        if (j !== i) return x;
-        const nx = { ...x, [k]: v };
-        if (k === 'rate' || k === 'days') {
-            const numDays = typeof nx.days === 'number' ? nx.days : parseFloat(String(nx.days));
-            if (!isNaN(numDays) && numDays > 0) {
-                nx.amount = nx.rate * numDays;
+    // Auto-Save / Real-Time Database Sync Engine
+    const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+    const stateRef = useRef({
+        doctors, admissions, meds, services, diags, payments, discount,
+        patientId, admission, availableEncounters, loadReportId,
+        patientType, printConfig, templateFormat, dischargeData, patient,
+        grand, activeTotPaid, balance
+    });
+
+    useEffect(() => {
+        stateRef.current = {
+            doctors, admissions, meds, services, diags, payments, discount,
+            patientId, admission, availableEncounters, loadReportId,
+            patientType, printConfig, templateFormat, dischargeData, patient,
+            grand, activeTotPaid, balance
+        };
+    }, [doctors, admissions, meds, services, diags, payments, discount, patientId, admission, availableEncounters, loadReportId, patientType, printConfig, templateFormat, dischargeData, patient, grand, activeTotPaid, balance]);
+
+    const performAutoSave = useCallback(async () => {
+        const snap = stateRef.current;
+        if (!snap.patientId || snap.admissions.length === 0) return;
+
+        try {
+            setAutoSaveStatus('saving');
+            const docRef =
+                snap.patient?.doctorReference ||
+                snap.patient?.referredBy ||
+                snap.patient?.profile?.doctorReference ||
+                snap.patient?.profile?.referredBy ||
+                snap.admission?.doctorReference ||
+                snap.admission?.referredBy ||
+                '';
+
+            const gName =
+                snap.patient?.guardianName ||
+                snap.patient?.GuardianName ||
+                snap.patient?.profile?.GuardianName ||
+                snap.admission?.guardianName ||
+                '';
+            const gMob =
+                snap.patient?.guardianMobile ||
+                snap.patient?.GuardianMobile ||
+                snap.admission?.guardianMobile ||
+                '';
+
+            const currentAdm = snap.admission || snap.availableEncounters.ipd;
+            const reportData = {
+                doctors: snap.doctors,
+                admissions: snap.admissions,
+                meds: snap.meds,
+                services: snap.services,
+                diags: snap.diags,
+                payments: snap.payments,
+                isOPD: snap.patientType === 'OPD',
+                printConfig: snap.printConfig,
+                doctorReference: docRef,
+                referredBy: docRef,
+                guardianName: gName,
+                GuardianName: gName,
+                guardianMobile: gMob,
+                GuardianMobile: gMob,
+                templateFormat: snap.templateFormat,
+                dischargeData: snap.dischargeData,
+                admission: currentAdm,
+                admissionId: currentAdm?.admissionId || currentAdm?._id || '',
+            };
+            const totals = { grandTotal: snap.grand, totalPaid: snap.activeTotPaid, balance: snap.balance, discount: snap.discount };
+
+            const isManual = !!(snap.loadReportId && !snap.loadReportId.startsWith('AUTO_BILL_'));
+            if (isManual && snap.loadReportId) {
+                await helpdeskService.updateTransactionReport(snap.loadReportId, {
+                    reportData,
+                    totals,
+                    admissionId: currentAdm?.admissionId || currentAdm?._id,
+                    admission: currentAdm?._id,
+                    templateFormat: snap.templateFormat,
+                });
+            } else {
+                const saveRes: any = await helpdeskService.saveTransactionReport({
+                    patientId: snap.patientId,
+                    admissionId: currentAdm?.admissionId || currentAdm?._id,
+                    admission: currentAdm?._id,
+                    reportData,
+                    totals,
+                    templateFormat: snap.templateFormat,
+                    generatedBy: "frontdesk"
+                });
+                if (saveRes?.report?._id) {
+                    setLoadReportId(saveRes.report._id);
+                    stateRef.current.loadReportId = saveRes.report._id;
+                }
             }
+
+            localStorage.setItem(`txn_report_${snap.patientId}`, JSON.stringify({
+                ...reportData,
+                totals,
+                loadReportId: stateRef.current.loadReportId
+            }));
+
+            setAutoSaveStatus('saved');
+            setTimeout(() => setAutoSaveStatus('idle'), 2500);
+        } catch (err) {
+            console.warn("[AutoSave] Auto-sync to database error:", err);
+            setAutoSaveStatus('idle');
         }
-        return nx;
-    }));
-    const updM = (i: number, k: keyof MedCharge, v: any) => setMeds(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * nx.quantity; return nx; }));
-    const updS = (i: number, k: keyof ServiceCharge, v: any) => setServices(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * (Number(nx.quantity) || 1); return nx; }));
-    const updDiag = (i: number, k: keyof DiagCharge, v: any) => setDiags(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * nx.quantity; return nx; })); 
-    const updP = (i: number, k: keyof Payment, v: any) => setPay(p => p.map((x, j) => j === i ? { ...x, [k]: v } : x));
+    }, []);
+
+    const scheduleAutoSave = useCallback(() => {
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        setAutoSaveStatus('saving');
+        autoSaveTimerRef.current = setTimeout(() => {
+            performAutoSave();
+        }, 500);
+    }, [performAutoSave]);
+
+    const updD = (i: number, k: keyof DoctorCharge, v: any) => {
+        setDoctors(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'visits') nx.amount = nx.rate * nx.visits; return nx; }));
+        scheduleAutoSave();
+    };
+    const updA = (i: number, k: keyof AdmissionCharge, v: any) => {
+        setAdmis(p => p.map((x, j) => {
+            if (j !== i) return x;
+            const nx = { ...x, [k]: v };
+
+            if (k === 'date') {
+                const dischargeCutoff = admission?.dischargeDate || null;
+                const stayCalc = calculateAdmissionStayHelper(v, nx.rate, dischargeCutoff);
+                if (stayCalc) {
+                    nx.days = stayCalc.readableDuration;
+                    nx.amount = stayCalc.charge;
+                }
+                if (i === 0) {
+                    setAdmission((prev: any) => prev ? { ...prev, admissionDate: v } : prev);
+                }
+            } else if (k === 'rate') {
+                const newRate = Number(v) || 0;
+                const dischargeCutoff = admission?.dischargeDate || null;
+                if (nx.date) {
+                    const stayCalc = calculateAdmissionStayHelper(nx.date, newRate, dischargeCutoff);
+                    if (stayCalc) {
+                        nx.amount = stayCalc.charge;
+                    } else {
+                        const parsed = parseDaysStringToAmount(nx.days, newRate);
+                        nx.amount = parsed.amount;
+                    }
+                } else {
+                    const parsed = parseDaysStringToAmount(nx.days, newRate);
+                    nx.amount = parsed.amount;
+                }
+            } else if (k === 'days') {
+                const parsed = parseDaysStringToAmount(v, nx.rate);
+                nx.days = parsed.daysDisplay;
+                nx.amount = parsed.amount;
+            }
+
+            return nx;
+        }));
+        scheduleAutoSave();
+    };
+    const updM = (i: number, k: keyof MedCharge, v: any) => {
+        setMeds(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * nx.quantity; return nx; }));
+        scheduleAutoSave();
+    };
+    const updS = (i: number, k: keyof ServiceCharge, v: any) => {
+        setServices(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * (Number(nx.quantity) || 1); return nx; }));
+        scheduleAutoSave();
+    };
+    const updDiag = (i: number, k: keyof DiagCharge, v: any) => {
+        setDiags(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * nx.quantity; return nx; }));
+        scheduleAutoSave();
+    };
+    const updP = (i: number, k: keyof Payment, v: any) => {
+        setPay(p => p.map((x, j) => j === i ? { ...x, [k]: v } : x));
+        scheduleAutoSave();
+    };
 
     // Detect duplicate services that can be merged
     const mergeableServicesGroups = React.useMemo(() => {
@@ -1758,6 +2173,19 @@ export default function TransactionReportsPage() {
                             onChange={handleFormatChange}
                         />
 
+                        {autoSaveStatus === 'saving' && (
+                            <span className="text-[10px] text-amber-600 font-bold flex items-center gap-1 bg-amber-50 border border-amber-200/80 px-2 py-1 rounded-lg">
+                                <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                                <span className="hidden sm:inline">Saving...</span>
+                            </span>
+                        )}
+                        {autoSaveStatus === 'saved' && (
+                            <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 bg-emerald-50 border border-emerald-200/80 px-2 py-1 rounded-lg">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span className="hidden sm:inline">Saved</span>
+                            </span>
+                        )}
+
                         <button
                             onClick={handleSaveReport}
                             disabled={isSaving}
@@ -1974,7 +2402,7 @@ export default function TransactionReportsPage() {
                                         {doctors.map((d, i) => (
                                             <tr key={i}>
                                                 <td className="p-1"><input value={d.doctorName || ''} onChange={(e) => updD(i, 'doctorName', e.target.value)} className={tableInputClass} placeholder="Doctor Name" /></td>
-                                                <td className="p-1 whitespace-nowrap"><span className="text-[10px] font-bold text-slate-600 px-2 py-1.5 bg-slate-50 rounded-lg whitespace-nowrap block">{formatDateTimeWithBrackets(d.date || admission?.admissionDate)}</span></td>
+                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={d.date} fallback={admission?.admissionDate} onChange={(newDate) => updD(i, 'date', newDate)} /></td>
                                                 <td className="p-1"><input value={d.specialization || ''} onChange={(e) => updD(i, 'specialization', e.target.value)} className={tableInputClass} placeholder="Specialization" /></td>
                                                 <td className="p-1"><input type="number" min={0} value={d.rate === 0 ? '' : d.rate} onChange={(e) => updD(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
                                                 <td className="p-1"><input type="number" min={0} value={d.visits === 0 ? '' : d.visits} onChange={(e) => updD(i, 'visits', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
@@ -1999,7 +2427,7 @@ export default function TransactionReportsPage() {
                                                         {['Admission', 'ICU', 'Ward', 'Emergency', 'OT'].map(c => <option key={c} value={c}>{c}</option>)}
                                                     </select>
                                                 </td>
-                                                <td className="p-1 whitespace-nowrap"><span className="text-[10px] font-bold text-slate-600 px-2 py-1.5 bg-slate-50 rounded-lg whitespace-nowrap block">{formatDateTimeWithBrackets(a.date || admission?.admissionDate)}</span></td>
+                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={a.date} fallback={admission?.admissionDate} onChange={(newDate) => updA(i, 'date', newDate)} /></td>
                                                 <td className="p-1"><input value={a.description || ''} onChange={(e) => updA(i, 'description', e.target.value)} className={tableInputClass} placeholder="Description" /></td>
                                                 <td className="p-1"><input type="number" min={0} value={a.rate === 0 ? '' : a.rate} onChange={(e) => updA(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
                                                 <td className="p-1">
@@ -2032,7 +2460,7 @@ export default function TransactionReportsPage() {
                                         {meds.map((m, i) => (
                                             <tr key={i}>
                                                 <td className="p-1"><input value={m.medicineName || ''} onChange={(e) => updM(i, 'medicineName', e.target.value)} className={tableInputClass} placeholder="Medicine Name" /></td>
-                                                <td className="p-1 whitespace-nowrap"><span className="text-[10px] font-bold text-slate-600 px-2 py-1.5 bg-slate-50 rounded-lg whitespace-nowrap block">{formatDateTimeWithBrackets(m.date || admission?.admissionDate)}</span></td>
+                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={m.date} fallback={admission?.admissionDate} onChange={(newDate) => updM(i, 'date', newDate)} /></td>
                                                 <td className="p-1"><input type="number" min={0} value={m.rate === 0 ? '' : m.rate} onChange={(e) => updM(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
                                                 <td className="p-1"><input type="number" min={0} value={m.quantity === 0 ? '' : m.quantity} onChange={(e) => updM(i, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
                                                 <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(m.amount != null ? m.amount : m.rate * m.quantity)}</td>
@@ -2081,7 +2509,7 @@ export default function TransactionReportsPage() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="p-1 whitespace-nowrap"><span className="text-[10px] font-bold text-slate-600 px-2 py-1.5 bg-slate-50 rounded-lg whitespace-nowrap block">{formatDateTimeWithBrackets(s.date || admission?.admissionDate)}</span></td>
+                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={s.date} fallback={admission?.admissionDate} onChange={(newDate) => updS(i, 'date', newDate)} /></td>
                                                 <td className="p-1"><input type="number" min={0} value={s.rate === 0 ? '' : s.rate} onChange={(e) => updS(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
                                                 <td className="p-1"><input type="number" min={0} value={s.quantity === 0 ? '' : s.quantity} onChange={(e) => updS(i, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
                                                 <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(s.amount != null ? s.amount : Number(s.rate) * Number(s.quantity))}</td>
@@ -2120,7 +2548,7 @@ export default function TransactionReportsPage() {
                                             return (
                                                 <tr key={d.id || i}>
                                                     <td className="p-1"><input value={d.testName || ''} onChange={(e) => updDiag(idx, 'testName', e.target.value)} className={tableInputClass} placeholder="Test Name" /></td>
-                                                    <td className="p-1 whitespace-nowrap"><span className="text-[10px] font-bold text-slate-600 px-2 py-1.5 bg-slate-50 rounded-lg whitespace-nowrap block">{formatDateTimeWithBrackets(d.date || admission?.admissionDate)}</span></td>
+                                                    <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={d.date} fallback={admission?.admissionDate} onChange={(newDate) => updDiag(idx, 'date', newDate)} /></td>
                                                     <td className="p-1">
                                                         <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${d.category === 'radiology' ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
                                                             {d.category === 'radiology' ? 'Radiology' : 'Investigation'}
@@ -2146,7 +2574,7 @@ export default function TransactionReportsPage() {
                                         {payments.map((p, i) => (
                                             <tr key={i}>
                                                 <td className="p-1"><span className="px-2 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-black font-mono tracking-tight border border-indigo-100 flex items-center justify-center">{p.receiptNo}</span></td>
-                                                <td className="p-1"><input value={p.date.includes('(') ? p.date : formatDateTimeWithBrackets(p.date)} onChange={(e) => updP(i, 'date', e.target.value)} className={tableInputClass} /></td>
+                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={p.date} fallback={admission?.admissionDate} onChange={(newDate) => updP(i, 'date', newDate)} /></td>
                                                 <td className="p-1">
                                                     <select value={p.mode} onChange={(e) => updP(i, 'mode', e.target.value)} className={tableSelectClass}>
                                                         {['Cash', 'Card', 'UPI', 'Bank', 'Mixed'].map(m => <option key={m}>{m}</option>)}
@@ -2348,6 +2776,15 @@ export default function TransactionReportsPage() {
                 </div>
             )}
 
+
+            {/* Print & Document Live Preview Modal */}
+            <PrintReceiptPreviewModal
+                isOpen={Boolean(previewHtml)}
+                onClose={() => setPreviewHtml(null)}
+                htmlContent={previewHtml}
+                title={previewTitle}
+                subtitle="A4 Standard Layout • Live Document Preview"
+            />
 
         </div>
     );

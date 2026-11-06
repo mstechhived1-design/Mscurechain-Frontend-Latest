@@ -22,7 +22,7 @@ function numberToWords(num: number): string {
     return str.trim();
 }
 
-export const printPaymentReceipt = (payment: any, summary: any, hospitalDetails?: any) => {
+export const generatePaymentReceiptHTML = (payment: any, summary: any, hospitalDetails?: any): string => {
     const printWithHeader = usePrintStore.getState().printWithHeader;
 
     const txDate = payment.createdAt || payment.transactionTime || payment.date || new Date();
@@ -176,5 +176,10 @@ export const printPaymentReceipt = (payment: any, summary: any, hospitalDetails?
         </html>
     `;
 
+    return htmlContent;
+};
+
+export const printPaymentReceipt = (payment: any, summary: any, hospitalDetails?: any) => {
+    const htmlContent = generatePaymentReceiptHTML(payment, summary, hospitalDetails);
     printHtmlContent(htmlContent);
 };

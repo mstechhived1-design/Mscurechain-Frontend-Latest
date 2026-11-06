@@ -96,11 +96,11 @@ export async function apiServer<T>(
 
   const RAILWAY_BACKEND_DEFAULT = "https://mscurechain-backend-latest-production.up.railway.app/api";
   let backendBase = process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") || RAILWAY_BACKEND_DEFAULT;
-  if (!backendBase || backendBase.includes("localhost:5003") || backendBase.startsWith("/")) {
+  if (!backendBase || backendBase.startsWith("/")) {
     backendBase = RAILWAY_BACKEND_DEFAULT;
   }
   if (!/^https?:\/\//i.test(backendBase)) {
-    backendBase = `https://${backendBase}`;
+    backendBase = backendBase.includes("localhost") || backendBase.includes("127.0.0.1") ? `http://${backendBase}` : `https://${backendBase}`;
   }
   const fullUrl = `${backendBase}${path}`;
   // ✅ ENHANCED LOGGING: Track token source for debugging

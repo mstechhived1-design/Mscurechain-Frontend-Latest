@@ -46,7 +46,7 @@ const formatDateTime = (dateVal: any): string => {
     }
 };
 
-export const printIPDLedger = (summary: any, hospitalDetails?: any, options: { format?: 'summary' | 'detailed' } = { format: 'detailed' }) => {
+export const generateIPDLedgerHTML = (summary: any, hospitalDetails?: any, options: { format?: 'summary' | 'detailed' } = { format: 'detailed' }): string => {
     const isSummary = options.format === 'summary';
     // Determine components
     const patientName = formatPatientNameWithPrefix(
@@ -723,5 +723,10 @@ export const printIPDLedger = (summary: any, hospitalDetails?: any, options: { f
     </html>
     `;
 
+    return htmlContent;
+};
+
+export const printIPDLedger = (summary: any, hospitalDetails?: any, options: { format?: 'summary' | 'detailed' } = { format: 'detailed' }) => {
+    const htmlContent = generateIPDLedgerHTML(summary, hospitalDetails, options);
     printHtmlContent(htmlContent);
 };

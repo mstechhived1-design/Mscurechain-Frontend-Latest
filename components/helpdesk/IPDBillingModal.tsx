@@ -30,8 +30,9 @@ import { ipdService } from '@/lib/integrations/services/ipd.service';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { printIPDLedger } from '@/lib/utils/print-ipd-ledger';
-import { printPaymentReceipt } from '@/lib/utils/print-payment-receipt';
+import { printIPDLedger, generateIPDLedgerHTML } from '@/lib/utils/print-ipd-ledger';
+import { printPaymentReceipt, generatePaymentReceiptHTML } from '@/lib/utils/print-payment-receipt';
+import PrintReceiptPreviewModal from '@/components/common/PrintReceiptPreviewModal';
 import { formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import { computeAgeFromDob } from '@/lib/print-utils';
@@ -59,6 +60,23 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
     const [showDischargeConfirm, setShowDischargeConfirm] = useState(false);
     const [showPostDischarge, setShowPostDischarge] = useState(false);
     const [showLockPrompt, setShowLockPrompt] = useState(false);
+
+    // Live Print Preview Modal State
+    const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+    const [previewTitle, setPreviewTitle] = useState<string>('IPD Statement Preview');
+
+    const handleOpenLedgerPreview = () => {
+        if (!summary) return;
+        const html = generateIPDLedgerHTML(summary, hospitalDetails);
+        setPreviewTitle(`IPD Financial Statement - ${summary.patientName || 'Patient'}`);
+        setPreviewHtml(html);
+    };
+
+    const handleOpenPaymentPreview = (adv: any) => {
+        const html = generatePaymentReceiptHTML(adv, summary, hospitalDetails);
+        setPreviewTitle(`Payment Receipt - ${adv.receiptNo || 'Slip'}`);
+        setPreviewHtml(html);
+    };
 
     const [chargeData, setChargeData] = useState({ category: 'Nursing', description: '', amount: 0, quantity: 1 });
     const [advanceData, setAdvanceData] = useState({ amount: 0, mode: 'Cash', transactionType: 'Advance', reference: '' });
@@ -620,7 +638,7 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                             </button>
                         )}
                         <button
-                            onClick={() => summary && printIPDLedger(summary, hospitalDetails)}
+                            onClick={handleOpenLedgerPreview}
                             title="Print Statement"
                             className="w-7 h-7 bg-white/10 text-teal-400 rounded-lg flex items-center justify-center hover:bg-teal-500/20 hover:text-teal-300 transition-all"
                         >
@@ -955,7 +973,7 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                                             /* ── Locked State: Show Print & Unlock ── */
                                             <>
                                                 <button
-                                                    onClick={() => summary && printIPDLedger(summary, hospitalDetails)}
+                                                    onClick={handleOpenLedgerPreview}
                                                     className="px-5 py-3 bg-teal-600 text-white rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-teal-700 transition-all flex items-center gap-2 shadow-lg shadow-teal-200 h-fit"
                                                 >
                                                     <Printer size={14} /> Print Final Bill
@@ -1581,7 +1599,7 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                                                             </div>
                                                             <button
                                                                 type="button"
-                                                                onClick={() => printPaymentReceipt(adv, summary, hospitalDetails)}
+                                                                onClick={() => handleOpenPaymentPreview(adv)}
                                                                 title="Print Receipt Slip"
                                                                 className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 border border-slate-100 hover:bg-teal-50 hover:text-teal-600 hover:border-teal-200 transition-all shadow-sm"
                                                             >
@@ -1864,9 +1882,7 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                         </div>
                         <div className="flex flex-col bg-slate-50 p-4 border-t border-slate-100 gap-3">
                             <button
-                                onClick={() => {
-                                    if (summary) printIPDLedger(summary, hospitalDetails);
-                                }}
+                                onClick={handleOpenLedgerPreview}
                                 className="w-full py-3 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-700 transition-all shadow-md shadow-teal-200 flex items-center justify-center gap-2"
                             >
                                 <Printer size={14} /> Print Final Bill
@@ -2075,6 +2091,14 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                     </div>
                 </div>
             )}
+            {/* Live A4 Document Print Preview Modal */}
+            <PrintReceiptPreviewModal
+                isOpen={Boolean(previewHtml)}
+                onClose={() => setPreviewHtml(null)}
+                htmlContent={previewHtml}
+                title={previewTitle}
+                subtitle="A4 Standard Layout • Live Document Preview"
+            />
         </div>
     );
 };

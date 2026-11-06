@@ -13,6 +13,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import MainHeader from '@/components/printers/MainHeader';
 import toast from 'react-hot-toast';
 import { WhatsAppSendButton, READ_MORE, WA_DIVIDER } from '@/components/WhatsApp/WhatsAppSendButton';
+import PrintReceiptPreviewModal from '@/components/common/PrintReceiptPreviewModal';
 
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -99,6 +100,8 @@ export default function FinalBillPage() {
     const [admission, setAdmission] = useState<any>(null);
     const [latestReport, setLatestReport] = useState<any>(null);
     const [loadingReport, setLoadingReport] = useState(false);
+    const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+    const [previewTitle, setPreviewTitle] = useState<string>("Final Bill Preview");
 
     // ── WhatsApp State ────────────────────────────────────────
     const waBillRef = useRef<HTMLDivElement>(null);
@@ -555,8 +558,21 @@ export default function FinalBillPage() {
             return;
         }
 
-        const html = generateFullBillMarkup(true);
-        printHtmlContent(html);
+        const html = generateFullBillMarkup(false);
+        const fullDoc = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8"/>
+                <title>IP Interim Bill - ${selectedPatient?.name || 'Patient'}</title>
+            </head>
+            <body>
+                ${html}
+            </body>
+            </html>
+        `;
+        setPreviewTitle(`IP Interim Bill - ${selectedPatient?.name || 'Patient'}`);
+        setPreviewHtml(fullDoc);
     };
 
     return (
@@ -816,6 +832,15 @@ export default function FinalBillPage() {
                     />
                 </div>
             )}
+
+            {/* Print & Document Live Preview Modal */}
+            <PrintReceiptPreviewModal
+                isOpen={Boolean(previewHtml)}
+                onClose={() => setPreviewHtml(null)}
+                htmlContent={previewHtml}
+                title={previewTitle}
+                subtitle="A4 Standard Layout • Live Document Preview"
+            />
         </div>
     );
 }

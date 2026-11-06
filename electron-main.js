@@ -1,8 +1,23 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const http = require('http');
 const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
+
+// Accurately determine product version from package.json (prevents Electron framework version 45.x leaking)
+let appVersion = '1.0.7';
+try {
+  const pkgPath = path.join(__dirname, 'package.json');
+  if (fs.existsSync(pkgPath)) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    if (pkg.version) appVersion = pkg.version;
+  } else {
+    appVersion = app.getVersion();
+  }
+} catch (e) {
+  appVersion = app.getVersion() || '1.0.7';
+}
 
 let nextProcess = null;
 let mainWindow = null;
@@ -47,6 +62,27 @@ function startNextServer() {
 
   if (serverPath) {
     console.log(`[Electron] Starting standalone Next.js server from: ${serverPath}`);
+
+    // Auto-sync static and public assets into standalone directory if missing
+    try {
+      const standaloneDir = path.dirname(serverPath);
+      const staticSrc = path.join(__dirname, '.next', 'static');
+      const staticDest = path.join(standaloneDir, '.next', 'static');
+      const publicSrc = path.join(__dirname, 'public');
+      const publicDest = path.join(standaloneDir, 'public');
+
+      if (fs.existsSync(staticSrc) && !fs.existsSync(staticDest)) {
+        console.log('[Electron] Syncing .next/static into standalone output...');
+        fs.cpSync(staticSrc, staticDest, { recursive: true });
+      }
+      if (fs.existsSync(publicSrc) && !fs.existsSync(publicDest)) {
+        console.log('[Electron] Syncing public into standalone output...');
+        fs.cpSync(publicSrc, publicDest, { recursive: true });
+      }
+    } catch (assetErr) {
+      console.warn('[Electron] Asset sync note:', assetErr ? assetErr.message : assetErr);
+    }
+
     const { fork } = require('child_process');
     nextProcess = fork(serverPath, [], {
       cwd: path.dirname(serverPath),
@@ -81,7 +117,6 @@ function startNextServer() {
 
 async function createWindow() {
   const iconPath = path.join(__dirname, 'public', 'assets', 'logo.png');
-  const appVersion = app.getVersion();
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -123,11 +158,14 @@ async function createWindow() {
     };
   });
 
-  // Read logo as base64 for zero-latency startup animation
+  // Read logo as base64 for zero-latency startup animation (prefers trimmed square logo)
   let logoBase64 = '';
   try {
     const fs = require('fs');
     const logoPaths = [
+      path.join(__dirname, 'public', 'assets', 'logo-centered.png'),
+      path.join(process.resourcesPath || '', 'app.asar.unpacked', 'public', 'assets', 'logo-centered.png'),
+      path.join(process.resourcesPath || '', 'public', 'assets', 'logo-centered.png'),
       path.join(__dirname, 'public', 'assets', 'logo.png'),
       path.join(process.resourcesPath || '', 'app.asar.unpacked', 'public', 'assets', 'logo.png'),
       path.join(process.resourcesPath || '', 'public', 'assets', 'logo.png'),
@@ -175,49 +213,48 @@ async function createWindow() {
             }
             .logo-ring-wrapper {
               position: relative;
-              width: 130px;
-              height: 130px;
+              width: 144px;
+              height: 144px;
               display: flex;
               align-items: center;
               justify-content: center;
-              margin-bottom: 26px;
+              margin-bottom: 24px;
             }
             .rotating-ring {
               position: absolute;
               inset: 0;
               border-radius: 50%;
-              padding: 3.5px;
+              padding: 4px;
               background: conic-gradient(from 0deg, #0284c7, #10b981, #06b6d4, #0284c7);
               -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
               -webkit-mask-composite: xor;
               mask-composite: exclude;
               animation: rotateRing 2.4s linear infinite;
-              filter: drop-shadow(0 0 10px rgba(14, 165, 233, 0.45));
+              filter: drop-shadow(0 0 10px rgba(14, 165, 233, 0.4));
             }
-            .logo-inner {
-              width: 104px;
-              height: 104px;
-              background: #ffffff;
-              border-radius: 50%;
+            .logo-center-wrapper {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              width: 114px;
+              height: 114px;
+              background: transparent;
               display: flex;
               align-items: center;
               justify-content: center;
-              box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12);
-              animation: pulseSoft 2.4s ease-in-out infinite;
               z-index: 2;
             }
-            .logo-inner img {
-              width: 72px;
-              height: 72px;
+            .logo-center-wrapper img {
+              width: 100%;
+              height: 100%;
               object-fit: contain;
+              display: block;
+              filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08));
             }
             @keyframes rotateRing {
               from { transform: rotate(0deg); }
               to { transform: rotate(360deg); }
-            }
-            @keyframes pulseSoft {
-              0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.04); }
             }
             h1 {
               margin: 0 0 8px;
@@ -242,31 +279,35 @@ async function createWindow() {
               font-weight: 500;
             }
             .progress-bar-container {
-              width: 260px;
-              height: 5px;
+              width: 280px;
+              height: 6px;
               background: #e2e8f0;
-              border-radius: 10px;
+              border-radius: 9999px;
               overflow: hidden;
               position: relative;
-              margin-bottom: 14px;
+              margin-bottom: 12px;
             }
-            .progress-bar-indeterminate {
-              position: absolute;
+            .progress-bar-fill {
               height: 100%;
-              width: 45%;
+              width: 0%;
               background: linear-gradient(90deg, #0284c7, #10b981);
-              border-radius: 10px;
-              animation: moveProgress 1.6s ease-in-out infinite alternate;
-            }
-            @keyframes moveProgress {
-              0% { left: 0%; width: 25%; }
-              100% { left: 75%; width: 35%; }
+              border-radius: 9999px;
+              transition: width 0.3s ease-out;
             }
             .version-tag {
+              font-size: 12px;
+              color: #64748b;
+              font-weight: 600;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 6px;
+            }
+            .version-sub {
               font-size: 11px;
               color: #94a3b8;
-              font-weight: 600;
-              letter-spacing: 0.5px;
+              font-weight: 500;
+              margin-top: 6px;
             }
           </style>
         </head>
@@ -274,7 +315,7 @@ async function createWindow() {
           <div class="brand-container">
             <div class="logo-ring-wrapper">
               <div class="rotating-ring"></div>
-              <div class="logo-inner">
+              <div class="logo-center-wrapper">
                 ${logoBase64 ? `<img src="data:image/png;base64,${logoBase64}" alt="MSCureChain" />` : `<span style="font-size: 32px; font-weight: 900; color: #0284c7;">+</span>`}
               </div>
             </div>
@@ -282,10 +323,38 @@ async function createWindow() {
             <h1>Welcome to Clinical Workspace</h1>
             <p class="greeting-msg">Wishing your healthcare team a productive and smooth day ahead.</p>
             <div class="progress-bar-container">
-              <div class="progress-bar-indeterminate"></div>
+              <div id="progress-bar-fill" class="progress-bar-fill"></div>
             </div>
-            <div class="version-tag">Version ${appVersion} • Starting hospital services...</div>
+            <div class="version-tag">
+              <span id="progress-status">Starting hospital services...</span>
+              <span id="progress-pct" style="color: #0284c7; font-weight: 700;">8%</span>
+            </div>
+            <div class="version-sub">MSCureChain v${appVersion}</div>
           </div>
+          <script>
+            let pct = 8;
+            const fill = document.getElementById('progress-bar-fill');
+            const pctLabel = document.getElementById('progress-pct');
+            const statusLabel = document.getElementById('progress-status');
+
+            window.updateProgress = function(p, msg) {
+              pct = Math.min(100, Math.max(pct, p));
+              if (fill) fill.style.width = pct + '%';
+              if (pctLabel) pctLabel.textContent = pct + '%';
+              if (msg && statusLabel) statusLabel.textContent = msg;
+            };
+
+            const progressInterval = setInterval(() => {
+              if (pct < 90) {
+                pct += Math.floor(Math.random() * 5) + 3;
+                if (pct > 90) pct = 90;
+                if (fill) fill.style.width = pct + '%';
+                if (pctLabel) pctLabel.textContent = pct + '%';
+                if (pct > 65 && statusLabel) statusLabel.textContent = 'Connecting hospital portal services...';
+                else if (pct > 35 && statusLabel) statusLabel.textContent = 'Loading clinical modules & cache...';
+              }
+            }, 320);
+          </script>
         </body>
       </html>
     `)}`);
@@ -318,6 +387,15 @@ async function createWindow() {
       `)}`);
       return;
     }
+
+    try {
+      await mainWindow.webContents.executeJavaScript(`
+        if (window.updateProgress) {
+          window.updateProgress(100, 'Hospital workspace ready! Opening dashboard...');
+        }
+      `);
+      await new Promise(r => setTimeout(r, 400));
+    } catch (e) {}
   }
 
   // Load local Next.js frontend (which talks to Railway backend via .env)
@@ -329,6 +407,46 @@ async function createWindow() {
       mainWindow.webContents.toggleDevTools();
     }
     if (input.key === 'F5' || (input.control && input.key.toLowerCase() === 'r')) {
+      mainWindow.reload();
+    }
+  });
+
+  // Catch any page load failures to prevent blank white screens
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    if (errorCode === -3) return; // Ignore intentional aborts/redirects
+    console.error(`[Electron] Page failed to load: ${errorDescription} (${errorCode}) at ${validatedURL}`);
+    mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>MSCureChain - Service Connection</title>
+          <style>
+            body { margin:0; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:100vh; background:#f8fafc; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#0f172a; padding:24px; text-align:center; }
+            .card { background:#ffffff; border:1px solid #e2e8f0; border-radius:20px; padding:36px; max-width:480px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.08); }
+            .icon { width:52px; height:52px; border-radius:14px; background:#fef2f2; color:#ef4444; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:24px; font-weight:bold; }
+            h2 { font-size:18px; font-weight:800; margin:0 0 8px; color:#1e293b; }
+            p { font-size:13px; color:#64748b; line-height:1.5; margin:0 0 20px; }
+            .err { background:#f1f5f9; padding:8px 12px; border-radius:8px; font-size:11px; font-family:monospace; color:#475569; margin-bottom:20px; word-break:break-all; }
+            button { background:#0284c7; color:#fff; border:none; padding:12px 28px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; }
+            button:hover { background:#0369a1; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">!</div>
+            <h2>Unable to Connect to Hospital Portal</h2>
+            <p>The workspace encountered a loading interruption. Please click below to reload.</p>
+            <div class="err">${errorDescription} (Code: ${errorCode})</div>
+            <button onclick="window.location.href='http://localhost:3000'">Reload Application</button>
+          </div>
+        </body>
+      </html>
+    `)}`);
+  });
+
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[Electron] Render process gone:', details);
+    if (details.reason !== 'clean-exit') {
       mainWindow.reload();
     }
   });
@@ -365,7 +483,24 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    console.log(`[AutoUpdater] Update v${info.version} downloaded! Will silently install on application close.`);
+    console.log(`[AutoUpdater] Update v${info.version} downloaded! Prompting user to restart.`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        buttons: ['Restart & Install Now', 'Later (On Exit)'],
+        defaultId: 0,
+        cancelId: 1,
+        title: 'MSCureChain Update Ready',
+        message: `A new version (v${info.version}) of MSCureChain is downloaded and ready!`,
+        detail: 'Would you like to restart MSCureChain now to apply the new updates immediately?'
+      }).then((result) => {
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall(false, true);
+        }
+      }).catch((e) => {
+        console.warn('[AutoUpdater] Dialog prompt error:', e);
+      });
+    }
   });
 
   // Check 5 seconds after startup

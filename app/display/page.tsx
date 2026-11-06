@@ -97,11 +97,11 @@ export default function TVDisplayPage() {
   useEffect(() => {
     const RAILWAY_SOCKET_URL = "https://mscurechain-backend-latest-production.up.railway.app";
     let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || RAILWAY_SOCKET_URL;
-    if (!socketUrl || socketUrl.includes("localhost:5003")) {
+    if (!socketUrl) {
       socketUrl = RAILWAY_SOCKET_URL;
     }
     if (!/^https?:\/\//i.test(socketUrl)) {
-      socketUrl = `https://${socketUrl}`;
+      socketUrl = socketUrl.includes("localhost") || socketUrl.includes("127.0.0.1") ? `http://${socketUrl}` : `https://${socketUrl}`;
     }
     const newSocket = io(`${socketUrl}/tv-display`, {
       transports: ["websocket"],

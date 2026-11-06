@@ -14,12 +14,12 @@ const RAILWAY_BACKEND_DEFAULT = "https://mscurechain-backend-latest-production.u
 let rawBackend =
   process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") ||
   RAILWAY_BACKEND_DEFAULT;
-if (!rawBackend || rawBackend.includes("localhost:5003") || rawBackend.startsWith("/")) {
+if (!rawBackend || rawBackend.startsWith("/")) {
   rawBackend = RAILWAY_BACKEND_DEFAULT;
 }
 const BACKEND_BASE = /^https?:\/\//i.test(rawBackend)
   ? rawBackend
-  : `https://${rawBackend}`;
+  : (rawBackend.includes("localhost") || rawBackend.includes("127.0.0.1") ? `http://${rawBackend}` : `https://${rawBackend}`);
 
 export async function GET(
   req: NextRequest,
