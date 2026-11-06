@@ -4,23 +4,14 @@ let apiUrl = process.env.NEXT_PUBLIC_API_URL;
 const RAILWAY_BACKEND_URL = "https://mscurechain-backend-latest-production.up.railway.app/api";
 
 if (typeof window !== "undefined") {
-  const isLocalServer = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  
-  // When running local Next.js dev server (like npm run desktop), keep /api/proxy to proxy cleanly to Railway without CORS
-  if (!isLocalServer) {
-    const isNative = Boolean(
-      (window as any).__TAURI__ ||
-      (window as any).__TAURI_INTERNALS__ ||
-      (window as any).AndroidNative ||
-      (window as any).AndroidPrintBridge ||
-      (window as any).AndroidBridge ||
-      window.location.protocol === "tauri:" ||
-      window.location.protocol === "asset:"
-    );
+  const isLocalProtocol =
+    window.location.protocol === "tauri:" ||
+    window.location.protocol === "asset:" ||
+    window.location.protocol === "file:";
 
-    if (isNative) {
-      apiUrl = RAILWAY_BACKEND_URL;
-    }
+  // Only fall back to direct Railway URL if running in an offline local protocol where /api/proxy is unavailable
+  if (isLocalProtocol) {
+    apiUrl = RAILWAY_BACKEND_URL;
   }
 }
 
