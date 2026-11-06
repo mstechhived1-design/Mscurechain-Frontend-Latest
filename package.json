@@ -9,7 +9,7 @@
     "dev:fast": "NEXT_DISABLE_SOURCEMAPS=1 next dev --turbo",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
     "build:standalone": "npm run build && node -e \"const fs = require('fs'); fs.cpSync('.next/static', '.next/standalone/.next/static', {recursive: true}); fs.cpSync('public', '.next/standalone/public', {recursive: true});\"",
-    "electron:build": "npm run build:standalone && electron-builder --win --x64",
+    "electron:build": "npm run build:standalone && electron-builder --win --x64 --publish never",
     "analyze": "cross-env ANALYZE=true NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "next start",
     "build:worker": "cross-env NODE_OPTIONS=--max-old-space-size=4096 opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
@@ -85,6 +85,10 @@
       "electron-main.js",
       ".next/standalone/**/*",
       "public/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      ".next/standalone/**/*"
     ],
     "win": {
       "target": ["nsis"],

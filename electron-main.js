@@ -33,15 +33,19 @@ async function waitForServer(port = 3000, maxRetries = 40) {
 function startNextServer() {
   const fs = require('fs');
   const candidatePaths = [
+    // 1. Packaged Electron app: unpacked asar folder on disk
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', '.next', 'standalone', 'server.js'),
+    path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), '.next', 'standalone', 'server.js'),
+    // 2. Local standalone production build (npm run desktop)
     path.join(__dirname, '.next', 'standalone', 'server.js'),
     path.join(__dirname, 'server.js'),
     path.join(process.resourcesPath || '', 'app', '.next', 'standalone', 'server.js'),
   ];
 
-  const serverPath = candidatePaths.find((p) => fs.existsSync(p));
+  const serverPath = candidatePaths.find((p) => p && fs.existsSync(p));
 
   if (serverPath) {
-    console.log(`Starting standalone Next.js server from: ${serverPath}`);
+    console.log(`[Electron] Starting standalone Next.js server from: ${serverPath}`);
     const { fork } = require('child_process');
     nextProcess = fork(serverPath, [], {
       cwd: path.dirname(serverPath),
@@ -55,7 +59,7 @@ function startNextServer() {
     });
   } else {
     const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    console.log('Starting local Next dev server connected to Railway backend...');
+    console.log('[Electron] No standalone server found. Starting local Next dev server...');
     nextProcess = spawn(npmCmd, ['run', 'dev'], {
       cwd: __dirname,
       shell: true,
@@ -66,7 +70,10 @@ function startNextServer() {
 
   if (nextProcess) {
     nextProcess.on('error', (err) => {
-      console.error('Failed to start Next server:', err);
+      console.error('[Electron] Failed to spawn Next process:', err);
+    });
+    nextProcess.on('exit', (code, signal) => {
+      console.warn(`[Electron] Next process exited with code ${code}, signal: ${signal}`);
     });
   }
 }
@@ -117,11 +124,47 @@ async function createWindow() {
     `)}`);
 
     startNextServer();
-    await waitForServer(3000);
+    const ready = await waitForServer(3000);
+    if (!ready) {
+      console.error('[Electron] Local server failed to respond on port 3000');
+      mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              body { margin:0; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#f8fafc; font-family:sans-serif; color:#0f172a; text-align:center; padding:20px; }
+              .card { background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:32px; max-width:480px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); }
+              h2 { color:#dc2626; margin:0 0 12px; font-size:20px; }
+              p { color:#64748b; font-size:14px; margin:0 0 20px; line-height:1.5; }
+              button { background:#0284c7; color:#fff; border:none; padding:10px 24px; border-radius:8px; font-weight:600; cursor:pointer; }
+              button:hover { background:#0369a1; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h2>Server Startup Delayed</h2>
+              <p>The local hospital portal server is taking longer than usual to start up. Click below to reconnect.</p>
+              <button onclick="window.location.href='http://localhost:3000'">Retry Connecting</button>
+            </div>
+          </body>
+        </html>
+      `)}`);
+      return;
+    }
   }
 
   // Load local Next.js frontend (which talks to Railway backend via .env)
   mainWindow.loadURL('http://localhost:3000');
+
+  // Register reload shortcuts
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+    if (input.key === 'F5' || (input.control && input.key.toLowerCase() === 'r')) {
+      mainWindow.reload();
+    }
+  });
 }
 
 app.whenReady().then(createWindow);
