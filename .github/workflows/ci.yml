@@ -1,10 +1,7 @@
-name: Frontend CI/CD
+name: Frontend CI/CD (Manual)
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:

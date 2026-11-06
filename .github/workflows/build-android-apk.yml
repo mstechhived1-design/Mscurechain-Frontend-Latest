@@ -3,8 +3,6 @@ name: Build Android Mobile App (.apk)
 on:
   workflow_dispatch: # Allows 1-click manual trigger from the GitHub Actions tab
   push:
-    branches:
-      - main
     tags:
       - 'v*'
 
