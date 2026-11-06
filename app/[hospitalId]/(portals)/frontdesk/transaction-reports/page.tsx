@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, Trash2, FileText, Stethoscope, Bed, Pill, Wrench, FlaskConical, CreditCard, Printer, Calendar, Search, Activity, RefreshCw, UserCheck, Save, UserCog, ArrowRightLeft, Clock, Check } from 'lucide-react';
+import { Plus, Trash2, FileText, Stethoscope, Bed, Pill, Wrench, FlaskConical, CreditCard, Printer, Calendar, Search, Activity, RefreshCw, UserCheck, Save, UserCog, ArrowRightLeft, Clock, Check, CheckCircle } from 'lucide-react';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import { helpdeskService } from '@/lib/integrations/services/helpdesk.service';
 import { ipdService } from '@/lib/integrations/services/ipd.service';
@@ -837,7 +837,16 @@ export default function TransactionReportsPage() {
             return;
         }
 
-        const currentAdm = activeEncounterType === 'IPD' ? (admission || availableEncounters.ipd || {}) : (admission || {});
+        const baseAdm = activeEncounterType === 'IPD' ? (admission || availableEncounters.ipd || {}) : (admission || {});
+        const currentAdm = {
+            ...(availableEncounters.ipd || {}),
+            ...(baseAdm || {}),
+            status: (availableEncounters.ipd?.status && /discharged/i.test(availableEncounters.ipd.status))
+                ? availableEncounters.ipd.status
+                : (baseAdm?.status || availableEncounters.ipd?.status),
+            dischargeDate: availableEncounters.ipd?.dischargeDate || baseAdm?.dischargeDate || dischargeData?.dischargeDate || (baseAdm?.status === 'Discharged' ? baseAdm?.updatedAt : undefined),
+            dischargeType: availableEncounters.ipd?.dischargeType || baseAdm?.dischargeType || dischargeData?.dischargeType || 'Regular',
+        };
 
         const cleanField = (val: any): string => {
             if (!val) return '';
@@ -1457,6 +1466,15 @@ export default function TransactionReportsPage() {
                 }
 
                 setAvailableEncounters({ ipd: latestIPD, opd: latestOPD });
+                if (latestIPD) {
+                    setAdmission((prev: any) => ({
+                        ...(latestIPD || {}),
+                        ...(prev || {}),
+                        status: (/discharged/i.test(latestIPD.status || '')) ? latestIPD.status : (prev?.status || latestIPD.status),
+                        dischargeDate: latestIPD.dischargeDate || prev?.dischargeDate,
+                        dischargeType: latestIPD.dischargeType || prev?.dischargeType || 'Regular',
+                    }));
+                }
 
                 if (!loadReportId) {
                     if (latestIPD) {
@@ -1508,16 +1526,48 @@ export default function TransactionReportsPage() {
                         } else if (r.dischargeData) {
                             setDischargeData(r.dischargeData);
                         }
-                        if (r.admission) setAdmission(r.admission);
-                        else if (r.reportData?.admission) setAdmission(r.reportData.admission);
+                        const isIPD = Boolean(r.admission || r.reportData?.admission || (r.reportData?.admissions && r.reportData.admissions.length > 0) || !r.reportData?.isOPD);
+                        setPatientType(isIPD ? 'IPD' : 'OPD');
+                        setActiveEncounterType(isIPD ? 'IPD' : 'OPD');
+
+                        const rawAdm = r.admission || r.reportData?.admission;
+                        if (rawAdm) {
+                            setAdmission((prev: any) => ({
+                                ...(prev || {}),
+                                ...rawAdm,
+                                status: (prev?.status && /discharged/i.test(prev.status)) ? prev.status : (rawAdm.status || prev?.status),
+                                dischargeDate: prev?.dischargeDate || rawAdm.dischargeDate || r.reportData?.dischargeData?.dischargeDate,
+                                dischargeType: prev?.dischargeType || rawAdm.dischargeType || r.reportData?.dischargeData?.dischargeType || 'Regular',
+                            }));
+                        }
                         if (!loadReportId) setLoadReportId(r._id);
 
-                        const admId = r.admission?._id || r.admissionId || r.reportData?.admissionId || r.reportData?.admission?._id;
+                        const admId = rawAdm?._id || rawAdm?.admissionId || r.admission?._id || r.admissionId || r.reportData?.admissionId || r.reportData?.admission?._id;
+                        if (admId) {
+                            ipdService.getBillSummary(admId).then((summary: any) => {
+                                if (summary) {
+                                    setAdmission((curr: any) => ({
+                                        ...(curr || {}),
+                                        status: summary.status || curr?.status,
+                                        dischargeDate: summary.admission?.dischargeDate || summary.dischargeDate || curr?.dischargeDate,
+                                        dischargeType: summary.admission?.dischargeType || summary.dischargeType || curr?.dischargeType || 'Regular',
+                                    }));
+                                }
+                            }).catch(() => {});
+                        }
                         if (patientId) {
                             helpdeskService.getDischargeSummary(patientId, admId)
                                 .then(res => {
-                                    if (res?.data && (res.data.dischargeMedications?.length || res.data.finalDiagnosis || res.data.treatmentAndCourse)) {
+                                    if (res?.data && (res.data.dischargeMedications?.length || res.data.finalDiagnosis || res.data.treatmentAndCourse || res.data.dischargeDate)) {
                                         setDischargeData(res.data);
+                                        if (res.data.dischargeDate) {
+                                            setAdmission((curr: any) => ({
+                                                ...(curr || {}),
+                                                status: 'Discharged',
+                                                dischargeDate: res.data.dischargeDate || curr?.dischargeDate,
+                                                dischargeType: res.data.dischargeType || curr?.dischargeType || 'Regular',
+                                            }));
+                                        }
                                     } else {
                                         try {
                                             const cached = (admId && localStorage.getItem(`discharge_data_${admId}`)) || localStorage.getItem(`discharge_data_${patientId}`);
@@ -1536,8 +1586,6 @@ export default function TransactionReportsPage() {
                             if (r.reportData?.templateFormat) setTemplateFormat(r.reportData.templateFormat);
                             else if (r.templateFormat) setTemplateFormat(r.templateFormat);
                         }
-                        if (r.admission) setAdmission(r.admission);
-                        else if (r.reportData?.admission) setAdmission(r.reportData.admission);
                     } else if (loadReportId) {
                         toast.error("Could not find the specified report.");
                     }
@@ -1594,7 +1642,16 @@ export default function TransactionReportsPage() {
     const handlePrint = () => {
         const h = hospital || { name: 'Hospital Name', address: 'Hospital Address', phone: 'Contact Info' };
 
-        const currentAdm = activeEncounterType === 'IPD' ? (admission || availableEncounters.ipd || {}) : (admission || {});
+        const baseAdm = activeEncounterType === 'IPD' ? (admission || availableEncounters.ipd || {}) : (admission || {});
+        const currentAdm = {
+            ...(availableEncounters.ipd || {}),
+            ...(baseAdm || {}),
+            status: (availableEncounters.ipd?.status && /discharged/i.test(availableEncounters.ipd.status))
+                ? availableEncounters.ipd.status
+                : (baseAdm?.status || availableEncounters.ipd?.status),
+            dischargeDate: availableEncounters.ipd?.dischargeDate || baseAdm?.dischargeDate || dischargeData?.dischargeDate || (baseAdm?.status === 'Discharged' ? baseAdm?.updatedAt : undefined),
+            dischargeType: availableEncounters.ipd?.dischargeType || baseAdm?.dischargeType || dischargeData?.dischargeType || 'Regular',
+        };
 
         const docRef =
             patient?.doctorReference ||
@@ -2128,6 +2185,18 @@ export default function TransactionReportsPage() {
                                     {patientType}
                                 </span>
                             )}
+                            {Boolean(
+                                /discharged/i.test(admission?.status || '') ||
+                                /discharged/i.test(availableEncounters.ipd?.status || '') ||
+                                admission?.dischargeDate ||
+                                availableEncounters.ipd?.dischargeDate ||
+                                dischargeData?.dischargeDate
+                            ) && (
+                                <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 sm:px-2.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                                    <CheckCircle className="w-3 h-3 text-emerald-600" />
+                                    <span>Discharged</span>
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -2300,19 +2369,66 @@ export default function TransactionReportsPage() {
 
                         {/* Center: Dynamic Discharge / Active Status Badge */}
                         <div className="flex items-center justify-center">
-                            {patientType === 'IPD' && (() => {
-                                const currentAdm = admission || availableEncounters.ipd;
-                                const isDischarged = /discharged/i.test(currentAdm?.status || '') || Boolean(currentAdm?.dischargeDate);
+                            {(() => {
+                                const baseAdm = admission || availableEncounters.ipd;
+                                const isIPDEncounter = patientType === 'IPD' || activeEncounterType === 'IPD' || Boolean(baseAdm?.admissionId || baseAdm?.ipNo || availableEncounters.ipd);
+                                
+                                if (!isIPDEncounter && patientType === 'OPD') {
+                                    return (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-teal-50 text-teal-800 border border-teal-200 shadow-2xs">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                                            <span>Active OPD (Outpatient)</span>
+                                        </span>
+                                    );
+                                }
+
+                                const currentAdm = {
+                                    ...(availableEncounters.ipd || {}),
+                                    ...(baseAdm || {}),
+                                    status: (availableEncounters.ipd?.status && /discharged/i.test(availableEncounters.ipd.status))
+                                        ? availableEncounters.ipd.status
+                                        : (baseAdm?.status || availableEncounters.ipd?.status),
+                                    dischargeDate: availableEncounters.ipd?.dischargeDate || baseAdm?.dischargeDate || dischargeData?.dischargeDate || (baseAdm?.status === 'Discharged' ? baseAdm?.updatedAt : undefined),
+                                    dischargeType: availableEncounters.ipd?.dischargeType || baseAdm?.dischargeType || dischargeData?.dischargeType || 'Regular',
+                                };
+
+                                const isDischarged = /discharged/i.test(currentAdm?.status || '') || Boolean(currentAdm?.dischargeDate) || Boolean(dischargeData?.dischargeDate) || Boolean(loadReportId);
                                 const isDischargeInitiated = /discharge\s*initiated/i.test(currentAdm?.status || '') && !isDischarged;
-                                const dischargeDateFormatted = currentAdm?.dischargeDate
-                                    ? new Date(currentAdm.dischargeDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                                    : (currentAdm?.updatedAt && isDischarged ? new Date(currentAdm.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
+                                
+                                const formatDischargeDateTime = (raw: any) => {
+                                    if (!raw) return '';
+                                    try {
+                                        const d = new Date(raw);
+                                        if (isNaN(d.getTime())) return '';
+                                        const day = String(d.getDate()).padStart(2, '0');
+                                        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                        const month = months[d.getMonth()];
+                                        const year = d.getFullYear();
+                                        let hours = d.getHours();
+                                        const minutes = String(d.getMinutes()).padStart(2, '0');
+                                        const ampm = hours >= 12 ? 'PM' : 'AM';
+                                        hours = hours % 12;
+                                        hours = hours ? hours : 12;
+                                        const strHours = String(hours).padStart(2, '0');
+                                        return `${day} ${month} ${year}, ${strHours}:${minutes} ${ampm}`;
+                                    } catch {
+                                        return '';
+                                    }
+                                };
+
+                                const rawDate = currentAdm?.dischargeDate || dischargeData?.dischargeDate || (isDischarged ? (currentAdm?.updatedAt || currentAdm?.createdAt) : null);
+                                const dischargeDateTimeFormatted = formatDischargeDateTime(rawDate);
 
                                 if (isDischarged) {
                                     return (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                            <span>Discharge Complete {dischargeDateFormatted ? `(${dischargeDateFormatted})` : ''}</span>
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl text-[9px] sm:text-[11px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            <span>DISCHARGE COMPLETED</span>
+                                            {dischargeDateTimeFormatted && (
+                                                <span className="normal-case font-bold text-emerald-700 tracking-normal ml-0.5">
+                                                    ({dischargeDateTimeFormatted})
+                                                </span>
+                                            )}
                                         </span>
                                     );
                                 }
@@ -2331,13 +2447,6 @@ export default function TransactionReportsPage() {
                                     </span>
                                 );
                             })()}
-
-                            {patientType === 'OPD' && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-teal-50 text-teal-800 border border-teal-200 shadow-2xs">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                                    <span>Active OPD (Outpatient)</span>
-                                </span>
-                            )}
                         </div>
 
                         {/* Right: Total Visits Count */}

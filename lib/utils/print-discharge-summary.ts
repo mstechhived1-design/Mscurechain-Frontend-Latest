@@ -12,6 +12,9 @@ export interface DischargeMedicine {
 }
 
 export interface DischargeSummaryData {
+    dischargeDate?: string | Date;
+    dischargeType?: string;
+    dischargeAdviceAt?: string | Date;
     chiefComplaints?: string;
     historyOfPresentIllness?: string;
     pastMedicalHistory?: string;
@@ -26,6 +29,7 @@ export interface DischargeSummaryData {
     woundCarePrecautions?: string;
     followUpDate?: string;
     warningSymptoms?: string;
+    [key: string]: any;
 }
 
 const formatDate = (d: any): string => {

@@ -145,7 +145,13 @@ export default function TransactionHistoryPage() {
             const patientDischarge = r.reportData?.dischargeData || r.dischargeData || dischargeData;
             return generateDischargeSummaryHTML(h, p, currentAdm, reportData, patientDischarge);
         }
-        return generateTransactionReportHTML(h, p, currentAdm, reportData, totals, printConfig, { isHistory: true, isFinalBill: true });
+        const resolvedAdm = {
+            ...currentAdm,
+            status: 'Discharged',
+            dischargeDate: currentAdm?.dischargeDate || r.dischargeDate || r.reportData?.dischargeData?.dischargeDate || r.reportData?.admission?.dischargeDate || r.updatedAt || r.createdAt,
+            dischargeType: currentAdm?.dischargeType || r.dischargeType || r.reportData?.dischargeData?.dischargeType || 'Regular',
+        };
+        return generateTransactionReportHTML(h, p, resolvedAdm, reportData, totals, printConfig, { isHistory: true, isFinalBill: true });
     }, [whatsAppModalReport, whatsAppPhone, hospital, selectedPatient, templateFormat, dischargeData]);
 
     const handleOpenWhatsAppModal = (report: any) => {
