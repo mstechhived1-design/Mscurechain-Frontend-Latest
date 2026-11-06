@@ -11,11 +11,18 @@ import { NextRequest, NextResponse } from "next/server";
  * BACKEND_INTERNAL_URL should be set to: http://43.204.32.80:5002/api
  */
 
-let rawBackend = process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") || process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "") || "http://localhost:5003/api";
-if (rawBackend && !/^https?:\/\//i.test(rawBackend)) {
-  rawBackend = `https://${rawBackend}`;
+const RAILWAY_BACKEND_DEFAULT = "https://mscurechain-backend-latest-production.up.railway.app/api";
+
+function getBackendBase(): string {
+  let raw = process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") || RAILWAY_BACKEND_DEFAULT;
+  if (!raw || raw.startsWith("/") || raw.includes("localhost:5003")) {
+    raw = RAILWAY_BACKEND_DEFAULT;
+  }
+  if (!/^https?:\/\//i.test(raw)) {
+    raw = `https://${raw}`;
+  }
+  return raw;
 }
-const BACKEND_BASE = rawBackend;
 
 async function handler(
   req: NextRequest,
@@ -26,7 +33,8 @@ async function handler(
 
   // Reconstruct query string
   const search = req.nextUrl.search || "";
-  const targetUrl = `${BACKEND_BASE}/${backendPath}${search}`;
+  const backendBase = getBackendBase();
+  const targetUrl = `${backendBase}/${backendPath}${search}`;
 
   // Forward only safe headers — strip host to avoid upstream rejection
   const forwardHeaders = new Headers();
@@ -96,7 +104,7 @@ async function handler(
     );
     return NextResponse.json(
       {
-        message: `Proxy error: Cannot reach backend at ${BACKEND_BASE}`,
+        message: `Proxy error: Cannot reach backend at ${backendBase}`,
         detail: err.message,
       },
       { status: 502 },

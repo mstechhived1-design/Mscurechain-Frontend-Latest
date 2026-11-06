@@ -1,4 +1,4 @@
-let apiUrl = process.env.NEXT_PUBLIC_API_URL;
+let apiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "/api/proxy";
 
 // 🚀 Direct Railway Backend fallback for standalone native containers without local Next.js proxy
 const RAILWAY_BACKEND_URL = "https://mscurechain-backend-latest-production.up.railway.app/api";
@@ -15,10 +15,17 @@ if (typeof window !== "undefined") {
   }
 }
 
-if (typeof window !== "undefined" && apiUrl && apiUrl.startsWith("/")) {
-  apiUrl = `${window.location.origin}${apiUrl}`;
-} else if (apiUrl && !/^https?:\/\//i.test(apiUrl)) {
-  apiUrl = `https://${apiUrl}`;
+if (typeof window !== "undefined") {
+  if (apiUrl && apiUrl.startsWith("/")) {
+    apiUrl = `${window.location.origin}${apiUrl}`;
+  } else if (apiUrl && !/^https?:\/\//i.test(apiUrl)) {
+    apiUrl = `https://${apiUrl}`;
+  }
+} else {
+  // Server-side (Node.js / SSR) fallback
+  if (!apiUrl || apiUrl.startsWith("/")) {
+    apiUrl = RAILWAY_BACKEND_URL;
+  }
 }
 
 if (typeof window !== "undefined") {

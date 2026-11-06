@@ -10,10 +10,13 @@ import {
 } from "@/lib/print-utils";
 import { generateDischargeSummaryHTML } from "@/lib/utils/print-discharge-summary";
 
-const rawBackend =
+const RAILWAY_BACKEND_DEFAULT = "https://mscurechain-backend-latest-production.up.railway.app/api";
+let rawBackend =
   process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") ||
-  process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "") ||
-  "http://localhost:5003/api";
+  RAILWAY_BACKEND_DEFAULT;
+if (!rawBackend || rawBackend.includes("localhost:5003") || rawBackend.startsWith("/")) {
+  rawBackend = RAILWAY_BACKEND_DEFAULT;
+}
 const BACKEND_BASE = /^https?:\/\//i.test(rawBackend)
   ? rawBackend
   : `https://${rawBackend}`;

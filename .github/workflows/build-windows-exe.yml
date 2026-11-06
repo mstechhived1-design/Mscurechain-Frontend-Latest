@@ -27,10 +27,18 @@ jobs:
       - name: Install Node dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Configure Production Environment
+        run: |
+          echo "NEXT_PUBLIC_API_URL=/api/proxy" > .env
+          echo "BACKEND_INTERNAL_URL=https://mscurechain-backend-latest-production.up.railway.app/api" >> .env
+        shell: bash
+
       - name: Build Standalone Electron Application (.exe)
         run: npm run electron:build
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
+          NEXT_PUBLIC_API_URL: "/api/proxy"
+          BACKEND_INTERNAL_URL: "https://mscurechain-backend-latest-production.up.railway.app/api"
 
       - name: Upload .exe Installer Artifact
         uses: actions/upload-artifact@v4
@@ -43,10 +51,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: always()
         with:
-          tag_name: v1.0.4
+          tag_name: ${{ github.ref_name }}
           files: dist-electron/*.exe
-          name: 'MSCureChain Hospital Management System v1.0.4'
-          body: 'Official MSCureChain Hospital System Installers for Windows Desktop and Android Devices.'
+          name: 'MSCureChain Hospital Management System ${{ github.ref_name }}'
+          body: 'Official MSCureChain Hospital System Installers for Windows Desktop.'
           draft: false
           prerelease: false
         env:
