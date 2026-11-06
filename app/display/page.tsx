@@ -5,8 +5,12 @@ import io, { Socket } from "socket.io-client";
 import QueueDisplay from "@/components/display/QueueDisplay";
 import { Monitor, QrCode } from "lucide-react";
 
-let rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-if (rawApiUrl && !/^https?:\/\//i.test(rawApiUrl)) {
+const RAILWAY_BACKEND_URL = "https://mscurechain-backend-latest-production.up.railway.app/api";
+let rawApiUrl = process.env.NEXT_PUBLIC_API_URL || RAILWAY_BACKEND_URL;
+if (!rawApiUrl || rawApiUrl.includes("localhost:5000")) {
+  rawApiUrl = RAILWAY_BACKEND_URL;
+}
+if (!/^https?:\/\//i.test(rawApiUrl)) {
   rawApiUrl = `https://${rawApiUrl}`;
 }
 const BACKEND_URL = rawApiUrl.replace(/\/api\/?$/, "");
@@ -91,8 +95,12 @@ export default function TVDisplayPage() {
   }, [audioUnlocked]);
 
   useEffect(() => {
-    let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5003";
-    if (socketUrl && !/^https?:\/\//i.test(socketUrl)) {
+    const RAILWAY_SOCKET_URL = "https://mscurechain-backend-latest-production.up.railway.app";
+    let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || RAILWAY_SOCKET_URL;
+    if (!socketUrl || socketUrl.includes("localhost:5003")) {
+      socketUrl = RAILWAY_SOCKET_URL;
+    }
+    if (!/^https?:\/\//i.test(socketUrl)) {
       socketUrl = `https://${socketUrl}`;
     }
     const newSocket = io(`${socketUrl}/tv-display`, {

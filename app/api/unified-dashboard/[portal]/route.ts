@@ -15,11 +15,15 @@ import { NextRequest, NextResponse } from "next/server";
  * Portals:  doctor | hospital-admin | helpdesk | nurse | lab | pharmacy | staff | hr
  */
 
+const RAILWAY_BACKEND_DEFAULT = "https://mscurechain-backend-latest-production.up.railway.app/api";
 let BACKEND =
   process.env.BACKEND_INTERNAL_URL?.trim().replace(/\/+$/, "") ||
-  "http://43.204.32.80:5002/api";
+  RAILWAY_BACKEND_DEFAULT;
 
-if (BACKEND && !/^https?:\/\//i.test(BACKEND)) {
+if (!BACKEND || BACKEND.includes("43.204.32.80") || BACKEND.includes("localhost:5003")) {
+  BACKEND = RAILWAY_BACKEND_DEFAULT;
+}
+if (!/^https?:\/\//i.test(BACKEND)) {
   BACKEND = `https://${BACKEND}`;
 }
 
