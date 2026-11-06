@@ -27,6 +27,7 @@ const PORTAL_PATHS = [
 
 // Paths that are completely public / don't need tenant context
 const PUBLIC_PATHS = [
+  "/",
   "/auth",
   "/about",
   "/blogs",
@@ -284,6 +285,11 @@ function isValidHospitalId(segment: string): boolean {
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ⚡ ULTRA-FAST PATH: Root landing page & static files bypass all middleware logic
+  if (pathname === "/" || pathname === "" || pathname === "/index") {
+    return NextResponse.next();
+  }
 
   // 0. SANITIZE MALFORMED URLS (e.g. 'hospital admin' -> 'hospital-admin')
   if (pathname.includes("%20") || pathname.includes(" ")) {
