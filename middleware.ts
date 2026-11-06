@@ -37,6 +37,7 @@ const PUBLIC_PATHS = [
   "/coming-soon",
   "/portals",
   "/support",
+  "/contact",
   "/emergency-login",
   "/nurse/login",
   "/pharmacy/login",
@@ -286,8 +287,26 @@ function isValidHospitalId(segment: string): boolean {
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ⚡ ULTRA-FAST PATH: Root landing page & static files bypass all middleware logic
-  if (pathname === "/" || pathname === "" || pathname === "/index") {
+  // ⚡ ULTRA-FAST PATH: Static assets, API, and Public routes bypass all middleware in <0.01ms CPU time
+  if (
+    pathname === "/" ||
+    pathname === "" ||
+    pathname === "/index" ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/assets") ||
+    pathname.startsWith("/icons") ||
+    pathname.startsWith("/images") ||
+    pathname.includes(".") ||
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))
+  ) {
+    if (pathname === "/privacy") {
+      return NextResponse.redirect(new URL("/privacy-policy", request.url));
+    }
+    if (pathname === "/terms") {
+      return NextResponse.redirect(new URL("/terms-of-service", request.url));
+    }
     return NextResponse.next();
   }
 
@@ -311,24 +330,6 @@ export default async function middleware(request: NextRequest) {
       `[Middleware] 🧹 Stripping global prefix: ${pathname} -> ${cleanPath}`,
     );
     return NextResponse.redirect(redirectUrl);
-  }
-
-  // 0.7 REDIRECT SHORT LEGAL PATHS
-  if (pathname === "/privacy") {
-    return NextResponse.redirect(new URL("/privacy-policy", request.url));
-  }
-  if (pathname === "/terms") {
-    return NextResponse.redirect(new URL("/terms-of-service", request.url));
-  }
-
-  // 1. SKIP STATIC FILES & API
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname.includes(".") ||
-    pathname.startsWith("/api")
-  ) {
-    return NextResponse.next();
   }
 
   // 1.5 IDENTIFY TENANT FROM PATH OR COOKIE
