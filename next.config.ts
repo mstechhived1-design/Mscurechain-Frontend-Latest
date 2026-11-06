@@ -6,6 +6,10 @@ if (process.env.NODE_ENV === "development") {
   initOpenNextCloudflareForDev();
 }
 
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
+});
+
 /**
  * MongoDB ObjectId pattern: exactly 24 hex characters
  * Used to identify tenant-prefixed routes like /{hospitalId}/doctor
@@ -31,8 +35,15 @@ const nextConfig: NextConfig = {
     parallelServerBuildTraces: false,
     reactCompiler: false,
     optimizePackageImports: [
-      "lucide-react", "recharts", "date-fns",
-      "@tanstack/react-query", "zod", "react-hook-form"
+      "lucide-react",
+      "recharts",
+      "date-fns",
+      "@tanstack/react-query",
+      "zod",
+      "react-hook-form",
+      "framer-motion",
+      "apexcharts",
+      "crypto-js",
     ], // Only import what's used
     // ✅ Increase Server Actions body size limit (for profile uploads, etc.)
     serverActions: {
@@ -75,4 +86,4 @@ const nextConfig: NextConfig = {
   // Proxy handled by /app/api/proxy/[...path]/route.ts (reliable with Turbopack)
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

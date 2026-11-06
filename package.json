@@ -7,6 +7,7 @@
     "dev:webpack": "next dev",
     "dev:fast": "NEXT_DISABLE_SOURCEMAPS=1 next dev --turbo",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "analyze": "cross-env ANALYZE=true NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "next start",
     "build:worker": "cross-env NODE_OPTIONS=--max-old-space-size=4096 opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
     "preview:worker": "wrangler dev",
@@ -52,6 +53,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.4.5",
     "@opennextjs/cloudflare": "^1.20.10",
     "@tailwindcss/postcss": "^4",
     "@tauri-apps/cli": "^2.2.0",
@@ -61,6 +63,7 @@
     "@types/react-dom": "^19",
     "@types/recharts": "^1.8.29",
     "babel-plugin-react-compiler": "^1.0.0",
+    "cross-env": "^10.1.0",
     "electron": "^45.2.3",
     "eslint": "^9",
     "eslint-config-next": "^15.1.0",
