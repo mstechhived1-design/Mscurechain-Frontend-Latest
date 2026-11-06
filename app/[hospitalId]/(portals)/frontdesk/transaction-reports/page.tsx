@@ -1210,6 +1210,50 @@ export default function TransactionReportsPage() {
         setActiveEncounterType(type);
         setPatientType(type);
 
+        const targetAdmission = ipdRecord || availableEncounters.ipd;
+        const admId = targetAdmission?._id || targetAdmission?.admissionId;
+
+        // Fetch live admission details and advances so status (Discharged vs Active) and settlement payments are real-time
+        let liveAdmission: any = targetAdmission ? { ...targetAdmission } : null;
+        let liveAdvances: Payment[] = [];
+
+        if (admId) {
+            try {
+                const billSummary = await ipdService.getBillSummary(admId);
+                if (billSummary) {
+                    if (billSummary.status) {
+                        liveAdmission = { ...(liveAdmission || {}), status: billSummary.status, dischargeDate: billSummary.admission?.dischargeDate || liveAdmission?.dischargeDate };
+                    }
+                    if (Array.isArray(billSummary.advances)) {
+                        liveAdvances = billSummary.advances.map((adv: any, i: number) => normalizePayment(adv, i));
+                    }
+                }
+            } catch (summaryErr) {
+                console.warn("Could not fetch live bill summary:", summaryErr);
+            }
+        }
+
+        if (liveAdmission) {
+            setAdmission(liveAdmission);
+        }
+
+        const mergePaymentsWithLive = (basePayments: Payment[]): Payment[] => {
+            if (liveAdvances.length === 0) return basePayments;
+            const merged = [...basePayments];
+            liveAdvances.forEach(liveP => {
+                const existingIdx = merged.findIndex(p =>
+                    (p.receiptNo && liveP.receiptNo && p.receiptNo.trim().toUpperCase() === liveP.receiptNo.trim().toUpperCase()) ||
+                    (p.id && liveP.id && p.id === liveP.id)
+                );
+                if (existingIdx >= 0) {
+                    merged[existingIdx] = { ...merged[existingIdx], ...liveP };
+                } else {
+                    merged.push(liveP);
+                }
+            });
+            return merged;
+        };
+
         // First check local draft for instant persistence across page navigation
         try {
             const localDraftStr = localStorage.getItem(`txn_report_${patientId}`);
@@ -1221,10 +1265,11 @@ export default function TransactionReportsPage() {
                     setMeds((localDraft.meds || []).map(normalizeMed));
                     setServices((localDraft.services || []).map(normalizeService));
                     setDiags([...(localDraft.diags || []), ...(localDraft.rads || [])].map((x: any, i: number) => normalizeDiag(x, i, x.category || 'investigation')));
-                    setPay((localDraft.payments || []).map(normalizePayment));
+                    setPay(mergePaymentsWithLive((localDraft.payments || []).map(normalizePayment)));
                     setDiscount(localDraft.discount || localDraft.totals?.discount || 0);
                     if (localDraft.loadReportId) setLoadReportId(localDraft.loadReportId);
-                    if (localDraft.admission) setAdmission(localDraft.admission);
+                    if (liveAdmission) setAdmission(liveAdmission);
+                    else if (localDraft.admission) setAdmission(localDraft.admission);
                     setIsLoadingActive(false);
                     return;
                 }
@@ -1246,9 +1291,10 @@ export default function TransactionReportsPage() {
                     ...(r.reportData?.diags || []).map((x: any, i: number) => normalizeDiag(x, i, 'investigation')),
                     ...(r.reportData?.rads || []).map((x: any, i: number) => normalizeDiag(x, i, 'radiology'))
                 ]);
-                setPay((r.reportData?.payments || []).map(normalizePayment));
+                setPay(mergePaymentsWithLive((r.reportData?.payments || []).map(normalizePayment)));
                 setDiscount(r.totals?.discount || 0);
-                if (r.admission) setAdmission(r.admission);
+                if (liveAdmission) setAdmission(liveAdmission);
+                else if (r.admission) setAdmission(r.admission);
                 else if (r.reportData?.admission) setAdmission(r.reportData.admission);
                 if (r.reportData?.dischargeData) setDischargeData(r.reportData.dischargeData);
                 else if (r.dischargeData) setDischargeData(r.dischargeData);
@@ -2253,8 +2299,8 @@ export default function TransactionReportsPage() {
                         <div className="flex items-center justify-center">
                             {patientType === 'IPD' && (() => {
                                 const currentAdm = admission || availableEncounters.ipd;
-                                const isDischarged = currentAdm?.status === 'Discharged';
-                                const isDischargeInitiated = currentAdm?.status === 'Discharge Initiated' && !isDischarged;
+                                const isDischarged = /discharged/i.test(currentAdm?.status || '') || Boolean(currentAdm?.dischargeDate);
+                                const isDischargeInitiated = /discharge\s*initiated/i.test(currentAdm?.status || '') && !isDischarged;
                                 const dischargeDateFormatted = currentAdm?.dischargeDate
                                     ? new Date(currentAdm.dischargeDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
                                     : (currentAdm?.updatedAt && isDischarged ? new Date(currentAdm.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
