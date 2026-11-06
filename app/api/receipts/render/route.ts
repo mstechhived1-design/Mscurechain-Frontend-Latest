@@ -1109,9 +1109,12 @@ export async function POST(req: NextRequest) {
         cinNumber: hospital.cinNumber || hospital.cin || (data.hospitalInfo as any)?.cinNumber || "",
       };
 
-      html = generateTransactionReportHTML(resolvedHospital, resolvedPatient, resolvedAdmission, reportDataForTemplate, resolvedTotals, printConfig);
+      const isDischargedBill = /discharged/i.test(resolvedAdmission?.status || '') || Boolean(resolvedAdmission?.dischargeDate) || Boolean(data?.dischargeData);
+      html = generateTransactionReportHTML(resolvedHospital, resolvedPatient, resolvedAdmission, reportDataForTemplate, resolvedTotals, printConfig, {
+        isFinalBill: isDischargedBill,
+      });
 
-      const billTypeLabel = resolvedAdmission.status === "Discharged" ? "IP Final Bill" : "IP Interim Bill";
+      const billTypeLabel = isDischargedBill ? "IP Final Bill" : "IP Interim Bill";
       title = `${billTypeLabel} - ${patientName || "Patient"}`;
       documentName = `${billTypeLabel.replace(/ /g, "_")}_${data._id || "bill"}.pdf`;
       caption = `*${billTypeLabel.toUpperCase()} - DETAILED*\n━━━━━━━━━━━━━━━━━━\n*Patient:* ${patientName}\n*MRN:* ${patientMRN}\n*Grand Total:* ₹${grandTotal}\n*Paid:* ₹${totalPaid}\n*Balance:* ₹${balance}\n━━━━━━━━━━━━━━━━━━\n• Official IP Interim/Final Bill - Detailed attached.`;

@@ -72,7 +72,8 @@ export const generateTransactionReportHTML = (
     admission: any,
     reportData: any,
     totals: any,
-    printConfig: any
+    printConfig: any,
+    options?: { isHistory?: boolean; isFinalBill?: boolean; customTitle?: string }
 ) => {
     const fmt = (num: number) => Number(num || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
@@ -104,11 +105,27 @@ export const generateTransactionReportHTML = (
     const umrNo = patient?.mrn || patient?.user?.mrn || patient?.profile?.mrn || patient?.umr || patient?.patientId || patient?.user?._id || patient?._id || '';
     const phoneNo = patient?.mobile || patient?.user?.mobile || patient?.profile?.contactNumber || patient?.profile?.phone || patient?.phone || patient?.patientDetails?.phone || '';
 
+    const isIPD = Boolean((admission && Object.keys(admission).length > 0) || (reportData?.admissions && reportData.admissions.length > 0) || !reportData?.isOPD);
+    const isDischarged = Boolean(
+        options?.isHistory ||
+        options?.isFinalBill ||
+        /discharged/i.test(admission?.status || '') ||
+        admission?.dischargeDate ||
+        reportData?.dischargeData ||
+        reportData?.admission?.dischargeDate ||
+        /discharged/i.test(reportData?.admission?.status || '')
+    );
+    const titleBarText = options?.customTitle
+        ? options.customTitle
+        : (isIPD
+            ? (isDischarged ? 'IP Final Bill - Detailed' : 'IP Interim Bill-Detailed')
+            : 'OP Interim Bill-Detailed');
+
     let html = `
     <!DOCTYPE html>
     <html>
     <head>
-        <title>${(!admission || Object.keys(admission).length === 0) ? 'OP Interim' : (admission?.status === 'Discharged' ? 'IP Final' : 'IP Interim')} Bill - Detailed</title>
+        <title>${titleBarText} - ${invoiceNo}</title>
         <style>
             @page {
                 size: A4;
@@ -201,7 +218,7 @@ export const generateTransactionReportHTML = (
             <div style="width: 25%;"></div>
         </div>
         
-        <div class="title-bar">${(!admission || Object.keys(admission).length === 0) ? 'OP Interim Bill-Detailed' : (admission?.status === 'Discharged' ? 'IP Final Bill - Detailed' : 'IP Interim Bill-Detailed')}</div>
+        <div class="title-bar">${titleBarText}</div>
         <div class="subtitle-bar">BILL OF SUPPLY / INVOICE NO : ${invoiceNo}</div>
         
         <table class="info-grid">
@@ -266,9 +283,9 @@ export const generateTransactionReportHTML = (
                         <tr><td class="info-label">UMR No</td><td>: ${umrNo}</td></tr>
                         <tr><td class="info-label">Bill No</td><td>: ${invoiceNo}</td></tr>
                         <tr><td class="info-label">Bill Dt</td><td>: ${formatDate(new Date())}</td></tr>
-                        ${(admission?.status === 'Discharged' && admission?.dischargeDate) ? `
-                        <tr><td class="info-label">Discharge Type</td><td>: ${admission?.dischargeType || 'Regular'}</td></tr>
-                        <tr><td class="info-label">Discharge Dt</td><td>: ${formatDate(admission.dischargeDate)}</td></tr>
+                        ${((isDischarged || admission?.status === 'Discharged') && (admission?.dischargeDate || reportData?.dischargeData?.dischargeDate)) ? `
+                        <tr><td class="info-label">Discharge Type</td><td>: ${admission?.dischargeType || reportData?.dischargeData?.dischargeType || 'Regular'}</td></tr>
+                        <tr><td class="info-label">Discharge Dt</td><td>: ${formatDate(admission?.dischargeDate || reportData?.dischargeData?.dischargeDate)}</td></tr>
                         ` : ''}
                         ${(admission?.wardName || admission?.ward?.name || admission?.bed?.wardName || admission?.bed?.type || fallbackWard) ? `<tr><td class="info-label">Ward</td><td>: ${admission?.wardName || admission?.ward?.name || admission?.bed?.wardName || admission?.bed?.type || fallbackWard}</td></tr>` : ''}
                         ${(admission?.bedNumber || admission?.bed?.bedId || admission?.bed?.number || admission?.bedId || fallbackBed) ? `<tr><td class="info-label">Bed No</td><td>: ${admission?.bedNumber || admission?.bed?.bedId || admission?.bed?.number || admission?.bedId || fallbackBed}</td></tr>` : ''}

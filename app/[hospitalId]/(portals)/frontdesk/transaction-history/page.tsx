@@ -145,7 +145,7 @@ export default function TransactionHistoryPage() {
             const patientDischarge = r.reportData?.dischargeData || r.dischargeData || dischargeData;
             return generateDischargeSummaryHTML(h, p, currentAdm, reportData, patientDischarge);
         }
-        return generateTransactionReportHTML(h, p, currentAdm, reportData, totals, printConfig);
+        return generateTransactionReportHTML(h, p, currentAdm, reportData, totals, printConfig, { isHistory: true, isFinalBill: true });
     }, [whatsAppModalReport, whatsAppPhone, hospital, selectedPatient, templateFormat, dischargeData]);
 
     const handleOpenWhatsAppModal = (report: any) => {
