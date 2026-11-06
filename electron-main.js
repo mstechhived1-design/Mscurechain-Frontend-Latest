@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -6,7 +6,7 @@ const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
 // Accurately determine product version from package.json (prevents Electron framework version 45.x leaking)
-let appVersion = '1.0.7';
+let appVersion = '1.0.8';
 try {
   const pkgPath = path.join(__dirname, 'package.json');
   if (fs.existsSync(pkgPath)) {
@@ -16,7 +16,7 @@ try {
     appVersion = app.getVersion();
   }
 } catch (e) {
-  appVersion = app.getVersion() || '1.0.7';
+  appVersion = app.getVersion() || '1.0.8';
 }
 
 let nextProcess = null;
@@ -452,70 +452,358 @@ async function createWindow() {
   });
 }
 
+let updateWindow = null;
+
+function createUpdateProgressWindow(info) {
+  if (updateWindow && !updateWindow.isDestroyed()) {
+    updateWindow.show();
+    updateWindow.focus();
+    return;
+  }
+
+  const iconPath = path.join(__dirname, 'public', 'assets', 'logo.png');
+  const targetVer = info?.version ? `v${info.version}` : 'New Release';
+
+  updateWindow = new BrowserWindow({
+    width: 490,
+    height: 310,
+    resizable: false,
+    maximizable: false,
+    minimizable: true,
+    frame: false,
+    alwaysOnTop: true,
+    center: true,
+    title: 'MSCureChain Updating...',
+    icon: iconPath,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  const updaterHTML = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>MSCureChain Updating</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #ffffff;
+            color: #0f172a;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+          }
+          .titlebar {
+            height: 38px;
+            background: #0f172a;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+            -webkit-app-region: drag;
+          }
+          .titlebar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 700;
+          }
+          .titlebar-actions {
+            display: flex;
+            align-items: center;
+            -webkit-app-region: no-drag;
+          }
+          .min-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 18px;
+            font-weight: 700;
+            width: 32px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+          }
+          .min-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+          }
+          .content {
+            flex: 1;
+            padding: 22px 26px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+          }
+          .header-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 18px;
+          }
+          .logo-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: #e0f2fe;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0284c7;
+            font-size: 24px;
+            font-weight: 900;
+            flex-shrink: 0;
+          }
+          .header-text h2 {
+            font-size: 17px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 2px;
+          }
+          .header-text p {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 600;
+          }
+          .progress-track {
+            width: 100%;
+            height: 9px;
+            background: #f1f5f9;
+            border-radius: 9999px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 10px;
+            border: 1px solid #e2e8f0;
+          }
+          .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #0284c7, #10b981);
+            border-radius: 9999px;
+            transition: width 0.25s ease-out;
+          }
+          .stats-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 16px;
+          }
+          .pct-val {
+            color: #0284c7;
+            font-weight: 800;
+            font-size: 13px;
+          }
+          .footer-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 12px;
+            border-top: 1px solid #f1f5f9;
+          }
+          .status-msg {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 600;
+          }
+          .min-action-btn {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s;
+          }
+          .min-action-btn:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="titlebar">
+          <div class="titlebar-left">
+            <span>MSCureChain System Updater</span>
+          </div>
+          <div class="titlebar-actions">
+            <button class="min-btn" id="btn-min" title="Minimize to Taskbar">−</button>
+          </div>
+        </div>
+        <div class="content">
+          <div class="header-row">
+            <div class="logo-box">▲</div>
+            <div class="header-text">
+              <h2 id="title-label">MSCureChain Updating...</h2>
+              <p id="ver-label">New version ${targetVer} detected. Downloading updates...</p>
+            </div>
+          </div>
+
+          <div class="progress-track">
+            <div id="p-bar" class="progress-bar"></div>
+          </div>
+
+          <div class="stats-row">
+            <div>
+              <span id="p-pct" class="pct-val">0%</span>
+              <span id="p-size" style="margin-left: 6px; color: #64748b;">• 0.0 MB / 0.0 MB</span>
+            </div>
+            <div>
+              <span id="p-speed" style="color: #0284c7; font-weight: 700;">0.00 MB/s</span>
+            </div>
+          </div>
+
+          <div class="footer-row">
+            <span id="p-status" class="status-msg">Downloading release directly to system...</span>
+            <button class="min-action-btn" id="btn-min-btm">
+              <span>Minimize</span>
+            </button>
+          </div>
+        </div>
+
+        <script>
+          const { ipcRenderer } = require('electron');
+          const doMin = () => ipcRenderer.send('minimize-updater-window');
+          document.getElementById('btn-min').addEventListener('click', doMin);
+          document.getElementById('btn-min-btm').addEventListener('click', doMin);
+
+          window.onUpdateProgress = function(pct, transferred, total, speed) {
+            document.getElementById('p-bar').style.width = pct + '%';
+            document.getElementById('p-pct').textContent = pct + '%';
+            document.getElementById('p-size').textContent = '• ' + transferred + ' MB / ' + total + ' MB';
+            document.getElementById('p-speed').textContent = speed + ' MB/s';
+          };
+
+          window.onUpdateReady = function() {
+            document.getElementById('p-bar').style.width = '100%';
+            document.getElementById('p-bar').style.background = '#10b981';
+            document.getElementById('p-pct').textContent = '100%';
+            document.getElementById('title-label').textContent = 'Update Downloaded!';
+            document.getElementById('ver-label').textContent = 'Restarting MSCureChain now to apply update...';
+            document.getElementById('p-status').textContent = 'Restarting application...';
+          };
+        </script>
+      </body>
+    </html>
+  `;
+
+  updateWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(updaterHTML)}`);
+}
+
+// IPC listener for minimizing the updater window
+ipcMain.on('minimize-updater-window', () => {
+  if (updateWindow && !updateWindow.isDestroyed()) {
+    updateWindow.minimize();
+  }
+});
+
 function setupAutoUpdater() {
   if (!app.isPackaged) {
     console.log('[AutoUpdater] Dev mode detected, skipping automatic update checks.');
     return;
   }
 
-  // Silent update configuration
+  // Set explicit GitHub update feed
+  try {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'mstechhived1-design',
+      repo: 'Mscurechain-Frontend-Latest',
+    });
+  } catch (e) {
+    console.warn('[AutoUpdater] setFeedURL error:', e);
+  }
+
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('checking-for-update', () => {
-    console.log('[AutoUpdater] Checking GitHub for updates...');
+    console.log('[AutoUpdater] Checking GitHub for new releases...');
   });
 
   autoUpdater.on('update-available', (info) => {
-    console.log(`[AutoUpdater] Update v${info.version} found. Downloading silently in background...`);
+    console.log(`[AutoUpdater] Update v${info.version} found! Opening real-time update popup...`);
+    createUpdateProgressWindow(info);
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    console.log(`[AutoUpdater] Current version v${info.version} is up-to-date.`);
-  });
-
-  autoUpdater.on('error', (err) => {
-    console.warn('[AutoUpdater] Silent update warning:', err ? (err.message || err) : 'Unknown error');
+    console.log(`[AutoUpdater] MSCureChain v${info.version} is up-to-date.`);
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
-    console.log(`[AutoUpdater] Downloading update: ${Math.round(progressObj.percent)}%`);
-  });
+    const pct = Math.round(progressObj.percent || 0);
+    const transferred = ((progressObj.transferred || 0) / (1024 * 1024)).toFixed(1);
+    const total = ((progressObj.total || 0) / (1024 * 1024)).toFixed(1);
+    const speed = ((progressObj.bytesPerSecond || 0) / (1024 * 1024)).toFixed(2);
+    console.log(`[AutoUpdater] Progress: ${pct}% (${transferred} MB / ${total} MB at ${speed} MB/s)`);
 
-  autoUpdater.on('update-downloaded', (info) => {
-    console.log(`[AutoUpdater] Update v${info.version} downloaded! Prompting user to restart.`);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        buttons: ['Restart & Install Now', 'Later (On Exit)'],
-        defaultId: 0,
-        cancelId: 1,
-        title: 'MSCureChain Update Ready',
-        message: `A new version (v${info.version}) of MSCureChain is downloaded and ready!`,
-        detail: 'Would you like to restart MSCureChain now to apply the new updates immediately?'
-      }).then((result) => {
-        if (result.response === 0) {
-          autoUpdater.quitAndInstall(false, true);
+    if (updateWindow && !updateWindow.isDestroyed()) {
+      updateWindow.webContents.executeJavaScript(`
+        if (window.onUpdateProgress) {
+          window.onUpdateProgress(${pct}, '${transferred}', '${total}', '${speed}');
         }
-      }).catch((e) => {
-        console.warn('[AutoUpdater] Dialog prompt error:', e);
-      });
+      `).catch(() => {});
     }
   });
 
-  // Check 5 seconds after startup
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log(`[AutoUpdater] Update v${info.version} downloaded! Restarting to install...`);
+    if (updateWindow && !updateWindow.isDestroyed()) {
+      updateWindow.webContents.executeJavaScript(`
+        if (window.onUpdateReady) {
+          window.onUpdateReady();
+        }
+      `).catch(() => {});
+    }
+
+    setTimeout(() => {
+      autoUpdater.quitAndInstall(false, true);
+    }, 1800);
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.warn('[AutoUpdater] Update check note:', err ? (err.message || err) : 'Unknown error');
+    if (updateWindow && !updateWindow.isDestroyed()) {
+      updateWindow.webContents.executeJavaScript(`
+        const s = document.getElementById('p-status');
+        if (s) s.textContent = 'Update will continue in background.';
+      `).catch(() => {});
+    }
+  });
+
+  // Check immediately on startup (1.5 seconds)
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch((err) => {
-      console.warn('[AutoUpdater] Initial check failed:', err ? err.message : err);
+      console.warn('[AutoUpdater] Startup update check failed:', err ? err.message : err);
     });
-  }, 5000);
+  }, 1500);
 
-  // Background check every 30 minutes
+  // Background check every 15 minutes
   setInterval(() => {
     autoUpdater.checkForUpdates().catch((err) => {
       console.warn('[AutoUpdater] Background check failed:', err ? err.message : err);
     });
-  }, 30 * 60 * 1000);
+  }, 15 * 60 * 1000);
 }
 
 app.whenReady().then(() => {

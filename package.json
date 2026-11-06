@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "private": true,
   "main": "electron-main.js",
   "scripts": {
@@ -97,7 +97,8 @@
       "target": [
         "nsis"
       ],
-      "icon": "src-tauri/icons/icon.ico"
+      "icon": "src-tauri/icons/icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
