@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "main": "electron-main.js",
   "scripts": {
@@ -30,6 +30,7 @@
     "axios": "^1.13.2",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
+    "electron-updater": "^6.8.11",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.27.5",
@@ -92,14 +93,24 @@
       ".next/standalone/**/*"
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "src-tauri/icons/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "installerIcon": "src-tauri/icons/icon.ico"
-    }
+      "installerIcon": "src-tauri/icons/icon.ico",
+      "differentialPackage": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "mstechhived1-design",
+        "repo": "Mscurechain-Frontend-Latest"
+      }
+    ]
   }
 }

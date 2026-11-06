@@ -52,11 +52,13 @@ jobs:
         if: always()
         with:
           tag_name: ${{ github.ref_name }}
-          files: dist-electron/*.exe
+          files: |
+            dist-electron/*.exe
+            dist-electron/latest.yml
+            dist-electron/*.blockmap
           name: 'MSCureChain Hospital Management System ${{ github.ref_name }}'
           body: 'Official MSCureChain Hospital System Installers for Windows Desktop.'
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

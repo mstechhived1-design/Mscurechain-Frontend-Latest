@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
+const { autoUpdater } = require('electron-updater');
 
 let nextProcess = null;
 let mainWindow = null;
@@ -167,7 +168,59 @@ async function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+function setupAutoUpdater() {
+  if (!app.isPackaged) {
+    console.log('[AutoUpdater] Dev mode detected, skipping automatic update checks.');
+    return;
+  }
+
+  // Silent update configuration
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[AutoUpdater] Checking GitHub for updates...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log(`[AutoUpdater] Update v${info.version} found. Downloading silently in background...`);
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log(`[AutoUpdater] Current version v${info.version} is up-to-date.`);
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.warn('[AutoUpdater] Silent update warning:', err ? (err.message || err) : 'Unknown error');
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    console.log(`[AutoUpdater] Downloading update: ${Math.round(progressObj.percent)}%`);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log(`[AutoUpdater] Update v${info.version} downloaded! Will silently install on application close.`);
+  });
+
+  // Check 5 seconds after startup
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.warn('[AutoUpdater] Initial check failed:', err ? err.message : err);
+    });
+  }, 5000);
+
+  // Background check every 30 minutes
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.warn('[AutoUpdater] Background check failed:', err ? err.message : err);
+    });
+  }, 30 * 60 * 1000);
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  setupAutoUpdater();
+});
 
 function cleanup() {
   if (nextProcess && nextProcess.pid) {
