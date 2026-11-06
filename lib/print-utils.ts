@@ -2,7 +2,6 @@ import { usePrintStore } from '@/stores/printStore';
 import { formatDoctorName, formatPatientNameWithPrefix } from '@/lib/utils/name-utils';
 import { formatFrequency } from '@/lib/frequencyUtils';
 
-
 /**
  * Safely parses any date string, Date object, or timestamp without throwing or producing Invalid Date.
  * Properly handles Indian/UK DD/MM/YYYY and DD-MM-YYYY formats which standard new Date() fails on when Day > 12.
@@ -211,6 +210,65 @@ export const formatReceiptPaymentMode = (payment: any = {}, appointment: any = {
   }
   return rawMode;
 };
+
+export function getPrintToolbarHtml(title: string, returnUrl?: string): string {
+  const returnTarget = (returnUrl && typeof returnUrl === 'string') ? returnUrl.trim() : '';
+  const displayTitle = (title && typeof title === 'string') ? title.replace(/[<>"']/g, '') : 'Hospital Document';
+
+  return `
+    <div class="no-print msc-print-toolbar" style="position: sticky; top: 0; left: 0; right: 0; width: 100%; box-sizing: border-box; background: #0f172a; color: #ffffff; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 999999; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+        <div style="background: #0284c7; color: #ffffff; width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; flex-shrink: 0;">
+          +
+        </div>
+        <div style="display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #38bdf8; white-space: nowrap;">MSCureChain Medical Document</span>
+          <span style="font-size: 12px; color: #f1f5f9; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${displayTitle}</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+        <button onclick="window.print()" class="msc-btn-print" style="background: #0284c7; color: #ffffff; border: none; border-radius: 6px; padding: 7px 16px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+          🖨️ PRINT
+        </button>
+        <button onclick="mscCloseOrReturn()" class="msc-btn-cancel" style="background: #dc2626; color: #ffffff; border: none; border-radius: 6px; padding: 7px 16px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+          ✕ CANCEL / BACK
+        </button>
+      </div>
+    </div>
+    <script>
+      function mscCloseOrReturn() {
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.close();
+            return;
+          }
+        } catch(e) {}
+        try {
+          if (window.history.length > 1) {
+            window.history.back();
+            return;
+          }
+        } catch(e) {}
+        var dest = '${returnTarget}';
+        if (dest) {
+          window.location.href = dest;
+        } else {
+          window.location.href = '/';
+        }
+      }
+      window.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          mscCloseOrReturn();
+        }
+      });
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          try { window.print(); } catch(e) { console.error('Print trigger error:', e); }
+        }, 350);
+      });
+    </script>
+  `;
+}
 
 export const generatePayslipHtml = (data: any) => {
   const { payroll, hospital } = data;
@@ -494,6 +552,9 @@ export const generatePayslipHtml = (data: any) => {
           text-transform: uppercase;
           letter-spacing: 1px;
         }
+        @media print {
+          .no-print { display: none !important; }
+        }
       </style>
       ${!usePrintStore.getState().printWithHeader ? `
       <style>
@@ -501,7 +562,8 @@ export const generatePayslipHtml = (data: any) => {
       </style>
       ` : ''}
     </head>
-    <body onload="window.print(); setTimeout(() => window.close(), 1000);">
+    <body>
+      ${getPrintToolbarHtml('Staff Payslip - ' + (u?.name || 'Staff'), data.returnUrl)}
       <div class="container">
         <!-- Header -->
         <div class="header">
@@ -990,10 +1052,12 @@ export const generateLabReceiptHtml = (data: any) => {
     th, td { box-sizing: border-box; }
     @media print {
       body { margin: 0; padding: 0; }
+      .no-print { display: none !important; }
     }
   </style>
 </head>
-<body onload="window.print();">
+<body>
+  ${getPrintToolbarHtml('Lab Invoice - ' + invoiceId, data.returnUrl)}
   <div class="bill-wrapper">
     <div>
       ${headerHtml ? `<div style="width: 100%; margin-bottom: 12px;">${headerHtml}</div>` : `
@@ -1496,6 +1560,7 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
       ` : ''}
     </head>
     <body onload="window.print();">
+      ${getPrintToolbarHtml(`Registration Slip - ${formattedPatientName}`, data.returnUrl)}
       <div class="header-wrapper">
         ${headerHtml ||
     `
@@ -2245,19 +2310,8 @@ export const generateClinicalReceiptHtml = (data: any) => {
       </style>
       ` : ''}
     </head>
-    <body onload="window.print();">
-      <script>
-        window.onafterprint = function() {
-          setTimeout(() => {
-            window.close();
-          }, 500);
-        };
-      </script>
-      <div class="no-print" style="background: white; padding: 10px; border-bottom: 2px solid #0f172a; text-align: center;">
-         <button onclick="window.close()" class="return-btn" style="width: 100%; max-width: 400px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em;">
-            &#8592; CLOSE RECEIPT
-         </button>
-      </div>
+    <body>
+      ${getPrintToolbarHtml(`Clinical Receipt - ${formattedPatientName}`, data.returnUrl)}
 
       <!-- These wrappers are fixed during print -->
       <div class="header-wrapper">
@@ -3093,6 +3147,7 @@ export const generatePrescriptionHtml = (data: any) => {
                 </style>
             </head>
             <body>
+                ${getPrintToolbarHtml(`Prescription - ${patientName}`, data.returnUrl)}
                 <div class="container">
                     <!-- Branded Hospital Header -->
                     ${headerHtml || ""}
@@ -3353,19 +3408,8 @@ export const generateLabTokenHtml = (data: any) => {
       </style>
       ` : ''}
     </head>
-          <body onload="window.print();">
-            <script>
-                window.onafterprint = function() {
-                    setTimeout(() => {
-                        window.location.replace('${data.returnUrl || "/helpdesk"}');
-                    }, 500);
-                };
-            </script>
-            <div class="no-print">
-                <button onclick="window.location.replace('${data.returnUrl || "/helpdesk"}')" class="return-btn">
-                    ← BACK TO HOSPITAL DASHBOARD
-                </button>
-            </div>
+          <body>
+            ${getPrintToolbarHtml(`Lab Requisition - ${patientName}`, data.returnUrl)}
             <div class="container">
               ${headerHtml ||
     `
@@ -3791,15 +3835,13 @@ export const generateLabReportHtml = (data: any) => {
           font-weight: 700;
           color: #334155;
         }
-        .no-print {
-          display: none;
-        }
         @media print {
           .no-print { display: none !important; }
         }
       </style>
     </head>
     <body>
+      ${getPrintToolbarHtml(`Lab Report - ${formattedPatientName}`, data.returnUrl)}
       <div class="report-container">
         <!-- Faded Center Watermark -->
         <div class="watermark">${defaultLab.name}</div>
@@ -4017,14 +4059,8 @@ export const generateQualityReportHtml = (data: any) => {
       </style>
       ` : ''}
     </head>
-    <script>
-      window.onafterprint = () => {
-        setTimeout(() => {
-          window.close();
-        }, 500);
-      };
-    </script>
-    <body onload="window.print();">
+    <body>
+      ${getPrintToolbarHtml(`NABH Quality Report - ${monthName} ${year}`, data.returnUrl)}
       ${headerHtml ||
     `<div class="header">
         <h1 class="title">${hospital?.name || "CureChain Hospital"}</h1>
@@ -4335,11 +4371,8 @@ export const generateBlankLetterheadHtml = (data: any) => {
       </style>
       ` : ''}
     </head>
-    <body onload="window.print()">
-      <div class="no-print">
-        <button onclick="window.print()" class="print-btn">PRINT HOSPITAL TEMPLATE</button>
-        <button onclick="window.close()" class="print-btn" style="background-color: #64748b; margin-left: 10px;">CLOSE WINDOW</button>
-      </div>
+    <body>
+      ${getPrintToolbarHtml(`Hospital Letterhead - ${hospital?.name || 'MSCureChain'}`, data.returnUrl)}
 
       <!-- Static Page Header -->
       <div class="page-header">
@@ -4473,13 +4506,8 @@ export const generateAddBillsReceiptHtml = (data: any) => {
       </style>
       ` : ''}
     </head>
-    <body onload="window.print();">
-      <script>
-        window.onafterprint = function() { setTimeout(() => { window.close(); }, 500); };
-      </script>
-      <div class="no-print" style="background: white; padding: 10px; border-bottom: 2px solid #0f172a; text-align: center;">
-         <button onclick="window.close()" class="return-btn" style="text-transform: uppercase; letter-spacing: 0.1em; font-size: 14px;">&#8592; CLOSE RECEIPT</button>
-      </div>
+    <body>
+      ${getPrintToolbarHtml(`Hospital Bill - ${formattedPatientName}`, data.returnUrl)}
 
       <div class="header-wrapper">
         <div style="position: relative; width: 100%;" class="main-header-print-container">

@@ -1,4 +1,4 @@
-﻿import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { getDoctorInpatientsAction } from '../actions/doctor.actions';
 
 // Roles that are allowed to access doctor-specific IPD inpatient data
@@ -9,13 +9,15 @@ export const useDoctorInpatients = (userId?: string, role?: string) => {
     return useQuery({
         queryKey: ['doctor-inpatients', userId],
         queryFn: async () => {
+            if (!isAuthorized) return [];
             const res = await getDoctorInpatientsAction(userId);
             if (res.success) return res.data || [];
             throw new Error(res.error || 'Failed to fetch inpatients');
         },
-        enabled: !!userId && isAuthorized, // Only fire for authorized roles (not helpdesk/nurse)
-        staleTime: 0, // No stale time - always fetch fresh
-        refetchInterval: 10000, // 10s auto-refresh for reactive UI
-        refetchOnWindowFocus: true
+        enabled: Boolean(userId && isAuthorized),
+        staleTime: 30000,
+        refetchInterval: isAuthorized ? 10000 : false,
+        refetchOnWindowFocus: isAuthorized,
+        retry: false
     });
 };

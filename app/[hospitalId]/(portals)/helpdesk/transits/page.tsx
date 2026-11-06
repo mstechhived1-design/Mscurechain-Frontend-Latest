@@ -73,6 +73,27 @@ function TransitsPage() {
 
 
     const handlePrint = (transit: any, type: 'prescription' | 'lab' | 'lab-report') => {
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/helpdesk/transits';
+
+        const printDocumentSafely = (html: string) => {
+            try {
+                const printWin = window.open('', '_blank');
+                if (printWin) {
+                    printWin.document.write(html);
+                    printWin.document.close();
+                    printWin.focus();
+                    return;
+                }
+            } catch (e) {
+                console.warn('Popup blocked, opening in window', e);
+            }
+            const win = window.open('', '_self');
+            if (win) {
+                win.document.write(html);
+                win.document.close();
+            }
+        };
+
         const hospital = {
             ...(hospitalDetails || {}),
             ...(transit.hospital || {})
@@ -117,12 +138,8 @@ function TransitsPage() {
                 footerHtml
             };
 
-            const html = generatePrescriptionHtml({ ...data, returnUrl: '/helpdesk/transits' });
-            const win = window.open('', '_self');
-            if (win) {
-                win.document.write(html);
-                win.document.close();
-            }
+            const html = generatePrescriptionHtml({ ...data, returnUrl: currentPath });
+            printDocumentSafely(html);
             return;
         }
 
@@ -143,12 +160,8 @@ function TransitsPage() {
                 footerHtml
             };
 
-            const html = generateLabTokenHtml({ ...data, returnUrl: '/helpdesk/transits' });
-            const win = window.open('', '_self');
-            if (win) {
-                win.document.write(html);
-                win.document.close();
-            }
+            const html = generateLabTokenHtml({ ...data, returnUrl: currentPath });
+            printDocumentSafely(html);
             return;
         }
 
@@ -170,12 +183,8 @@ function TransitsPage() {
                 footerHtml
             };
 
-            const html = generateLabReportHtml({ ...data, returnUrl: '/helpdesk/transits' });
-            const win = window.open('', '_self');
-            if (win) {
-                win.document.write(html);
-                win.document.close();
-            }
+            const html = generateLabReportHtml({ ...data, returnUrl: currentPath });
+            printDocumentSafely(html);
             return;
         }
 

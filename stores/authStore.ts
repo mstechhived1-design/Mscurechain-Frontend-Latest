@@ -180,6 +180,20 @@ const stabilizeUser = (newUser: User | null): User | null => {
 };
 
 // ─── Module-scoped Cookie Helpers ────────────────────────────────────────────
+const clearQueryCachesSafe = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const qc = (window as any).__MSC_QUERY_CLIENT__;
+      if (qc) {
+        qc.cancelQueries();
+        qc.clear();
+      }
+    } catch (e) {
+      console.warn('[Auth] Failed to purge QueryClient:', e);
+    }
+  }
+};
+
 const _secureFlag = () =>
   typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
 
@@ -325,6 +339,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       sessionStorage.removeItem("tabAuthorized");
       localStorage.removeItem("userRole"); 
       setAccessToken(null);
+      clearQueryCachesSafe();
 
       let response: any;
       try {
@@ -637,6 +652,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // 5. Clear tab authorization
     localStorage.removeItem("tabAuthorized");
+
+    // 6. Purge all in-memory query caches and intervals
+    clearQueryCachesSafe();
 
     set({ 
       user: null, 

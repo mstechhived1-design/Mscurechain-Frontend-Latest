@@ -7,6 +7,21 @@ import { clearLegacyAuthData } from '@/lib/utils/auth-cleanup';
 import { useAuthStore } from '@/stores/authStore';
 import { SSEProvider } from '@/components/SSEProvider';
 
+// Helper to clear React Query cache and background query subscriptions
+export function clearApplicationCaches() {
+  if (typeof window !== 'undefined') {
+    try {
+      const qc = (window as any).__MSC_QUERY_CLIENT__ as QueryClient | undefined;
+      if (qc) {
+        qc.cancelQueries();
+        qc.clear();
+      }
+    } catch (e) {
+      console.warn('[Cache] Could not clear QueryClient caches:', e);
+    }
+  }
+}
+
 function Providers({ children }: { children: ReactNode }) {
   // ✅ MULTI-TAB AUTH: Only bootstrap session if THIS tab has explicitly logged in.
   // New tabs must always enter fresh credentials — they don't inherit cookies automatically.
@@ -41,6 +56,12 @@ function Providers({ children }: { children: ReactNode }) {
       },
     },
   }), []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__MSC_QUERY_CLIENT__ = queryClient;
+    }
+  }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>

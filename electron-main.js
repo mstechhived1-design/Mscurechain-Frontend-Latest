@@ -81,13 +81,14 @@ function startNextServer() {
 
 async function createWindow() {
   const iconPath = path.join(__dirname, 'public', 'assets', 'logo.png');
+  const appVersion = app.getVersion();
 
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'MSCureChain - Hospital Management System',
+    title: `MSCureChain - Modern Hospital Management System (v${appVersion})`,
     icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
@@ -99,27 +100,192 @@ async function createWindow() {
   mainWindow.maximize();
   Menu.setApplicationMenu(null);
 
+  // Keep version locked in title bar across navigation
+  mainWindow.on('page-title-updated', (event) => {
+    event.preventDefault();
+    mainWindow.setTitle(`MSCureChain - Modern Hospital Management System (v${appVersion})`);
+  });
+
+  // Allow popup windows for clean document print preview
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        width: 1100,
+        height: 850,
+        title: `MSCureChain Document Viewer (v${appVersion})`,
+        autoHideMenuBar: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+        }
+      }
+    };
+  });
+
+  // Read logo as base64 for zero-latency startup animation
+  let logoBase64 = '';
+  try {
+    const fs = require('fs');
+    const logoPaths = [
+      path.join(__dirname, 'public', 'assets', 'logo.png'),
+      path.join(process.resourcesPath || '', 'app.asar.unpacked', 'public', 'assets', 'logo.png'),
+      path.join(process.resourcesPath || '', 'public', 'assets', 'logo.png'),
+    ];
+    for (const lp of logoPaths) {
+      if (fs.existsSync(lp)) {
+        logoBase64 = fs.readFileSync(lp).toString('base64');
+        break;
+      }
+    }
+  } catch (e) {}
+
   // Check if server is already running
   const alreadyRunning = await checkServerReady(3000);
 
   if (!alreadyRunning) {
-    // Show quick loading screen while local server boots
+    // Show branded healthcare loading screen with rotating animated ring & greetings
     mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
       <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="UTF-8">
+          <title>MSCureChain Healthcare</title>
           <style>
-            body { margin:0; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#f8fafc; font-family:sans-serif; color:#0f172a; }
-            .spinner { width:48px; height:48px; border:4px solid #e2e8f0; border-top-color:#0284c7; border-radius:50%; animation:spin 1s linear infinite; }
-            @keyframes spin { to { transform:rotate(360deg); } }
-            h2 { margin-top:20px; font-weight:600; font-size:20px; }
-            p { color:#64748b; font-size:14px; margin-top:6px; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              background: radial-gradient(circle at 50% 40%, #ffffff 0%, #f1f5f9 100%);
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              color: #0f172a;
+              overflow: hidden;
+            }
+            .brand-container {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              text-align: center;
+              max-width: 520px;
+              padding: 40px 24px;
+            }
+            .logo-ring-wrapper {
+              position: relative;
+              width: 130px;
+              height: 130px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin-bottom: 26px;
+            }
+            .rotating-ring {
+              position: absolute;
+              inset: 0;
+              border-radius: 50%;
+              padding: 3.5px;
+              background: conic-gradient(from 0deg, #0284c7, #10b981, #06b6d4, #0284c7);
+              -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+              -webkit-mask-composite: xor;
+              mask-composite: exclude;
+              animation: rotateRing 2.4s linear infinite;
+              filter: drop-shadow(0 0 10px rgba(14, 165, 233, 0.45));
+            }
+            .logo-inner {
+              width: 104px;
+              height: 104px;
+              background: #ffffff;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12);
+              animation: pulseSoft 2.4s ease-in-out infinite;
+              z-index: 2;
+            }
+            .logo-inner img {
+              width: 72px;
+              height: 72px;
+              object-fit: contain;
+            }
+            @keyframes rotateRing {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            @keyframes pulseSoft {
+              0%, 100% { transform: scale(1); }
+              50% { transform: scale(1.04); }
+            }
+            h1 {
+              margin: 0 0 8px;
+              font-size: 24px;
+              font-weight: 800;
+              letter-spacing: -0.5px;
+              color: #0f172a;
+            }
+            .greeting-title {
+              color: #0284c7;
+              font-size: 13px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-bottom: 12px;
+            }
+            .greeting-msg {
+              font-size: 14px;
+              color: #475569;
+              line-height: 1.5;
+              margin: 0 0 24px;
+              font-weight: 500;
+            }
+            .progress-bar-container {
+              width: 260px;
+              height: 5px;
+              background: #e2e8f0;
+              border-radius: 10px;
+              overflow: hidden;
+              position: relative;
+              margin-bottom: 14px;
+            }
+            .progress-bar-indeterminate {
+              position: absolute;
+              height: 100%;
+              width: 45%;
+              background: linear-gradient(90deg, #0284c7, #10b981);
+              border-radius: 10px;
+              animation: moveProgress 1.6s ease-in-out infinite alternate;
+            }
+            @keyframes moveProgress {
+              0% { left: 0%; width: 25%; }
+              100% { left: 75%; width: 35%; }
+            }
+            .version-tag {
+              font-size: 11px;
+              color: #94a3b8;
+              font-weight: 600;
+              letter-spacing: 0.5px;
+            }
           </style>
         </head>
         <body>
-          <div class="spinner"></div>
-          <h2>Starting MSCureChain Desktop</h2>
-          <p>Connecting local frontend to Railway backend...</p>
+          <div class="brand-container">
+            <div class="logo-ring-wrapper">
+              <div class="rotating-ring"></div>
+              <div class="logo-inner">
+                ${logoBase64 ? `<img src="data:image/png;base64,${logoBase64}" alt="MSCureChain" />` : `<span style="font-size: 32px; font-weight: 900; color: #0284c7;">+</span>`}
+              </div>
+            </div>
+            <div class="greeting-title">MSCureChain Healthcare</div>
+            <h1>Welcome to Clinical Workspace</h1>
+            <p class="greeting-msg">Wishing your healthcare team a productive and smooth day ahead.</p>
+            <div class="progress-bar-container">
+              <div class="progress-bar-indeterminate"></div>
+            </div>
+            <div class="version-tag">Version ${appVersion} • Starting hospital services...</div>
+          </div>
         </body>
       </html>
     `)}`);
@@ -143,8 +309,8 @@ async function createWindow() {
           </head>
           <body>
             <div class="card">
-              <h2>Server Startup Delayed</h2>
-              <p>The local hospital portal server is taking longer than usual to start up. Click below to reconnect.</p>
+              <h2>Service Startup Delayed</h2>
+              <p>The local hospital portal service is taking slightly longer than usual to initialize. Click below to reconnect.</p>
               <button onclick="window.location.href='http://localhost:3000'">Retry Connecting</button>
             </div>
           </body>
