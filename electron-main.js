@@ -6,7 +6,7 @@ const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
 // Accurately determine product version from package.json (prevents Electron framework version 45.x leaking)
-let appVersion = '1.0.9';
+let appVersion = '1.1.0';
 try {
   const pkgPath = path.join(__dirname, 'package.json');
   if (fs.existsSync(pkgPath)) {
@@ -22,7 +22,7 @@ try {
     }
   }
 } catch (e) {
-  appVersion = app.getVersion() || '1.0.9';
+  appVersion = app.getVersion() || '1.1.0';
 }
 
 let nextProcess = null;
