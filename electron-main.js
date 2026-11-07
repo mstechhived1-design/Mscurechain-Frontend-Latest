@@ -6,17 +6,23 @@ const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
 // Accurately determine product version from package.json (prevents Electron framework version 45.x leaking)
-let appVersion = '1.0.8';
+let appVersion = '1.0.9';
 try {
   const pkgPath = path.join(__dirname, 'package.json');
   if (fs.existsSync(pkgPath)) {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     if (pkg.version) appVersion = pkg.version;
   } else {
-    appVersion = app.getVersion();
+    const asarPkg = path.join(process.resourcesPath || '', 'app.asar', 'package.json');
+    if (fs.existsSync(asarPkg)) {
+      const pkg = JSON.parse(fs.readFileSync(asarPkg, 'utf8'));
+      if (pkg.version) appVersion = pkg.version;
+    } else {
+      appVersion = app.getVersion();
+    }
   }
 } catch (e) {
-  appVersion = app.getVersion() || '1.0.8';
+  appVersion = app.getVersion() || '1.0.9';
 }
 
 let nextProcess = null;
@@ -723,6 +729,44 @@ function setupAutoUpdater() {
     return;
   }
 
+  // Persistent file logger for packaged desktop app to ensure updater events & errors are tracked
+  const logDir = app.getPath('userData');
+  const logPath = path.join(logDir, 'updater.log');
+  const logToFile = (level, ...args) => {
+    const timestamp = new Date().toISOString();
+    const line = `[${timestamp}] [${level}] ${args.join(' ')}\n`;
+    try {
+      if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+      fs.appendFileSync(logPath, line);
+    } catch (e) {}
+    console.log(`[AutoUpdater] [${level}]`, ...args);
+  };
+
+  autoUpdater.logger = {
+    info: (...args) => logToFile('INFO', ...args),
+    warn: (...args) => logToFile('WARN', ...args),
+    error: (...args) => logToFile('ERROR', ...args),
+    debug: (...args) => logToFile('DEBUG', ...args),
+  };
+
+  logToFile('INFO', `Initializing AutoUpdater for MSCureChain v${appVersion}`);
+
+  // Fix: Explicitly bind autoUpdater.currentVersion to appVersion (prevents Electron framework version 45.x comparison bug)
+  try {
+    let SemVer = null;
+    try {
+      SemVer = require('electron-updater/node_modules/semver/classes/semver');
+    } catch (e) {
+      SemVer = require('semver/classes/semver');
+    }
+    if (SemVer) {
+      autoUpdater.currentVersion = new SemVer(appVersion);
+      logToFile('INFO', `Bound autoUpdater.currentVersion to semver: ${autoUpdater.currentVersion.version}`);
+    }
+  } catch (e) {
+    logToFile('WARN', `Could not override semver currentVersion: ${e.message}`);
+  }
+
   // Set explicit GitHub update feed
   try {
     autoUpdater.setFeedURL({
@@ -731,23 +775,23 @@ function setupAutoUpdater() {
       repo: 'Mscurechain-Frontend-Latest',
     });
   } catch (e) {
-    console.warn('[AutoUpdater] setFeedURL error:', e);
+    logToFile('WARN', `setFeedURL error: ${e.message}`);
   }
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('checking-for-update', () => {
-    console.log('[AutoUpdater] Checking GitHub for new releases...');
+    logToFile('INFO', 'Checking GitHub for new releases...');
   });
 
   autoUpdater.on('update-available', (info) => {
-    console.log(`[AutoUpdater] Update v${info.version} found! Opening real-time update popup...`);
+    logToFile('INFO', `Update v${info.version} found! Downloading update silently...`);
     createUpdateProgressWindow(info);
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    console.log(`[AutoUpdater] MSCureChain v${info.version} is up-to-date.`);
+    logToFile('INFO', `MSCureChain v${info.version} is up-to-date.`);
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
@@ -755,7 +799,7 @@ function setupAutoUpdater() {
     const transferred = ((progressObj.transferred || 0) / (1024 * 1024)).toFixed(1);
     const total = ((progressObj.total || 0) / (1024 * 1024)).toFixed(1);
     const speed = ((progressObj.bytesPerSecond || 0) / (1024 * 1024)).toFixed(2);
-    console.log(`[AutoUpdater] Progress: ${pct}% (${transferred} MB / ${total} MB at ${speed} MB/s)`);
+    logToFile('INFO', `Download progress: ${pct}% (${transferred} MB / ${total} MB at ${speed} MB/s)`);
 
     if (updateWindow && !updateWindow.isDestroyed()) {
       updateWindow.webContents.executeJavaScript(`
@@ -767,7 +811,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    console.log(`[AutoUpdater] Update v${info.version} downloaded! Restarting to install...`);
+    logToFile('INFO', `Update v${info.version} downloaded! Restarting to install update silently...`);
     if (updateWindow && !updateWindow.isDestroyed()) {
       updateWindow.webContents.executeJavaScript(`
         if (window.onUpdateReady) {
@@ -776,32 +820,38 @@ function setupAutoUpdater() {
       `).catch(() => {});
     }
 
+    // SILENT UPDATE: First param isSilent=true runs NSIS with /S flag, second param isForceRunAfter=true relaunches app
     setTimeout(() => {
-      autoUpdater.quitAndInstall(false, true);
-    }, 1800);
+      try {
+        logToFile('INFO', 'Executing quitAndInstall(isSilent=true, isForceRunAfter=true)...');
+        autoUpdater.quitAndInstall(true, true);
+      } catch (err) {
+        logToFile('ERROR', `quitAndInstall error: ${err ? err.message : err}`);
+      }
+    }, 2000);
   });
 
   autoUpdater.on('error', (err) => {
-    console.warn('[AutoUpdater] Update check note:', err ? (err.message || err) : 'Unknown error');
+    logToFile('ERROR', `AutoUpdater error: ${err ? (err.stack || err.message || err) : 'Unknown error'}`);
     if (updateWindow && !updateWindow.isDestroyed()) {
       updateWindow.webContents.executeJavaScript(`
         const s = document.getElementById('p-status');
-        if (s) s.textContent = 'Update will continue in background.';
+        if (s) s.textContent = 'Update check will retry in background.';
       `).catch(() => {});
     }
   });
 
-  // Check immediately on startup (1.5 seconds)
+  // Check 3 seconds after startup
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch((err) => {
-      console.warn('[AutoUpdater] Startup update check failed:', err ? err.message : err);
+      logToFile('WARN', `Startup update check failed: ${err ? err.message : err}`);
     });
-  }, 1500);
+  }, 3000);
 
   // Background check every 15 minutes
   setInterval(() => {
     autoUpdater.checkForUpdates().catch((err) => {
-      console.warn('[AutoUpdater] Background check failed:', err ? err.message : err);
+      logToFile('WARN', `Background check failed: ${err ? err.message : err}`);
     });
   }, 15 * 60 * 1000);
 }

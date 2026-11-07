@@ -101,6 +101,7 @@ import CookieConsent from '@/components/shared/CookieConsent';
 import OfflineDetector from '@/components/layout/OfflineDetector';
 import OfflineBanner from '@/components/ui/OfflineBanner';
 import MainContentWrapper from '@/components/layout/MainContentWrapper';
+import BackendStatusIndicator from '@/components/ui/BackendStatusIndicator';
 
 function RootLayout({
   children,
@@ -224,6 +225,7 @@ function RootLayout({
       >
 
         <Providers>
+          <BackendStatusIndicator />
           <OfflineDetector />
           <OfflineBanner />
           <Suspense fallback={null}>
