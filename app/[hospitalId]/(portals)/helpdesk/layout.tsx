@@ -185,7 +185,7 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
                 />
 
                 <main key="helpdesk-layout-main" className="flex-1 bg-[#F8FAFC] w-full min-w-0">
-                    <div key="helpdesk-layout-content-wrapper" className="p-2 md:p-6 w-full min-w-0 max-w-[1600px] mx-auto">
+                    <div key="helpdesk-layout-content-wrapper" className="p-2 md:p-6 w-full min-w-0">
                         <ProgressBar key="helpdesk-layout-progress" isPending={isPending} color="#14b8a6" />
                         <React.Fragment key="helpdesk-layout-children">
                             {children}

@@ -802,10 +802,10 @@ function HelpdeskDashboard() {
     }
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-150">
+        <div className="w-full space-y-5 animate-in fade-in duration-150 min-h-[calc(100vh-120px)] flex flex-col">
 
             {/* HEADER SECTION */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 max-w-full mx-auto overflow-hidden">
+            <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 overflow-hidden">
                 <div className="shrink-0">
                     <h1 className="text-lg md:text-xl lg:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                         Front Desk Dashboard
@@ -920,7 +920,7 @@ function HelpdeskDashboard() {
             />
 
             {/* STATS GRID */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 max-w-full mx-auto">
+            <div className="w-full grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                 <StatCard
                     icon={<Users size={14} className="sm:size-[16px]" />}
                     title="Total Patients"
@@ -955,10 +955,10 @@ function HelpdeskDashboard() {
                 />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-12 gap-4 items-start max-w-full mx-auto">
+            <div className="w-full grid grid-cols-1 md:grid-cols-1 lg:grid-cols-12 gap-4 items-stretch flex-1 pb-4">
 
                 {/* DOCTOR QUEUES (LEFT SIDE) */}
-                <div className="md:col-span-1 lg:col-span-4 space-y-4">
+                <div className="md:col-span-1 lg:col-span-4 space-y-4 flex flex-col">
                     <div className="flex items-center justify-between px-1">
                         <div className="flex items-center gap-3">
                             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Active Doctors</h2>
@@ -979,7 +979,7 @@ function HelpdeskDashboard() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-2 h-[380px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-1 gap-2 flex-1 min-h-[400px] lg:h-[calc(100vh-270px)] overflow-y-auto pr-2 custom-scrollbar">
                         {doctorQueues.length > 0 ? doctorQueues.map((doc, idx) => (
                             <button
                                 key={idx}
@@ -1020,8 +1020,8 @@ function HelpdeskDashboard() {
                 </div>
 
                 {/* APPOINTMENT LIST (RIGHT SIDE) */}
-                <div className="lg:col-span-8 space-y-4">
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[425px]">
+                <div className="lg:col-span-8 space-y-4 flex flex-col">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col flex-1 min-h-[440px] lg:h-[calc(100vh-270px)]">
 
                         {/* TABS & SEARCH */}
                         <div className="p-2.5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/50">

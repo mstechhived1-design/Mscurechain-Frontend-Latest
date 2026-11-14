@@ -1,32 +1,47 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
-// Accurately determine product version from package.json (prevents Electron framework version 45.x leaking)
-let appVersion = '1.1.0';
-try {
-  const pkgPath = path.join(__dirname, 'package.json');
-  if (fs.existsSync(pkgPath)) {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    if (pkg.version) appVersion = pkg.version;
-  } else {
-    const asarPkg = path.join(process.resourcesPath || '', 'app.asar', 'package.json');
-    if (fs.existsSync(asarPkg)) {
-      const pkg = JSON.parse(fs.readFileSync(asarPkg, 'utf8'));
-      if (pkg.version) appVersion = pkg.version;
-    } else {
-      appVersion = app.getVersion();
+// Dynamically determine product version from package.json or Electron runtime (no static hardcoded version)
+function getDynamicAppVersion() {
+  try {
+    const pkgPath = path.join(__dirname, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+      if (pkg && pkg.version) return pkg.version;
     }
-  }
-} catch (e) {
-  appVersion = app.getVersion() || '1.1.0';
+  } catch (e) {}
+
+  try {
+    const candidatePaths = [
+      path.join(process.resourcesPath || '', 'app.asar', 'package.json'),
+      path.join(process.resourcesPath || '', 'app.asar.unpacked', 'package.json'),
+      path.join(process.resourcesPath || '', 'app', 'package.json'),
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        const pkg = JSON.parse(fs.readFileSync(p, 'utf8'));
+        if (pkg && pkg.version) return pkg.version;
+      }
+    }
+  } catch (e) {}
+
+  try {
+    if (app && typeof app.getVersion === 'function') {
+      const v = app.getVersion();
+      if (v && v !== '0.0.0') return v;
+    }
+  } catch (e) {}
+
+  return '1.0.0';
 }
 
 let nextProcess = null;
 let mainWindow = null;
+let savedZoomFactor = 1.0;
 
 function checkServerReady(port = 3000) {
   return new Promise((resolve) => {
@@ -121,30 +136,443 @@ function startNextServer() {
   }
 }
 
+function buildApplicationMenu() {
+  const isDev = !app.isPackaged;
+
+  const template = [
+    // 📁 File
+    {
+      label: '&File',
+      submenu: [
+        {
+          label: 'Quick Print',
+          accelerator: 'F1',
+          click: (item, focusedWindow) => {
+            if (focusedWindow) {
+              focusedWindow.webContents.executeJavaScript('window.print();').catch(() => {});
+            }
+          },
+        },
+        {
+          label: 'Clear Cache & Restart',
+          click: async (item, focusedWindow) => {
+            if (focusedWindow) {
+              try {
+                const session = focusedWindow.webContents.session;
+                await session.clearCache();
+                await session.clearStorageData();
+                focusedWindow.loadURL('http://localhost:3000');
+              } catch (e) {
+                focusedWindow.reload();
+              }
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Exit',
+          accelerator: 'Alt+F4',
+          click: () => {
+            app.quit();
+          },
+        },
+      ],
+    },
+
+    // ✂️ Edit
+    {
+      label: '&Edit',
+      submenu: [
+        { role: 'undo', label: 'Undo', accelerator: 'CmdOrCtrl+Z' },
+        { role: 'redo', label: 'Redo', accelerator: 'CmdOrCtrl+Y' },
+        { type: 'separator' },
+        { role: 'cut', label: 'Cut', accelerator: 'CmdOrCtrl+X' },
+        { role: 'copy', label: 'Copy', accelerator: 'CmdOrCtrl+C' },
+        { role: 'paste', label: 'Paste', accelerator: 'CmdOrCtrl+V' },
+        { role: 'delete', label: 'Delete' },
+        { type: 'separator' },
+        { role: 'selectAll', label: 'Select All', accelerator: 'CmdOrCtrl+A' },
+      ],
+    },
+
+    // 👁️ View
+    {
+      label: '&View',
+      submenu: [
+        {
+          label: 'Reload',
+          accelerator: 'CmdOrCtrl+R',
+          click: (item, focusedWindow) => {
+            if (focusedWindow) focusedWindow.reload();
+          },
+        },
+        {
+          label: 'Force Reload (Clear Cache)',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: async (item, focusedWindow) => {
+            if (focusedWindow) {
+              try {
+                await focusedWindow.webContents.session.clearCache();
+              } catch (e) {}
+              focusedWindow.webContents.reloadIgnoringCache();
+            }
+          },
+        },
+        ...(isDev
+          ? [
+              {
+                label: 'Toggle Developer Tools',
+                accelerator: 'F12',
+                click: (item, focusedWindow) => {
+                  if (focusedWindow) focusedWindow.webContents.toggleDevTools();
+                },
+              },
+            ]
+          : []),
+        { type: 'separator' },
+        {
+          label: 'Zoom In',
+          accelerator: 'CmdOrCtrl+=',
+          click: (item, focusedWindow) => {
+            if (focusedWindow) {
+              const current = focusedWindow.webContents.getZoomFactor();
+              savedZoomFactor = Math.min(2.0, Number((current + 0.1).toFixed(2)));
+              focusedWindow.webContents.setZoomFactor(savedZoomFactor);
+            }
+          },
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CmdOrCtrl+-',
+          click: (item, focusedWindow) => {
+            if (focusedWindow) {
+              const current = focusedWindow.webContents.getZoomFactor();
+              savedZoomFactor = Math.max(0.5, Number((current - 0.1).toFixed(2)));
+              focusedWindow.webContents.setZoomFactor(savedZoomFactor);
+            }
+          },
+        },
+        {
+          label: 'Reset Zoom',
+          accelerator: 'CmdOrCtrl+0',
+          click: (item, focusedWindow) => {
+            if (focusedWindow) {
+              savedZoomFactor = 1.0;
+              focusedWindow.webContents.setZoomFactor(1.0);
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Toggle Full Screen',
+          accelerator: 'F11',
+          click: (item, focusedWindow) => {
+            if (focusedWindow) {
+              focusedWindow.setFullScreen(!focusedWindow.isFullScreen());
+            }
+          },
+        },
+      ],
+    },
+
+    // 🪟 Window
+    {
+      label: '&Window',
+      submenu: [
+        {
+          label: 'Minimize',
+          accelerator: 'CmdOrCtrl+M',
+          click: (item, focusedWindow) => {
+            if (focusedWindow) focusedWindow.minimize();
+          },
+        },
+        {
+          label: 'Zoom',
+          click: (item, focusedWindow) => {
+            if (focusedWindow) {
+              if (focusedWindow.isMaximized()) {
+                focusedWindow.unmaximize();
+              } else {
+                focusedWindow.maximize();
+              }
+            }
+          },
+        },
+        {
+          label: 'Close',
+          accelerator: 'CmdOrCtrl+W',
+          click: (item, focusedWindow) => {
+            if (focusedWindow) focusedWindow.close();
+          },
+        },
+      ],
+    },
+
+    // ❓ Help
+    {
+      label: '&Help',
+      submenu: [
+        {
+          label: 'User Manual / Guide',
+          click: () => {
+            dialog.showMessageBox({
+              type: 'info',
+              title: 'MSCureChain Hospital Guide',
+              message: 'MSCureChain Clinical & Hospital Operations Guide',
+              detail: 'Comprehensive user guides, billing workflows, and pharmacy operations manual are available in your hospital administration portal.',
+            });
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Contact Support',
+          click: () => {
+            dialog.showMessageBox({
+              type: 'info',
+              title: 'MSCureChain Hospital Support',
+              message: 'Hospital Technical & IT Support',
+              detail: 'Email: support@mscurechain.com\nEmergency IT Desk: Contact Hospital Technical Administrator.\n\nOperational Hours: 24/7 Clinical Support.',
+            });
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Check for Updates',
+          click: () => {
+            if (app.isPackaged) {
+              autoUpdater.checkForUpdates().catch((err) => {
+                dialog.showMessageBox({
+                  type: 'error',
+                  title: 'Update Check',
+                  message: 'Unable to check for updates at this moment.',
+                  detail: err ? err.message : 'Please verify internet connectivity and retry.',
+                });
+              });
+            } else {
+              dialog.showMessageBox({
+                type: 'info',
+                title: 'Development Mode',
+                message: 'MSCureChain is running in developer mode.',
+                detail: 'Auto-updater is active only in packaged production releases.',
+              });
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'About MSCureChain',
+          click: () => {
+            const currentVer = getDynamicAppVersion();
+            dialog.showMessageBox({
+              type: 'info',
+              title: 'About MSCureChain',
+              message: `MSCureChain Hospital Management System (v${currentVer})`,
+              detail: `Enterprise Hospital & Clinical Workspace Solution.\n\nVersion: v${currentVer}\nArchitecture: Production Multi-Portal System\nCopyright © 2026 MSCureChain. All rights reserved.`,
+            });
+          },
+        },
+      ],
+    },
+  ];
+
+  return Menu.buildFromTemplate(template);
+}
+
+function injectFullscreenToolbar(win) {
+  if (!win || win.isDestroyed() || !win.isFullScreen()) return;
+
+  const script = `
+    (() => {
+      let existing = document.getElementById('mscurechain-fullscreen-bar');
+      if (existing) {
+        existing.remove();
+      }
+
+      const bar = document.createElement('div');
+      bar.id = 'mscurechain-fullscreen-bar';
+      bar.style.cssText = [
+        'position: fixed',
+        'top: 10px',
+        'left: 50%',
+        'transform: translate(-50%, 0)',
+        'z-index: 2147483647',
+        'display: flex',
+        'align-items: center',
+        'gap: 8px',
+        'background: rgba(15, 23, 42, 0.92)',
+        'backdrop-filter: blur(10px)',
+        '-webkit-backdrop-filter: blur(10px)',
+        'border: 1px solid rgba(255, 255, 255, 0.2)',
+        'color: #ffffff',
+        'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        'font-size: 11px',
+        'font-weight: 600',
+        'padding: 5px 14px',
+        'border-radius: 9999px',
+        'box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35)',
+        'user-select: none',
+        'cursor: pointer',
+        'transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        'opacity: 1',
+        'pointer-events: auto'
+      ].join(';');
+
+      bar.innerHTML = \`
+        <span style="color: #94a3b8;">Press <kbd style="background: rgba(255,255,255,0.15); padding: 1px 5px; border-radius: 4px; font-weight: 700; color: #fff; font-family: inherit; font-size: 10px;">Esc</kbd> to exit full screen</span>
+        <button id="msc-fs-btn-exit" style="
+          background: #0284c7;
+          border: none;
+          color: #ffffff;
+          font-family: inherit;
+          font-size: 10px;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          padding: 2px 8px;
+          border-radius: 9999px;
+          margin-left: 4px;
+          transition: background 0.15s ease;
+        ">
+          ✕ Exit
+        </button>
+      \`;
+
+      document.body.appendChild(bar);
+
+      const triggerExit = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        console.log('MSCURECHAIN_ACTION:EXIT_FULLSCREEN');
+      };
+
+      bar.onclick = triggerExit;
+
+      let isHovered = false;
+      bar.onmouseenter = () => { isHovered = true; };
+      bar.onmouseleave = () => { isHovered = false; };
+
+      // Auto fade out after 2.5 seconds
+      let fadeTimeout = setTimeout(() => {
+        if (!isHovered && bar) {
+          bar.style.opacity = '0';
+          bar.style.transform = 'translate(-50%, -120%)';
+          bar.style.pointerEvents = 'none';
+        }
+      }, 2500);
+
+      // Show on top-edge hover, hide when moving down
+      const onMouseMove = (e) => {
+        if (!bar) return;
+        if (e.clientY <= 30) {
+          clearTimeout(fadeTimeout);
+          bar.style.opacity = '1';
+          bar.style.transform = 'translate(-50%, 0)';
+          bar.style.pointerEvents = 'auto';
+        } else if (e.clientY > 70 && !isHovered) {
+          bar.style.opacity = '0';
+          bar.style.transform = 'translate(-50%, -120%)';
+          bar.style.pointerEvents = 'none';
+        }
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.__msc_fullscreen_cleanup = () => {
+        clearTimeout(fadeTimeout);
+        window.removeEventListener('mousemove', onMouseMove);
+        if (bar) bar.remove();
+      };
+    })();
+  `;
+
+  win.webContents.executeJavaScript(script).catch(() => {});
+}
+
+function removeFullscreenToolbar(win) {
+  if (!win || win.isDestroyed()) return;
+  const script = `
+    (() => {
+      if (window.__msc_fullscreen_cleanup) {
+        window.__msc_fullscreen_cleanup();
+      } else {
+        const el = document.getElementById('mscurechain-fullscreen-bar');
+        if (el) el.remove();
+      }
+    })();
+  `;
+  win.webContents.executeJavaScript(script).catch(() => {});
+}
+
 async function createWindow() {
   const iconPath = path.join(__dirname, 'public', 'assets', 'logo.png');
+  const currentVer = getDynamicAppVersion();
 
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: `MSCureChain - Modern Hospital Management System (v${appVersion})`,
+    title: `MSCureChain - Modern Hospital Management System (v${currentVer})`,
     icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
   });
 
   mainWindow.maximize();
-  Menu.setApplicationMenu(null);
+  const appMenu = buildApplicationMenu();
+  Menu.setApplicationMenu(appMenu);
+  mainWindow.setMenu(appMenu);
+
+  // Preserve zoom factor on navigation and support Ctrl+MouseWheel zoom & Fullscreen toolbar
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (savedZoomFactor !== 1.0) {
+      mainWindow.webContents.setZoomFactor(savedZoomFactor);
+    }
+    if (mainWindow.isFullScreen()) {
+      injectFullscreenToolbar(mainWindow);
+    }
+  });
+
+  mainWindow.on('enter-full-screen', () => {
+    injectFullscreenToolbar(mainWindow);
+  });
+
+  mainWindow.on('leave-full-screen', () => {
+    removeFullscreenToolbar(mainWindow);
+  });
+
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    const msg = typeof event === 'object' && event.message ? event.message : message || '';
+    if (typeof msg === 'string') {
+      if (msg.includes('MSCURECHAIN_ACTION:EXIT_FULLSCREEN')) {
+        mainWindow.setFullScreen(false);
+      } else if (msg.includes('MSCURECHAIN_ACTION:GO_BACK')) {
+        if (mainWindow.webContents.canGoBack()) {
+          mainWindow.webContents.goBack();
+        } else {
+          mainWindow.webContents.executeJavaScript('window.history.back();').catch(() => {});
+        }
+      }
+    }
+  });
+
+  mainWindow.webContents.on('zoom-changed', (event, zoomDirection) => {
+    const current = mainWindow.webContents.getZoomFactor();
+    if (zoomDirection === 'in') {
+      savedZoomFactor = Math.min(2.0, Number((current + 0.1).toFixed(2)));
+    } else {
+      savedZoomFactor = Math.max(0.5, Number((current - 0.1).toFixed(2)));
+    }
+    mainWindow.webContents.setZoomFactor(savedZoomFactor);
+  });
 
   // Keep version locked in title bar across navigation
   mainWindow.on('page-title-updated', (event) => {
     event.preventDefault();
-    mainWindow.setTitle(`MSCureChain - Modern Hospital Management System (v${appVersion})`);
+    mainWindow.setTitle(`MSCureChain - Modern Hospital Management System (v${getDynamicAppVersion()})`);
   });
 
   // Allow popup windows for clean document print preview
@@ -154,7 +582,7 @@ async function createWindow() {
       overrideBrowserWindowOptions: {
         width: 1100,
         height: 850,
-        title: `MSCureChain Document Viewer (v${appVersion})`,
+        title: `MSCureChain Document Viewer (v${getDynamicAppVersion()})`,
         autoHideMenuBar: true,
         webPreferences: {
           nodeIntegration: false,
@@ -335,7 +763,7 @@ async function createWindow() {
               <span id="progress-status">Starting hospital services...</span>
               <span id="progress-pct" style="color: #0284c7; font-weight: 700;">8%</span>
             </div>
-            <div class="version-sub">MSCureChain v${appVersion}</div>
+            <div class="version-sub">MSCureChain v${getDynamicAppVersion()}</div>
           </div>
           <script>
             let pct = 8;
@@ -407,13 +835,91 @@ async function createWindow() {
   // Load local Next.js frontend (which talks to Railway backend via .env)
   mainWindow.loadURL('http://localhost:3000');
 
-  // Register reload shortcuts
+  // Register system & counter shortcuts
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
-      mainWindow.webContents.toggleDevTools();
+    // Only allow DevTools in developer mode (!app.isPackaged). Block F12 in production.
+    if (!app.isPackaged) {
+      if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+        mainWindow.webContents.toggleDevTools();
+        return;
+      }
+    } else {
+      if (input.key === 'F12') {
+        event.preventDefault();
+        return;
+      }
     }
-    if (input.key === 'F5' || (input.control && input.key.toLowerCase() === 'r')) {
+
+    // F1 or Ctrl+P: Quick Print Current Invoice / Clinical Record
+    if (input.type === 'keyDown' && (input.key === 'F1' || (input.control && input.key.toLowerCase() === 'p'))) {
+      event.preventDefault();
+      mainWindow.webContents.executeJavaScript('window.print();').catch(() => {});
+      return;
+    }
+
+    // F5 or Ctrl+R: Reload
+    if (input.type === 'keyDown' && (input.key === 'F5' || (input.control && !input.shift && input.key.toLowerCase() === 'r'))) {
       mainWindow.reload();
+      return;
+    }
+
+    // Ctrl+Shift+R: Force Reload (Clear Cache)
+    if (input.type === 'keyDown' && input.control && input.shift && input.key.toLowerCase() === 'r') {
+      event.preventDefault();
+      mainWindow.webContents.session.clearCache().catch(() => {});
+      mainWindow.webContents.reloadIgnoringCache();
+      return;
+    }
+
+    // Escape key exits fullscreen
+    if (input.type === 'keyDown' && input.key === 'Escape') {
+      if (mainWindow && mainWindow.isFullScreen()) {
+        event.preventDefault();
+        mainWindow.setFullScreen(false);
+        return;
+      }
+    }
+
+    // F11 toggles fullscreen
+    if (input.type === 'keyDown' && input.key === 'F11') {
+      if (mainWindow) {
+        event.preventDefault();
+        mainWindow.setFullScreen(!mainWindow.isFullScreen());
+        return;
+      }
+    }
+
+    // Alt + Left Arrow: Go Back
+    if (input.type === 'keyDown' && input.alt && input.key === 'ArrowLeft') {
+      if (mainWindow) {
+        event.preventDefault();
+        if (mainWindow.webContents.canGoBack()) {
+          mainWindow.webContents.goBack();
+        }
+        return;
+      }
+    }
+
+    // Direct Zoom keys: Ctrl + '=' / '+', Ctrl + '-', Ctrl + '0'
+    if (input.type === 'keyDown' && input.control) {
+      if (input.key === '=' || input.key === '+') {
+        event.preventDefault();
+        savedZoomFactor = Math.min(2.0, Number((mainWindow.webContents.getZoomFactor() + 0.1).toFixed(2)));
+        mainWindow.webContents.setZoomFactor(savedZoomFactor);
+        return;
+      }
+      if (input.key === '-') {
+        event.preventDefault();
+        savedZoomFactor = Math.max(0.5, Number((mainWindow.webContents.getZoomFactor() - 0.1).toFixed(2)));
+        mainWindow.webContents.setZoomFactor(savedZoomFactor);
+        return;
+      }
+      if (input.key === '0') {
+        event.preventDefault();
+        savedZoomFactor = 1.0;
+        mainWindow.webContents.setZoomFactor(1.0);
+        return;
+      }
     }
   });
 
@@ -749,9 +1255,10 @@ function setupAutoUpdater() {
     debug: (...args) => logToFile('DEBUG', ...args),
   };
 
-  logToFile('INFO', `Initializing AutoUpdater for MSCureChain v${appVersion}`);
+  const currentVer = getDynamicAppVersion();
+  logToFile('INFO', `Initializing AutoUpdater for MSCureChain v${currentVer}`);
 
-  // Fix: Explicitly bind autoUpdater.currentVersion to appVersion (prevents Electron framework version 45.x comparison bug)
+  // Fix: Explicitly bind autoUpdater.currentVersion to runtime dynamic version (prevents Electron framework version 45.x comparison bug)
   try {
     let SemVer = null;
     try {
@@ -760,7 +1267,7 @@ function setupAutoUpdater() {
       SemVer = require('semver/classes/semver');
     }
     if (SemVer) {
-      autoUpdater.currentVersion = new SemVer(appVersion);
+      autoUpdater.currentVersion = new SemVer(currentVer);
       logToFile('INFO', `Bound autoUpdater.currentVersion to semver: ${autoUpdater.currentVersion.version}`);
     }
   } catch (e) {
