@@ -98,7 +98,7 @@ function SolutionsPage() {
 
             {/* Hero Section */}
             <header className="pt-32 pb-24 px-6 relative overflow-hidden bg-slate-50 dark:bg-slate-900/10">
-                <div className="absolute inset-0 bg-[url('/assets/grid.svg')] opacity-5 pointer-events-none" />
+                <div className="absolute inset-0 opacity-5 pointer-events-none" />
                 <div className="max-w-7xl mx-auto relative">
                     <div className="grid lg:grid-cols-2 gap-12 items-center">
                         <div className="space-y-8">

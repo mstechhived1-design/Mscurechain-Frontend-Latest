@@ -12,8 +12,8 @@ const inter = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.mscurechain.com'),
   title: {
-    default: "MSCureChain - Modern Hospital Management System",
-    template: "%s | MSCureChain"
+    default: "MS CureChain Portal",
+    template: "%s | MS CureChain Portal"
   },
   description: "Comprehensive digital healthcare platform providing seamless patient care, appointment booking, electronic health records, and integrated hospital management. Transform your healthcare experience with MSCureChain.",
   keywords: [

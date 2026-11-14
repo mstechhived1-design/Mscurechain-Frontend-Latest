@@ -164,14 +164,24 @@ const LoginForm = () => {
   const [fpLoading, setFpLoading] = useState(false);
   const [fpServerMsg, setFpServerMsg] = useState('');
 
+  // Stable input references to preserve focus across state changes
+  const identifierInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Check lockout whenever identifier changes ───────────────────────────────
+  // Check lockout on initial mount
   useEffect(() => {
     const secs = getLockoutSecsRemaining(form.identifier);
     if (secs > 0) {
       startCountdown(secs);
+    }
+  }, [startCountdown]);
+
+  // Check lockout when user leaves identifier field (on blur) to avoid typing focus drops
+  const checkLockoutOnBlur = useCallback(() => {
+    const secs = getLockoutSecsRemaining(form.identifier);
+    if (secs > 0) {
+      startCountdown(secs);
     } else {
-      // Clear any running timer if identifier changed to an unlocked one
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
         countdownRef.current = null;
@@ -217,6 +227,34 @@ const LoginForm = () => {
     }
   }, [isInitialized, isAuthenticated, user, isTabAuthorized, redirectPath, router, isNavigating, setDashboardName, setIsNavigating]);
 
+  // ── Input Focus Bridge (Android WebView Focus Preservation) ────────────────
+  const handleInputFocus = useCallback(() => {
+    if (typeof window !== 'undefined' && (window as any).AndroidNative?.setInputActive) {
+      (window as any).AndroidNative.setInputActive(true);
+    }
+  }, []);
+
+  const handleInputBlur = useCallback(() => {
+    if (typeof window !== 'undefined' && (window as any).AndroidNative?.setInputActive) {
+      (window as any).AndroidNative.setInputActive(false);
+    }
+  }, []);
+
+  // ── Password Visibility Toggle with Selection/Focus Preservation ───────────
+  const togglePasswordVisibility = useCallback(() => {
+    setShowPassword(prev => {
+      const next = !prev;
+      requestAnimationFrame(() => {
+        if (passwordInputRef.current) {
+          passwordInputRef.current.focus();
+          const len = passwordInputRef.current.value.length;
+          passwordInputRef.current.setSelectionRange(len, len);
+        }
+      });
+      return next;
+    });
+  }, []);
+
   // ── Validation ─────────────────────────────────────────────────────────────
   const validate = () => {
     const err: Record<string, string> = {};
@@ -228,19 +266,19 @@ const LoginForm = () => {
     return Object.keys(err).length === 0;
   };
 
-  // ── Input handlers ───────────────────────────────────────────────────────
+  // ── Input handlers (Smooth, uninterrupted typing) ─────────────────────────
   const handleIdentifierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (errors.identifier) setErrors({ ...errors, identifier: '' });
+    if (errors.identifier) setErrors(prev => ({ ...prev, identifier: '' }));
     if (serverMsg) setServerMsg('');
-    if (/^\d/.test(value)) setForm({ ...form, identifier: value.replace(/\D/g, '').slice(0, 10) });
-    else setForm({ ...form, identifier: value });
+    setForm(prev => ({ ...prev, identifier: value }));
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (errors.password) setErrors({ ...errors, password: '' });
+    const value = e.target.value;
+    if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
     if (serverMsg) setServerMsg('');
-    setForm({ ...form, password: e.target.value });
+    setForm(prev => ({ ...prev, password: value }));
   };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -412,7 +450,7 @@ const LoginForm = () => {
               <ArrowLeft size={18} />
             </div>
             <img src="/assets/logo.png" alt="Logo" className="w-6 h-6 object-contain" />
-            <span className="text-sm font-black tracking-tighter text-primary-theme uppercase">MSCureChain</span>
+            <span className="text-sm font-black tracking-tight text-primary-theme">MS CureChain Portal</span>
           </div>
 
           <button onClick={() => startTransition(() => router.push('/'))} className="hidden lg:flex absolute top-8 left-8 p-2 rounded-xl hover:bg-muted/10 text-muted items-center gap-2 text-xs font-bold">
@@ -437,13 +475,21 @@ const LoginForm = () => {
                     <div className={`group flex items-center bg-muted/5 border rounded-[0.4rem] px-4 py-3.5 sm:py-4 focus-within:border-primary-theme focus-within:bg-background ${errors.identifier ? 'border-red-500/50 bg-red-500/5' : 'border-border'}`}>
                       <UserIcon size={20} className={`mr-3 shrink-0 ${errors.identifier ? 'text-red-500' : 'text-muted group-focus-within:text-primary-theme'}`} />
                       <input
+                        ref={identifierInputRef}
                         id="user-identifier-input"
                         type="text"
                         className="w-full bg-transparent outline-none placeholder:text-muted/50 text-foreground font-medium text-sm"
                         placeholder="Mobile or Doctor ID"
                         value={form.identifier}
                         onChange={handleIdentifierChange}
-                        autoComplete="off"
+                        onFocus={handleInputFocus}
+                        onBlur={() => {
+                          handleInputBlur();
+                          checkLockoutOnBlur();
+                        }}
+                        autoComplete="username"
+                        data-lpignore="true"
+                        data-form-type="other"
                         autoCorrect="off"
                         autoCapitalize="off"
                         spellCheck={false}
@@ -464,20 +510,30 @@ const LoginForm = () => {
                         Forgot Password?
                       </button>
                     </div>
-                    <div className={`group flex items-center bg-muted/5 border-1 rounded-[0.4rem] px-4 py-3.5 sm:py-4 focus-within:border-primary-theme focus-within:bg-background relative ${errors.password ? 'border-red-500/50 bg-red-500/5' : 'border-border'}`}>
+                    <div className={`group flex items-center bg-muted/5 border rounded-[0.4rem] px-4 py-3.5 sm:py-4 focus-within:border-primary-theme focus-within:bg-background relative ${errors.password ? 'border-red-500/50 bg-red-500/5' : 'border-border'}`}>
                       <Lock size={20} className={`mr-3 shrink-0 ${errors.password ? 'text-red-500' : 'text-muted group-focus-within:text-primary-theme'}`} />
                       <input
+                        ref={passwordInputRef}
                         id="password-input"
+                        name="password"
                         type={showPassword ? "text" : "password"}
                         className="w-full bg-transparent outline-none placeholder:text-muted/50 text-foreground font-medium text-sm"
                         placeholder="Password or DOB (DDMMYYYY)"
                         value={form.password}
                         onChange={handlePasswordChange}
-                        autoComplete="new-password"
+                        onFocus={handleInputFocus}
+                        onBlur={handleInputBlur}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-form-type="other"
                         disabled={isLocked}
                         suppressHydrationWarning
                       />
-                      <button type="button" className="p-1 text-muted hover:text-foreground" onClick={() => setShowPassword(!showPassword)} suppressHydrationWarning>
+                      <button type="button" className="p-1 text-muted hover:text-foreground" onClick={togglePasswordVisibility} suppressHydrationWarning>
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>

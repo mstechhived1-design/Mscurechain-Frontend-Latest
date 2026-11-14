@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MS CureChain Portal</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #ffffff !important;
+      color: #0f172a;
+      color-scheme: light only;
+    }
+
+    .splash-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      background: #ffffff !important;
+      overflow: hidden;
+    }
+
+    /* Decorative subtle medical plus crosses */
+    .cross {
+      position: absolute;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.45;
+    }
+
+    .cross-1 {
+      top: 55px;
+      right: 48px;
+      width: 36px;
+      height: 36px;
+      fill: #bae6fd;
+    }
+
+    .cross-2 {
+      top: 105px;
+      right: 88px;
+      width: 20px;
+      height: 20px;
+      fill: #e0f2fe;
+    }
+
+    .cross-3 {
+      top: 310px;
+      left: 30px;
+      width: 26px;
+      height: 26px;
+      fill: #e0f2fe;
+    }
+
+    .cross-4 {
+      top: 355px;
+      left: 60px;
+      width: 18px;
+      height: 18px;
+      fill: #bae6fd;
+      opacity: 0.35;
+    }
+
+    /* Main center content area */
+    .center-content {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: auto;
+      margin-bottom: auto;
+      padding: 0 24px;
+    }
+
+    /* Centered Circular Multi-Color Rotating Ring with STATIC Logo */
+    .logo-outer-card {
+      position: relative;
+      width: 236px;
+      height: 236px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+
+    /* The multi-colored circular ring that rotates */
+    .rotating-color-circle {
+      position: absolute;
+      inset: 0px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #0284c7, #06b6d4, #10b981, #f59e0b, #ec4899, #8b5cf6, #0284c7);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px));
+      animation: spinMultiColor 3.2s linear infinite;
+    }
+
+    /* Inner white circular container keeping logo perfectly centered and static */
+    .logo-container {
+      position: relative;
+      width: 218px;
+      height: 218px;
+      border-radius: 50%;
+      background-color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(2, 132, 199, 0.08);
+      padding: 0;
+      overflow: hidden;
+    }
+
+    /* STATIC LOGO: Fits cleanly in circle without rotation, perfectly centered */
+    .static-logo {
+      width: 90%;
+      height: 90%;
+      object-fit: contain;
+      display: block;
+      margin: auto;
+      transform: none !important;
+      animation: none !important;
+    }
+
+    @keyframes spinMultiColor {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Title & Branding */
+    .app-title {
+      font-size: 29px;
+      font-weight: 900;
+      letter-spacing: -0.6px;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .title-dark {
+      color: #0f172a;
+    }
+
+    .title-blue {
+      color: #0284c7;
+      margin-left: 6px;
+    }
+
+    /* Tagline */
+    .tagline-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 34px;
+      width: 100%;
+    }
+
+    .tagline-line {
+      width: 32px;
+      height: 1.5px;
+      background-color: #cbd5e1;
+      border-radius: 1px;
+    }
+
+    .tagline-text {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #64748b;
+      letter-spacing: 0.1px;
+    }
+
+    /* Progress Section */
+    .progress-wrapper {
+      width: 86%;
+      max-width: 340px;
+      margin: 0 auto;
+    }
+
+    .progress-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .progress-track {
+      flex: 1;
+      height: 11px;
+      background-color: #e2e8f0;
+      border-radius: 9999px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0284c7 0%, #06b6d4 50%, #10b981 100%);
+      border-radius: 9999px;
+      transition: width 0.18s ease-out;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+    }
+
+    .progress-percent {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1e293b;
+      min-width: 44px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-msg {
+      font-size: 13px;
+      font-weight: 500;
+      color: #64748b;
+      text-align: center;
+      min-height: 20px;
+      transition: opacity 0.2s ease;
+    }
+
+    /* Bottom Hospital Illustration & Waves */
+    .bottom-section {
+      position: relative;
+      width: 100%;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      pointer-events: none;
+    }
+
+    .hospital-svg {
+      width: 100%;
+      max-width: 420px;
+      height: auto;
+      display: block;
+      margin-bottom: -1px;
+    }
+
+    .footer-waves {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-container">
+    <!-- Decorative subtle crosses -->
+    <svg class="cross cross-1" viewBox="0 0 24 24"><path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z"/></svg>
+    <svg class="cross cross-2" viewBox="0 0 24 24"><path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z"/></svg>
+    <svg class="cross cross-3" viewBox="0 0 24 24"><path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z"/></svg>
+    <svg class="cross cross-4" viewBox="0 0 24 24"><path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z"/></svg>
+
+    <!-- Main Center Content -->
+    <div class="center-content">
+      <!-- Centered Multi-Color Rotating Circle with Static Logo -->
+      <div class="logo-outer-card">
+        <div class="rotating-color-circle"></div>
+        <div class="logo-container">
+          <img src="public/assets/logo-centered.png" alt="MS CureChain" class="static-logo" onerror="this.src='public/assets/logo.png'" />
+        </div>
+      </div>
+
+      <!-- App Title -->
+      <h1 class="app-title">
+        <span class="title-dark">MS CureChain</span>
+        <span class="title-blue">Portal</span>
+      </h1>
+
+      <!-- Tagline -->
+      <div class="tagline-wrap">
+        <span class="tagline-line"></span>
+        <span class="tagline-text">Smart Healthcare. Better Tomorrow.</span>
+        <span class="tagline-line"></span>
+      </div>
+
+      <!-- Progress Section -->
+      <div class="progress-wrapper">
+        <div class="progress-bar-row">
+          <div class="progress-track">
+            <div id="progressBar" class="progress-fill" style="width: 12%;"></div>
+          </div>
+          <div id="progressPercent" class="progress-percent">12%</div>
+        </div>
+        <div id="statusText" class="status-msg">Getting things ready for you...</div>
+      </div>
+    </div>
+
+    <!-- Bottom Hospital Art & Waves -->
+    <div class="bottom-section">
+      <!-- Minimalist modern hospital clinic vector art with trees -->
+      <svg class="hospital-svg" viewBox="0 0 400 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Trees on left -->
+        <circle cx="34" cy="98" r="14" fill="#dbeafe" opacity="0.8"/>
+        <circle cx="48" cy="92" r="16" fill="#bfdbfe" opacity="0.8"/>
+        <rect x="45" y="102" width="5" height="18" fill="#93c5fd"/>
+
+        <!-- Trees on right -->
+        <circle cx="352" cy="92" r="16" fill="#bfdbfe" opacity="0.8"/>
+        <circle cx="366" cy="98" r="14" fill="#dbeafe" opacity="0.8"/>
+        <rect x="350" y="102" width="5" height="18" fill="#93c5fd"/>
+
+        <!-- Hospital Wing Left -->
+        <rect x="75" y="65" width="80" height="55" rx="3" fill="#eff6ff" stroke="#dbeafe" stroke-width="1.5"/>
+        <rect x="85" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="107" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="129" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="85" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="107" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="129" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+
+        <!-- Hospital Wing Right -->
+        <rect x="245" y="65" width="80" height="55" rx="3" fill="#eff6ff" stroke="#dbeafe" stroke-width="1.5"/>
+        <rect x="255" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="277" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="299" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="255" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="277" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+        <rect x="299" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+
+        <!-- Hospital Main Central Tower -->
+        <rect x="145" y="42" width="110" height="78" rx="4" fill="#f8fafc" stroke="#bfdbfe" stroke-width="1.5"/>
+        
+        <!-- Cross Banner on Center -->
+        <rect x="187" y="49" width="26" height="26" rx="4" fill="#ffffff" stroke="#93c5fd" stroke-width="1"/>
+        <path d="M197 54h6v5h5v6h-5v5h-6v-5h-5v-6h5v-5z" fill="#38bdf8"/>
+
+        <!-- Center Windows -->
+        <rect x="157" y="78" width="86" height="14" rx="2" fill="#93c5fd" opacity="0.85"/>
+        <line x1="185" y1="78" x2="185" y2="92" stroke="#ffffff" stroke-width="1.5"/>
+        <line x1="215" y1="78" x2="215" y2="92" stroke="#ffffff" stroke-width="1.5"/>
+
+        <!-- Entrance Door -->
+        <rect x="182" y="99" width="36" height="21" rx="2" fill="#bfdbfe" stroke="#93c5fd" stroke-width="1"/>
+        <line x1="200" y1="99" x2="200" y2="120" stroke="#ffffff" stroke-width="1.5"/>
+      </svg>
+
+      <!-- Soft cyan and teal layered curved waves at bottom -->
+      <svg class="footer-waves" viewBox="0 0 400 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0 24C120 42 260 8 400 28V48H0V24Z" fill="#38bdf8" opacity="0.35"/>
+        <path d="M0 32C100 16 280 44 400 18V48H0V32Z" fill="#06b6d4" opacity="0.5"/>
+        <path d="M0 38C150 22 270 42 400 30V48H0V38Z" fill="#10b981" opacity="0.45"/>
+      </svg>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      let progress = 10;
+      const bar = document.getElementById('progressBar');
+      const percent = document.getElementById('progressPercent');
+      const status = document.getElementById('statusText');
+
+      // Warm, user-friendly common language messages
+      const stages = [
+        { max: 25, text: "Getting things ready for you..." },
+        { max: 50, text: "Connecting securely to your hospital..." },
+        { max: 75, text: "Preparing your healthcare space..." },
+        { max: 92, text: "Almost ready to welcome you..." },
+        { max: 99, text: "Opening your healthcare portal..." },
+        { max: 100, text: "Welcome to MS CureChain Portal!" }
+      ];
+
+      function updateStatus(val) {
+        for (let i = 0; i < stages.length; i++) {
+          if (val <= stages[i].max) {
+            status.textContent = stages[i].text;
+            break;
+          }
+        }
+      }
+
+      // Smooth ~4.2 second animation timing with pleasant delay
+      const timer = setInterval(function() {
+        if (progress < 85) {
+          progress += (Math.random() * 1.1 + 0.9);
+        } else if (progress < 99) {
+          progress += 0.95;
+        } else {
+          progress = 100;
+        }
+
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(timer);
+          updateStatus(100);
+          bar.style.width = '100%';
+          percent.textContent = '100%';
+
+          // Smooth transition after completion
+          setTimeout(function() {
+            if (window.AndroidNative && window.AndroidNative.onSplashFinished) {
+              window.AndroidNative.onSplashFinished();
+            }
+          }, 450);
+          return;
+        }
+
+        const rounded = Math.floor(progress);
+        bar.style.width = rounded + '%';
+        percent.textContent = rounded + '%';
+        updateStatus(rounded);
+      }, 50);
+    })();
+  </script>
+</body>
+</html>

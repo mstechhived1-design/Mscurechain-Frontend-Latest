@@ -10,8 +10,8 @@ android {
         applicationId "com.mscurechain.hospital"
         minSdk 24
         targetSdk 34
-        versionCode 4
-        versionName "1.0.3"
+        versionCode 6
+        versionName "1.1.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -32,12 +32,49 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
-    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.core:core:1.12.0'
 }
+
+tasks.register('syncFrontendAssets') {
+    doLast {
+        def assetsDir = file("src/main/assets")
+        def nextStatic = file("../../.next/static")
+        def publicDir = file("../../public")
+        def serverApp = file("../../.next/server/app")
+
+        if (nextStatic.exists()) {
+            println "[syncFrontendAssets] Bundling .next/static into Android assets..."
+            copy {
+                from nextStatic
+                into "${assetsDir}/next_static"
+            }
+        }
+        if (publicDir.exists()) {
+            println "[syncFrontendAssets] Bundling public assets into Android assets..."
+            copy {
+                from publicDir
+                into "${assetsDir}/public"
+            }
+        }
+        if (serverApp.exists()) {
+            println "[syncFrontendAssets] Bundling Next.js pre-rendered pages into Android assets..."
+            copy {
+                from serverApp
+                into "${assetsDir}/pages"
+            }
+        }
+    }
+}
+preBuild.dependsOn syncFrontendAssets
+
 

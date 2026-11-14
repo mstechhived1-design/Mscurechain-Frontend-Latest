@@ -1,22 +1,31 @@
-let apiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "/api/proxy";
-
-// 🚀 Direct Railway Backend fallback for standalone native containers without local Next.js proxy
 const RAILWAY_BACKEND_URL = "https://mscurechain-backend-latest-production.up.railway.app/api";
+
+let apiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || RAILWAY_BACKEND_URL;
 
 if (typeof window !== "undefined") {
   const isLocalProtocol =
     window.location.protocol === "tauri:" ||
     window.location.protocol === "asset:" ||
-    window.location.protocol === "file:";
+    window.location.protocol === "file:" ||
+    window.location.hostname === "mscurechain.local" ||
+    window.location.hostname === "app.mscurechain.com" ||
+    Boolean((window as any).AndroidNative || (window as any).AndroidBridge || /MSCureChain|AndroidBridge/i.test(navigator.userAgent));
 
-  // Only fall back to direct Railway URL if running in an offline local protocol where /api/proxy is unavailable
+  // Directly connect to production Railway backend in native mobile APK & offline containers
   if (isLocalProtocol) {
     apiUrl = RAILWAY_BACKEND_URL;
   }
 }
 
 if (typeof window !== "undefined") {
-  if (apiUrl && apiUrl.startsWith("/")) {
+  const isLocalProtocol =
+    window.location.hostname === "app.mscurechain.com" ||
+    window.location.hostname === "mscurechain.local" ||
+    Boolean((window as any).AndroidNative || (window as any).AndroidBridge || /MSCureChain|AndroidBridge/i.test(navigator.userAgent));
+
+  if (isLocalProtocol) {
+    apiUrl = RAILWAY_BACKEND_URL;
+  } else if (apiUrl && apiUrl.startsWith("/")) {
     apiUrl = `${window.location.origin}${apiUrl}`;
   } else if (apiUrl && !/^https?:\/\//i.test(apiUrl)) {
     apiUrl = `https://${apiUrl}`;

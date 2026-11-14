@@ -47,6 +47,9 @@ next-env.d.ts
 conflicts.txt
 empty.txt
 check_markers.txt
+android/app/build/
+android/app/src/main/assets/next_static/
+android/app/src/main/assets/pages/
 
 # Merge conflict files
 merged_*.tsx
@@ -83,3 +86,5 @@ tmp/
 temp/
 *.tmp
 *.bak
+android/app/src/main/assets/next_static/
+android/app/src/main/assets/public/

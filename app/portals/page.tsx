@@ -168,7 +168,7 @@ function PortalsPage() {
 
             {/* Hero Section */}
             <header className="pt-32 pb-20 px-6 bg-muted/5 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/assets/grid.svg')] opacity-5 pointer-events-none" />
+                <div className="absolute inset-0 opacity-5 pointer-events-none" />
                 <div className="max-w-7xl mx-auto text-center space-y-8 relative">
 
                     <h1 className="text-5xl md:text-7xl font-black text-slate-900 leading-[1.1] tracking-tighter uppercase">

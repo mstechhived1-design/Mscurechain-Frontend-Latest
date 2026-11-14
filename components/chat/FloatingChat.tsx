@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 
@@ -6,10 +6,14 @@ import { MessageSquare, X } from 'lucide-react';
 import SelectionChat from './SelectionChat';
 
 import { usePathname } from 'next/navigation';
+import { isNativeContainer } from '@/lib/utils/auth-redirect';
 
 const FloatingChat = () => {
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname() as string;
+
+    // Disable floating chat inside native mobile APK / desktop container
+    if (typeof window !== 'undefined' && isNativeContainer()) return null;
 
     // Define allowed routes (Landing & Marketing pages only)
     const allowedRoutes = ['/about', '/features', '/pricing', '/solutions', '/portals'];

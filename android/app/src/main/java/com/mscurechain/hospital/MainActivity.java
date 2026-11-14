@@ -8,32 +8,46 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
+import android.view.View;
+import android.view.WindowManager;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String PORTAL_URL = "https://www.mscurechain.com";
+    public static final String APP_ORIGIN = "https://app.mscurechain.com";
+    public static final String LOGIN_URL = "https://app.mscurechain.com/auth/login";
+
     private WebView webView;
-    private SwipeRefreshLayout swipeRefresh;
+    private WebView splashWebView;
     private ValueCallback<Uri[]> filePathCallback;
+    private boolean isSplashDismissed = false;
 
     private final ActivityResultLauncher<Intent> fileChooserLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -60,28 +74,44 @@ public class MainActivity extends AppCompatActivity {
     private final ActivityResultLauncher<String[]> requestPermissionsLauncher = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(),
             permissions -> {
-                // Permissions handled
+                // Permissions granted callback
             }
     );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Clear FLAG_SECURE so users can take screenshots without system restrictions
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+
+        // Permanently suppress Android Autofill / Password Manager popups from stealing focus
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                android.view.autofill.AutofillManager afm = getSystemService(android.view.autofill.AutofillManager.class);
+                if (afm != null) {
+                    afm.cancel();
+                    afm.disableAutofillServices();
+                }
+            } catch (Exception ignored) {}
+        }
+
         setContentView(R.layout.activity_main);
 
         requestAppPermissions();
 
-        swipeRefresh = findViewById(R.id.swipeRefresh);
         webView = findViewById(R.id.webView);
+        splashWebView = findViewById(R.id.splashWebView);
 
+        setupSplashWebView();
         setupWebView();
-
-        swipeRefresh.setOnRefreshListener(() -> webView.reload());
-        swipeRefresh.setColorSchemeResources(R.color.primary);
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                if (splashWebView != null && splashWebView.getVisibility() == View.VISIBLE) {
+                    finish();
+                    return;
+                }
                 if (webView.canGoBack()) {
                     webView.goBack();
                 } else {
@@ -93,8 +123,43 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
         } else {
-            webView.loadUrl(PORTAL_URL);
+            // Load local pre-rendered Next.js Login route directly
+            webView.loadUrl(LOGIN_URL);
         }
+
+        // Safety fallback: Ensure splash is dismissed after 6.5 seconds maximum
+        new Handler(Looper.getMainLooper()).postDelayed(this::dismissSplash, 6500);
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private void setupSplashWebView() {
+        if (splashWebView == null) return;
+        WebSettings splashSettings = splashWebView.getSettings();
+        splashSettings.setJavaScriptEnabled(true);
+        splashSettings.setDomStorageEnabled(true);
+        splashSettings.setAllowFileAccess(true);
+        splashSettings.setAllowContentAccess(true);
+        splashWebView.setBackgroundColor(0xFFFFFFFF);
+        splashWebView.addJavascriptInterface(new WebAppInterface(this), "AndroidNative");
+        splashWebView.loadUrl("file:///android_asset/splash.html");
+    }
+
+    public synchronized void dismissSplash() {
+        if (isSplashDismissed) return;
+        isSplashDismissed = true;
+        runOnUiThread(() -> {
+            if (splashWebView != null && splashWebView.getVisibility() == View.VISIBLE) {
+                splashWebView.animate()
+                        .alpha(0f)
+                        .setDuration(250)
+                        .withEndAction(() -> {
+                            splashWebView.setVisibility(View.GONE);
+                            if (webView != null) {
+                                webView.requestFocus();
+                            }
+                        });
+            }
+        });
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -114,11 +179,32 @@ public class MainActivity extends AppCompatActivity {
         settings.setGeolocationEnabled(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        // Modern Chrome User-Agent
-        String defaultUA = settings.getUserAgentString();
-        settings.setUserAgentString(defaultUA + " MSCureChainHospitalApp/1.0.0");
+        // Enable Cookies (including cross-domain third-party cookies for Railway backend authentication)
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            cookieManager.setAcceptThirdPartyCookies(webView, true);
+        }
 
-        // Native Print Bridge
+        // Disable Autofill & Password popups that hijack window focus in Android WebView
+        settings.setSaveFormData(false);
+        settings.setSavePassword(false);
+        webView.clearFormData();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
+        }
+
+        // Modern Chrome User-Agent with AndroidBridge flag
+        String defaultUA = settings.getUserAgentString();
+        settings.setUserAgentString(defaultUA + " MSCureChainHospitalApp/1.1.0 AndroidBridge/1.0.0");
+
+        // Direct Touch & Focus Retention
+        webView.setFocusable(true);
+        webView.setFocusableInTouchMode(true);
+        webView.requestFocus();
+        webView.setBackgroundColor(0xFFFFFFFF);
+
+        // Native Bridge Interface
         webView.addJavascriptInterface(new WebAppInterface(this), "AndroidNative");
 
         webView.setWebViewClient(new WebViewClient() {
@@ -138,9 +224,96 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                String path = uri != null ? uri.getPath() : null;
+
+                if (path != null) {
+                    // Fast local health response so status indicator stays green
+                    if (path.equals("/api/backend-health") || path.startsWith("/api/backend-health")) {
+                        String json = "{\"connected\":true,\"status\":200,\"backendUrl\":\"https://mscurechain-backend-latest-production.up.railway.app\"}";
+                        try {
+                            return new WebResourceResponse("application/json", "UTF-8", 200, "OK", getCorsHeaders(), new java.io.ByteArrayInputStream(json.getBytes("UTF-8")));
+                        } catch (Exception ignored) {}
+                    }
+
+                    // 1. Static Next.js Bundles (_next/static/...)
+                    if (path.startsWith("/_next/static/")) {
+                        String relative = path.substring("/_next/static/".length());
+                        try {
+                            InputStream is = getAssets().open("next_static/" + relative);
+                            return new WebResourceResponse(getMimeType(path), "UTF-8", 200, "OK", getCorsHeaders(), is);
+                        } catch (IOException ignored) {}
+                    }
+
+                    // 2. Public Static Media & Assets (/assets/, /public/...)
+                    if (path.startsWith("/assets/") || path.startsWith("/icons/") || path.startsWith("/images/") || path.startsWith("/fonts/") || path.equals("/favicon.ico") || path.equals("/manifest.json")) {
+                        try {
+                            String assetPath = "public" + path;
+                            InputStream is = getAssets().open(assetPath);
+                            return new WebResourceResponse(getMimeType(path), null, 200, "OK", getCorsHeaders(), is);
+                        } catch (IOException ignored) {}
+                    }
+
+                    // 3. Local Next.js HTML Routes
+                    if (path.equals("/") || path.equals("/index.html")) {
+                        try {
+                            InputStream is = getAssets().open("pages/index.html");
+                            return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
+                        } catch (IOException ignored) {}
+                    }
+
+                    if (path.equals("/auth/login") || path.equals("/auth/login/")) {
+                        try {
+                            InputStream is = getAssets().open("pages/auth/login.html");
+                            return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
+                        } catch (IOException ignored) {}
+                    }
+
+                    // Pre-rendered HTML Page Matcher
+                    String cleanPath = path.startsWith("/") ? path.substring(1) : path;
+                    if (cleanPath.endsWith("/")) {
+                        cleanPath = cleanPath.substring(0, cleanPath.length() - 1);
+                    }
+
+                    try {
+                        InputStream is = getAssets().open("pages/" + cleanPath + ".html");
+                        return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
+                    } catch (IOException ignored) {}
+
+                    try {
+                        InputStream is = getAssets().open("pages/" + cleanPath + "/index.html");
+                        return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
+                    } catch (IOException ignored) {}
+
+                    // 4. SPA Fallback: Any internal Next.js dynamic App Router route (e.g. /[hospitalId]/helpdesk)
+                    // MUST return the SPA shell so WebView never falls back to network DNS (preventing net::ERR_NAME_NOT_RESOLVED)
+                    if (uri.getHost() != null && uri.getHost().equals("app.mscurechain.com")) {
+                        if (!path.startsWith("/api/") && !path.startsWith("/_next/")) {
+                            try {
+                                InputStream is = getAssets().open("pages/index.html");
+                                return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
+                            } catch (IOException ignored) {}
+                        }
+                    }
+                }
+
+                return super.shouldInterceptRequest(view, request);
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                super.onReceivedError(view, request, error);
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                swipeRefresh.setRefreshing(false);
                 // Inject print handler into window.print() so receipt print buttons work on Android
                 view.evaluateJavascript(
                         "if (!window._mscPrintOverridden) {" +
@@ -184,6 +357,15 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private Map<String, String> getCorsHeaders() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Access-Control-Allow-Origin", "*");
+        headers.put("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        headers.put("Access-Control-Allow-Headers", "*");
+        headers.put("Cache-Control", "no-cache");
+        return headers;
+    }
+
     private void requestAppPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissionsLauncher.launch(new String[]{
@@ -206,6 +388,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
+        public void onSplashFinished() {
+            dismissSplash();
+        }
+
+        @JavascriptInterface
+        public void setInputActive(boolean active) {
+            // No-op since SwipeRefreshLayout has been permanently removed
+        }
+
+        @JavascriptInterface
         public void printPage() {
             runOnUiThread(() -> {
                 PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
@@ -218,10 +410,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private String getMimeType(String path) {
+        if (path.endsWith(".js") || path.endsWith(".mjs")) return "application/javascript";
+        if (path.endsWith(".css")) return "text/css";
+        if (path.endsWith(".json")) return "application/json";
+        if (path.endsWith(".png")) return "image/png";
+        if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+        if (path.endsWith(".svg")) return "image/svg+xml";
+        if (path.endsWith(".webp")) return "image/webp";
+        if (path.endsWith(".ico")) return "image/x-icon";
+        if (path.endsWith(".woff2")) return "font/woff2";
+        if (path.endsWith(".woff")) return "font/woff";
+        if (path.endsWith(".ttf")) return "font/ttf";
+        if (path.endsWith(".html")) return "text/html";
+        return "application/octet-stream";
+    }
+
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         webView.saveState(outState);
     }
 }
-

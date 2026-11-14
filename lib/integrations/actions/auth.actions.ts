@@ -199,6 +199,33 @@ export async function syncSessionAction(
       secure: secureFlag,
       sameSite: 'lax',
     });
+    if (role) {
+      const rNorm = role.toLowerCase().replace(/-/g, '_');
+      cookieStore.set(`refreshToken_${rNorm}`, refreshToken, {
+        path: '/',
+        maxAge: REFRESH_TOKEN_MAX_AGE,
+        httpOnly: true,
+        secure: secureFlag,
+        sameSite: 'lax',
+      });
+      cookieStore.set(`refreshToken_${role.toLowerCase()}`, refreshToken, {
+        path: '/',
+        maxAge: REFRESH_TOKEN_MAX_AGE,
+        httpOnly: true,
+        secure: secureFlag,
+        sameSite: 'lax',
+      });
+    }
+  }
+
+  if (role) {
+    cookieStore.set('userRole', role.toLowerCase(), {
+      path: '/',
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+      httpOnly: false,
+      secure: secureFlag,
+      sameSite: 'lax',
+    });
   }
 
   if (csrfToken) {

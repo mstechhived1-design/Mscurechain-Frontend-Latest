@@ -385,6 +385,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } = response as any;
       const accessToken = _at || tokens?.accessToken;
       const csrfToken   = _csrf || tokens?.csrfToken;
+      const refreshToken = (response as any)?.refreshToken || tokens?.refreshToken;
       const sessionId   = _sid || tokens?.sessionId;
       if (!user) throw new Error("Authentication failed: No user data returned.");
 
@@ -399,7 +400,53 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (accessToken) {
         setAccessToken(accessToken);
-        // Cookies are now handled exclusively by the backend as HttpOnly (deterministic)
+        localStorage.setItem("accessToken", accessToken);
+
+        // ✅ Set browser cookies for Next.js middleware and immediate client-side requests
+        const accessExp = accessTokenExpiresIn || 1800;
+        const refreshExp = refreshTokenExpiresIn || 604800;
+        setCookie("accessToken", accessToken, accessExp);
+        if (userHospitalId) {
+          setCookie(`accessToken_${userHospitalId}`, accessToken, accessExp);
+        }
+        if (user.role) {
+          const roleNorm = user.role.toLowerCase().replace(/-/g, "_");
+          setCookie(`accessToken_${roleNorm}`, accessToken, accessExp);
+          setCookie(`accessToken_${user.role.toLowerCase()}`, accessToken, accessExp);
+          setCookie("userRole", user.role.toLowerCase(), refreshExp);
+
+          if (refreshToken) {
+            setCookie("refreshToken", refreshToken, refreshExp);
+            setCookie(`refreshToken_${roleNorm}`, refreshToken, refreshExp);
+            setCookie(`refreshToken_${user.role.toLowerCase()}`, refreshToken, refreshExp);
+          }
+        }
+        if (csrfToken) {
+          setCookie("csrf_token", csrfToken, refreshExp);
+          if (user.role) {
+            const roleNorm = user.role.toLowerCase().replace(/-/g, "_");
+            setCookie(`csrf_token_${roleNorm}`, csrfToken, refreshExp);
+          }
+          if (userHospitalId) {
+            setCookie(`csrf_token_${userHospitalId}`, csrfToken, refreshExp);
+          }
+        }
+
+        // ✅ SYNC TO NEXT.JS SERVER: Essential for Next.js Middleware on localhost & Vercel
+        try {
+          const { syncSessionAction } = await import("@/lib/integrations/actions/auth.actions");
+          await syncSessionAction(
+            accessToken,
+            refreshToken || "",
+            csrfToken || "",
+            accessTokenExpiresIn,
+            refreshTokenExpiresIn,
+            user.role?.toLowerCase()
+          );
+        } catch (syncErr) {
+          console.warn("[Auth] Login syncSessionAction soft-error:", syncErr);
+        }
+
         // ✅ FIX 3C: Schedule proactive refresh so user never hits a 401 mid-session
         scheduleProactiveRefresh(accessToken);
 
@@ -704,6 +751,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (!sessionToken) {
             sessionToken = getCookie("accessToken");
+        }
+        if (!sessionToken) {
+            sessionToken = localStorage.getItem("accessToken");
         }
     }
 

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from "react";
 import {
@@ -148,7 +148,7 @@ function FeaturesPage() {
 
                     {/* Secondary Highlight Section */}
                     <div className="mt-32 p-12 bg-slate-900 rounded-[0.5rem] relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-[url('/assets/grid.svg')] opacity-10 pointer-events-none" />
+                        <div className="absolute inset-0 opacity-10 pointer-events-none" />
                         <div className="absolute inset-0 bg-linear-to-br from-primary-theme/20 to-transparent opacity-0 group-hover:opacity-100" />
 
                         <div className="relative grid lg:grid-cols-2 gap-16 items-center">

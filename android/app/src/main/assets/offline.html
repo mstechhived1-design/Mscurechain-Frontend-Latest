@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MS CureChain Portal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #ffffff !important; color: #0f172a; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; text-align: center; }
+    .card { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 24px; padding: 40px 28px; max-width: 400px; width: 100%; box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.08); }
+    .logo-container { width: 130px; height: 130px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; padding: 12px; }
+    .logo-container img { width: 100%; height: 100%; object-fit: contain; }
+    h1 { font-size: 24px; font-weight: 900; margin-bottom: 8px; color: #0f172a; }
+    .portal-span { color: #0284c7; }
+    p { font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 24px; }
+    .btn { display: inline-block; width: 100%; background: linear-gradient(135deg, #0284c7, #10b981); color: white; padding: 14px 24px; border-radius: 14px; font-weight: 700; font-size: 14px; border: none; cursor: pointer; text-decoration: none; box-shadow: 0 8px 16px -4px rgba(2, 132, 199, 0.3); }
+    .btn:active { transform: scale(0.98); }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; background-color: #fee2e2; color: #dc2626; font-size: 11px; font-weight: 700; margin-bottom: 16px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-container">
+      <img src="public/assets/logo.png" alt="MS CureChain" onerror="this.src='next_static/media/logo.png'" />
+    </div>
+    <div class="status-badge">
+      <span class="status-dot"></span> Network Connection Needed
+    </div>
+    <h1>MS CureChain <span class="portal-span">Portal</span></h1>
+    <p>All core portal screens and tools are ready. Please connect to mobile data or Wi-Fi to sync live hospital records.</p>
+    <button class="btn" onclick="window.location.href='https://mscurechain.local/auth/login'">Retry Connection</button>
+  </div>
+</body>
+</html>

@@ -12,9 +12,8 @@ export const isNativeContainer = (): boolean => {
     (window as any).AndroidPrintBridge ||
     (window as any).AndroidBridge ||
     /MSCureChain|Tauri|AndroidBridge|Electron/i.test(navigator.userAgent) ||
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname === 'tauri.localhost'
+    window.location.hostname === 'tauri.localhost' ||
+    window.location.hostname === 'app.mscurechain.com'
   );
 };
 

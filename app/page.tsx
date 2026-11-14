@@ -55,27 +55,77 @@ export default function Home() {
     const audioRef = React.useRef<HTMLAudioElement>(null);
     const [progress, setProgress] = useState(0);
     const [showFloatingPlayer, setShowFloatingPlayer] = useState(true);
-    // pendingPath removed - redirect is stored in sessionStorage and handled by TermsSection
     const [hasAgreed, setHasAgreed] = useState(false);
     const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
     const [isMounted, setIsMounted] = useState(false);
+
+    // Dynamic splash screen state
+    const [splashProgress, setSplashProgress] = useState(12);
+    const [splashStatus, setSplashStatus] = useState('Getting things ready for you...');
 
     useEffect(() => {
         setIsMounted(true);
         const native = isNativeContainer();
         setIsNative(native);
+    }, []);
 
-        if (isInitialized) {
-            if (isAuthenticated && user) {
-                // If logged in (on any platform, desktop, app, or web), jump directly to staff dashboard!
-                const target = resolveUserDashboard(user);
-                router.replace(target);
-            } else if (native) {
-                // In .exe and .apk native containers, bypass landing page completely and go straight to login!
-                router.replace('/auth/login');
-            }
+    // Progress bar animation for native APK / splash screen
+    useEffect(() => {
+        if (!isNative) return;
+
+        const interval = setInterval(() => {
+            setSplashProgress((prev) => {
+                if (prev >= 90) {
+                    if (isInitialized) {
+                        return 100;
+                    }
+                    return 90;
+                }
+                const inc = Math.floor(Math.random() * 8) + 4;
+                return Math.min(prev + inc, 90);
+            });
+        }, 160);
+
+        return () => clearInterval(interval);
+    }, [isNative, isInitialized]);
+
+    // Update status text based on progress stage - Warm, user-friendly common language
+    useEffect(() => {
+        if (!isNative) return;
+        if (splashProgress < 25) {
+            setSplashStatus('Getting things ready for you...');
+        } else if (splashProgress < 50) {
+            setSplashStatus('Connecting securely to your hospital...');
+        } else if (splashProgress < 75) {
+            setSplashStatus('Preparing your healthcare space...');
+        } else if (splashProgress < 92) {
+            setSplashStatus('Almost ready to welcome you...');
+        } else if (splashProgress < 100) {
+            setSplashStatus('Opening your healthcare portal...');
+        } else {
+            setSplashStatus('Welcome to MS CureChain Portal!');
         }
-    }, [isInitialized, isAuthenticated, user, router]);
+    }, [splashProgress, isNative]);
+
+    // Once 100% and initialized, smoothly transition to login or dashboard
+    useEffect(() => {
+        if (!isNative) {
+            // WEB (Localhost & Deployed URLs): Always stay on Landing Page even if logged in
+            return;
+        }
+
+        if (splashProgress >= 100 && isInitialized) {
+            const timeout = setTimeout(() => {
+                if (isAuthenticated && user) {
+                    const target = resolveUserDashboard(user);
+                    router.replace(target);
+                } else {
+                    router.replace('/auth/login');
+                }
+            }, 350);
+            return () => clearTimeout(timeout);
+        }
+    }, [splashProgress, isInitialized, isAuthenticated, user, isNative, router]);
 
     // Custom smooth scroll with proportional duration (3500ms for full-page distance, scales down for shorter)
     const smoothScrollTo = (targetY: number) => {
@@ -217,17 +267,124 @@ export default function Home() {
         setProgress(parseFloat(e.target.value));
     };
 
-    if (isNative || (isMounted && isAuthenticated && user)) {
+    if (isNative) {
         return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center select-none" suppressHydrationWarning>
-                <div className="relative mb-6">
-                    <img src="/assets/logo.png" alt="MSCureChain" className="w-20 h-20 object-contain animate-pulse" />
+            <div className="fixed inset-0 z-[99999] bg-white flex flex-col justify-between items-center select-none overflow-hidden" style={{ backgroundColor: '#ffffff', colorScheme: 'light' }} suppressHydrationWarning>
+                {/* Decorative subtle medical plus crosses */}
+                <svg className="absolute top-12 right-10 w-9 h-9 text-sky-200/50 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z" />
+                </svg>
+                <svg className="absolute top-24 right-20 w-5 h-5 text-sky-100 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z" />
+                </svg>
+                <svg className="absolute top-72 left-6 w-7 h-7 text-sky-100 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z" />
+                </svg>
+                <svg className="absolute top-84 left-14 w-4 h-4 text-sky-200/40 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z" />
+                </svg>
+
+                {/* Center Content */}
+                <div className="relative z-10 w-full flex flex-col items-center my-auto px-6">
+                    {/* Centered Rotating Multi-Color Circle with STATIC Logo */}
+                    <div className="relative w-44 h-44 flex items-center justify-center mb-7">
+                        <div 
+                            className="absolute inset-0 rounded-full animate-[spin_3.2s_linear_infinite]"
+                            style={{
+                                background: 'conic-gradient(from 0deg, #0284c7, #06b6d4, #10b981, #f59e0b, #ec4899, #8b5cf6, #0284c7)',
+                                WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 5px), #fff calc(100% - 4px))',
+                                mask: 'radial-gradient(farthest-side, transparent calc(100% - 5px), #fff calc(100% - 4px))'
+                            }}
+                        />
+                        <div className="relative w-36 h-36 rounded-full bg-white flex items-center justify-center p-3 shadow-sm shadow-sky-500/10">
+                            <img 
+                                src="/assets/logo.png" 
+                                alt="MS CureChain Portal" 
+                                className="w-full h-full object-contain" 
+                            />
+                        </div>
+                    </div>
+
+                    {/* App Title */}
+                    <h1 className="text-3xl font-black tracking-tight text-center">
+                        <span className="text-slate-900">MS CureChain </span>
+                        <span className="text-sky-600">Portal</span>
+                    </h1>
+
+                    {/* Tagline */}
+                    <div className="flex items-center justify-center gap-3 my-3">
+                        <div className="w-8 h-[1.5px] bg-slate-300 rounded" />
+                        <span className="text-xs sm:text-sm font-semibold text-slate-500 tracking-wide">
+                            Smart Healthcare. Better Tomorrow.
+                        </span>
+                        <div className="w-8 h-[1.5px] bg-slate-300 rounded" />
+                    </div>
+
+                    {/* Progress Section */}
+                    <div className="w-full max-w-xs mt-3">
+                        <div className="flex items-center gap-3.5 mb-2.5">
+                            <div className="flex-1 h-2.5 bg-slate-200 rounded-full overflow-hidden shadow-inner">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-sky-600 via-cyan-500 to-emerald-500 rounded-full transition-all duration-200 ease-out shadow-sm shadow-emerald-500/30"
+                                    style={{ width: `${splashProgress}%` }}
+                                />
+                            </div>
+                            <span className="text-sm font-extrabold text-slate-800 min-w-9 text-right tabular-nums">
+                                {splashProgress}%
+                            </span>
+                        </div>
+                        <p className="text-xs font-medium text-slate-500 text-center min-h-5 transition-opacity">
+                            {splashStatus}
+                        </p>
+                    </div>
                 </div>
-                <h2 className="text-xl font-black text-white tracking-tight">MSCureChain Hospital System</h2>
-                <p className="text-[11px] font-bold text-teal-400 mt-2 uppercase tracking-widest flex items-center justify-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping"></span>
-                    Opening Portal Workspace...
-                </p>
+
+                {/* Bottom Hospital Graphic & Waves */}
+                <div className="relative w-full pointer-events-none flex flex-col items-center justify-end">
+                    <svg className="w-full max-w-md h-auto block -mb-0.5" viewBox="0 0 400 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="34" cy="98" r="14" fill="#dbeafe" opacity="0.8"/>
+                        <circle cx="48" cy="92" r="16" fill="#bfdbfe" opacity="0.8"/>
+                        <rect x="45" y="102" width="5" height="18" fill="#93c5fd"/>
+
+                        <circle cx="352" cy="92" r="16" fill="#bfdbfe" opacity="0.8"/>
+                        <circle cx="366" cy="98" r="14" fill="#dbeafe" opacity="0.8"/>
+                        <rect x="350" y="102" width="5" height="18" fill="#93c5fd"/>
+
+                        <rect x="75" y="65" width="80" height="55" rx="3" fill="#eff6ff" stroke="#dbeafe" strokeWidth="1.5"/>
+                        <rect x="85" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="107" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="129" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="85" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="107" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="129" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+
+                        <rect x="245" y="65" width="80" height="55" rx="3" fill="#eff6ff" stroke="#dbeafe" strokeWidth="1.5"/>
+                        <rect x="255" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="277" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="299" y="73" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="255" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="277" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+                        <rect x="299" y="92" width="16" height="12" rx="2" fill="#93c5fd" opacity="0.9"/>
+
+                        <rect x="145" y="42" width="110" height="78" rx="4" fill="#f8fafc" stroke="#bfdbfe" strokeWidth="1.5"/>
+                        
+                        <rect x="187" y="49" width="26" height="26" rx="4" fill="#ffffff" stroke="#93c5fd" strokeWidth="1"/>
+                        <path d="M197 54h6v5h5v6h-5v5h-6v-5h-5v-6h5v-5z" fill="#38bdf8"/>
+
+                        <rect x="157" y="78" width="86" height="14" rx="2" fill="#93c5fd" opacity="0.85"/>
+                        <line x1="185" y1="78" x2="185" y2="92" stroke="#ffffff" strokeWidth="1.5"/>
+                        <line x1="215" y1="78" x2="215" y2="92" stroke="#ffffff" strokeWidth="1.5"/>
+
+                        <rect x="182" y="99" width="36" height="21" rx="2" fill="#bfdbfe" stroke="#93c5fd" strokeWidth="1"/>
+                        <line x1="200" y1="99" x2="200" y2="120" stroke="#ffffff" strokeWidth="1.5"/>
+                    </svg>
+
+                    <svg className="w-full h-auto block" viewBox="0 0 400 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 24C120 42 260 8 400 28V48H0V24Z" fill="#38bdf8" opacity="0.35"/>
+                        <path d="M0 32C100 16 280 44 400 18V48H0V32Z" fill="#06b6d4" opacity="0.5"/>
+                        <path d="M0 38C150 22 270 42 400 30V48H0V38Z" fill="#10b981" opacity="0.45"/>
+                    </svg>
+                </div>
             </div>
         );
     }

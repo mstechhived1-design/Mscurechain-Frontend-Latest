@@ -7,7 +7,7 @@ import { ShieldCheck, Lock, Database, Server, FileKey, Eye } from 'lucide-react'
 export default function SecurityComplianceNew() {
     return (
         <section className="py-24 bg-slate-50 relative overflow-hidden">
-            <div className="absolute inset-0 bg-[url('/assets/grid-pattern.svg')] opacity-[0.03]" />
+            <div className="absolute inset-0 opacity-[0.03]" />
 
             <div className="max-w-7xl mx-auto px-6 relative z-10">
                 <ScrollReveal distance="30px">
