@@ -44,6 +44,7 @@ export interface PharmacyBillPayload {
   patientAddress?: string;
   mrn?: string;
   patientType?: string;
+  isIPD?: boolean;
   doctorName?: string;
   items: BillItem[];
   paymentSummary: PaymentSummary;

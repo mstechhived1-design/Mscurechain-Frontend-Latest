@@ -1,5 +1,6 @@
 ﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminService } from "../services/admin.service";
+import { hospitalAdminService } from "../services/hospitalAdmin.service";
 
 export const useHospitalAdminLeaves = () => {
   return useQuery({
@@ -26,5 +27,32 @@ export const useUpdateLeaveStatusAdmin = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hospital-admin", "leaves"] });
     },
+  });
+};
+
+export const useDoctorPharmaAudit = (
+  doctorId: string,
+  params?: {
+    range?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    patientType?: string;
+  },
+  enabled: boolean = true
+) => {
+  return useQuery({
+    queryKey: [
+      "doctor-pharma-audit",
+      doctorId,
+      params?.range,
+      params?.startDate,
+      params?.endDate,
+      params?.search,
+      params?.patientType,
+    ],
+    queryFn: () => hospitalAdminService.getDoctorPharmaAudit(doctorId, params),
+    enabled: !!doctorId && enabled,
+    staleTime: 30000,
   });
 };

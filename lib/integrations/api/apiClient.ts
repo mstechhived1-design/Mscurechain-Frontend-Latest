@@ -337,9 +337,11 @@ export async function apiClient<T>(
       (window as any).__TAURI_INTERNALS__ ||
       (window as any).AndroidPrintBridge ||
       (window as any).AndroidBridge ||
+      (window as any).AndroidNative ||
       /MSCureChain|Tauri|AndroidBridge|Electron/i.test(navigator.userAgent) ||
-      window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1' ||
+      window.location.protocol === 'tauri:' ||
+      window.location.protocol === 'asset:' ||
+      window.location.protocol === 'file:' ||
       window.location.hostname === 'tauri.localhost'
     );
     if (isNative) {

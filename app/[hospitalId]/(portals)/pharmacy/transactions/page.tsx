@@ -17,7 +17,13 @@ import {
     Filter,
     Pencil,
     CheckCircle2,
-    Loader2
+    Loader2,
+    ArrowLeftRight,
+    AlertTriangle,
+    ArrowRight,
+    ShieldAlert,
+    Building2,
+    Bed
 } from 'lucide-react';
 import { usePrintStore } from '@/stores/printStore';
 import { clearApiCache } from '@/lib/integrations/api/apiClient';
@@ -47,6 +53,7 @@ const TransactionsPage = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalBills, setTotalBills] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
+    const [patientTypeFilter, setPatientTypeFilter] = useState<'all' | 'opd' | 'ipd'>('all');
     const [paymentFilter, setPaymentFilter] = useState('All Methods');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -200,7 +207,8 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 searchTerm,
                 paymentFilter,
                 startDate,
-                endDate
+                endDate,
+                patientTypeFilter
             );
             setBills(data.bills);
             setTotalPages(data.totalPages);
@@ -212,7 +220,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
         } finally {
             setLoading(false);
         }
-    }, [searchTerm, paymentFilter, startDate, endDate]);
+    }, [searchTerm, paymentFilter, startDate, endDate, patientTypeFilter]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -224,6 +232,95 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     useEffect(() => {
         fetchBills(currentPage);
     }, [currentPage, fetchBills]);
+
+    // Transfer OPD <-> IPD State
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+    const [transferLoading, setTransferLoading] = useState(false);
+    const [transferSubmitting, setTransferSubmitting] = useState(false);
+    const [transferBill, setTransferBill] = useState<PharmacyBill | null>(null);
+    const [transferEligibility, setTransferEligibility] = useState<{
+        currentType: 'OPD' | 'IPD';
+        targetType: 'OPD' | 'IPD';
+        patientName: string;
+        customerPhone: string;
+        amount: number;
+        invoiceNo: string;
+        admissions: Array<{
+            _id: string;
+            admissionId: string;
+            status: string;
+            paymentStatus: string;
+            admissionDate: string;
+            dischargeDate?: string;
+            doctorName: string;
+            roomNo: string;
+        }>;
+        hasAdmissions: boolean;
+        consequences: string[];
+    } | null>(null);
+    const [selectedAdmissionId, setSelectedAdmissionId] = useState<string>('');
+
+    const handleOpenTransferModal = async (bill: PharmacyBill) => {
+        setTransferBill(bill);
+        setIsTransferModalOpen(true);
+        setTransferLoading(true);
+        setTransferEligibility(null);
+        setSelectedAdmissionId('');
+
+        try {
+            const res = await PharmacyBillingService.checkTransferEligibility(bill._id);
+            if (res && res.success) {
+                const target = res.currentType === 'OPD' ? 'IPD' : 'OPD';
+                setTransferEligibility({
+                    ...res,
+                    targetType: target,
+                });
+                if (res.admissions && res.admissions.length > 0) {
+                    setSelectedAdmissionId(res.admissions[0]._id);
+                }
+            } else {
+                toast.error(res?.message || 'Failed to check transfer eligibility');
+            }
+        } catch (err: any) {
+            console.error('Check transfer error:', err);
+            toast.error(err.message || 'Error checking transfer eligibility');
+        } finally {
+            setTransferLoading(false);
+        }
+    };
+
+    const handleExecuteTransfer = async () => {
+        if (!transferBill || !transferEligibility) return;
+
+        setTransferSubmitting(true);
+        try {
+            const res = await PharmacyBillingService.transferInvoiceType(transferBill._id, {
+                targetType: transferEligibility.targetType,
+                admissionId: selectedAdmissionId || undefined,
+            });
+
+            if (res && res.success) {
+                toast.success(res.message || `Transferred to ${transferEligibility.targetType}!`);
+                setIsTransferModalOpen(false);
+                clearApiCache();
+                fetchBills(currentPage);
+                if (selectedBill?._id === transferBill._id) {
+                    setSelectedBill(prev => prev ? {
+                        ...prev,
+                        patientType: transferEligibility.targetType,
+                        isIPD: transferEligibility.targetType === 'IPD',
+                    } : null);
+                }
+            } else {
+                toast.error(res?.message || 'Transfer failed');
+            }
+        } catch (err: any) {
+            console.error('Execute transfer error:', err);
+            toast.error(err.message || 'Failed to execute transfer');
+        } finally {
+            setTransferSubmitting(false);
+        }
+    };
 
     const onPrintClick = (bill: PharmacyBill) => {
         setBillToPrint(bill);
@@ -276,14 +373,14 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
         }
         setIsExporting(true);
         try {
-            const exportData = await PharmacyBillingService.getBills(1, 2000, searchTerm, paymentFilter, startDate, endDate);
+            const exportData = await PharmacyBillingService.getBills(1, 2000, searchTerm, paymentFilter, startDate, endDate, patientTypeFilter);
             const allBills = exportData.bills;
 
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Transactions');
 
             // 1. Transaction Report Heading
-            worksheet.mergeCells('A1:J1');
+            worksheet.mergeCells('A1:M1');
             const titleRow = worksheet.getRow(1);
             titleRow.getCell(1).value = 'PHARMACY TRANSACTION SUMMARY REPORT';
             titleRow.getCell(1).font = { size: 16, bold: true, name: 'Arial', color: { argb: '1E293B' } };
@@ -291,14 +388,14 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
             titleRow.height = 35;
 
             // 2. Hospital/Shop Name
-            worksheet.mergeCells('A2:J2');
+            worksheet.mergeCells('A2:M2');
             const hospitalRow = worksheet.getRow(2);
             hospitalRow.getCell(1).value = shopDetails.name;
             hospitalRow.getCell(1).font = { size: 12, bold: true, color: { argb: '475569' } };
             hospitalRow.getCell(1).alignment = { horizontal: 'center' };
 
             // 3. Date Range Info
-            worksheet.mergeCells('A3:J3');
+            worksheet.mergeCells('A3:M3');
             const dateRangeRow = worksheet.getRow(3);
             const dateText = (startDate || endDate)
                 ? `Period: ${startDate || ''} to ${endDate || ''}`
@@ -314,6 +411,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 { header: 'S.No', width: 8 },
                 { header: 'Date', width: 12 },
                 { header: 'Invoice ID', width: 15 },
+                { header: 'Type', width: 10 },
                 { header: 'Patient Name', width: 25 },
                 { header: 'Mobile', width: 15 },
                 { header: 'Payment Mode', width: 15 },
@@ -390,10 +488,13 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 const formattedDate = new Date(bill.createdAt).toLocaleDateString();
                 const formattedTime = new Date(bill.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+                const billType = (bill.isIPD || (bill.patientType && bill.patientType.toUpperCase().includes('IPD'))) ? 'IPD' : 'OPD';
+
                 const row = worksheet.addRow([
                     index + 1,
                     `${formattedDate} ${formattedTime}`,
                     bill.invoiceId,
+                    billType,
                     formatPatientDisplayName({ name: bill.patientName, honorific: (bill as any).honorific }, bill, true) || 'Walk-in',
                     bill.customerPhone || '-',
                     bill.paymentSummary.paymentMode?.toUpperCase() || 'CASH',
@@ -412,8 +513,8 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
 
                 // Style data cells
                 row.eachCell((cell, colNumber) => {
-                    if (colNumber <= 6 || colNumber === 11 || colNumber === 12) {
-                        cell.alignment = { horizontal: (colNumber === 4 || colNumber === 12) ? 'left' : 'center' };
+                    if (colNumber <= 7 || colNumber === 12 || colNumber === 13) {
+                        cell.alignment = { horizontal: (colNumber === 5 || colNumber === 13) ? 'left' : 'center' };
                     } else {
                         cell.alignment = { horizontal: 'right' };
                     }
@@ -583,6 +684,26 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                         )}
                     </div>
 
+                    {/* Patient Type Filter: ALL | OPD | IPD */}
+                    <div className="flex bg-gray-50 dark:bg-gray-800/50 p-1 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm shrink-0">
+                        {(['all', 'opd', 'ipd'] as const).map((type) => (
+                            <button
+                                key={type}
+                                onClick={() => {
+                                    setPatientTypeFilter(type);
+                                    setCurrentPage(1);
+                                }}
+                                className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all ${
+                                    patientTypeFilter === type
+                                        ? 'bg-teal-500 text-white shadow-sm'
+                                        : 'text-gray-500 hover:text-teal-600 hover:bg-white dark:hover:bg-gray-700'
+                                }`}
+                            >
+                                {type === 'all' ? 'All' : type.toUpperCase()}
+                            </button>
+                        ))}
+                    </div>
+
                     {/* Toggle Filters Button */}
                     <button
                         onClick={() => setShowFilters(!showFilters)}
@@ -713,19 +834,20 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                         <table className="w-full min-w-[1000px]">
                             <thead>
                                 <tr className="bg-gray-50 dark:bg-gray-700/30 border-b border-gray-100 dark:border-gray-700">
-                                    <th className="px-4 md:px-8 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Invoice ID</th>
-                                    <th className="px-4 md:px-8 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Date</th>
-                                    <th className="px-4 md:px-8 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Patient</th>
-                                    <th className="px-4 md:px-8 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Items</th>
-                                    <th className="px-4 md:px-8 py-4 md:py-5 text-right text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Amount</th>
-                                    <th className="px-4 md:px-8 py-4 md:py-5 text-center text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Status</th>
-                                    <th className="px-4 md:px-8 py-4 md:py-5 text-center text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest md:w-32">Actions</th>
+                                    <th className="px-4 md:px-6 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Invoice ID</th>
+                                    <th className="px-3 md:px-4 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Type</th>
+                                    <th className="px-4 md:px-6 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Date</th>
+                                    <th className="px-4 md:px-6 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Patient</th>
+                                    <th className="px-4 md:px-6 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Items</th>
+                                    <th className="px-4 md:px-6 py-4 md:py-5 text-right text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Amount</th>
+                                    <th className="px-4 md:px-6 py-4 md:py-5 text-center text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Status</th>
+                                    <th className="px-4 md:px-6 py-4 md:py-5 text-center text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest md:w-32">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                                 {bills.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-8 py-12 text-center">
+                                        <td colSpan={8} className="px-8 py-12 text-center">
                                             <div className="flex flex-col items-center gap-3 text-gray-400">
                                                 <FileText className="w-12 h-12 opacity-10" />
                                                 <p className="text-xs font-black uppercase tracking-widest">No Records Found</p>
@@ -756,7 +878,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
 
                                         return (
                                         <tr key={bill._id} className="group hover:bg-gray-50 dark:hover:bg-gray-700/20">
-                                            <td className="px-6 md:px-8 py-5">
+                                            <td className="px-4 md:px-6 py-5">
                                                 <div className="flex items-center gap-2">
                                                     <div className="p-2 bg-teal-50 dark:bg-teal-900/20 text-teal-600 rounded-xl">
                                                         <Hash size={14} />
@@ -764,7 +886,16 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                                     <span className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-tight">{bill.invoiceId}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 md:px-8 py-5">
+                                            <td className="px-3 md:px-4 py-5">
+                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm ${
+                                                    bill.isIPD || (bill.patientType && bill.patientType.toUpperCase().includes('IPD'))
+                                                        ? 'bg-blue-50 text-blue-600 border border-blue-100/50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30'
+                                                        : 'bg-emerald-50 text-emerald-600 border border-emerald-100/50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30'
+                                                }`}>
+                                                    {bill.isIPD || (bill.patientType && bill.patientType.toUpperCase().includes('IPD')) ? 'IPD' : 'OPD'}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 md:px-6 py-5">
                                                 <span className="font-bold text-xs text-gray-500 uppercase">{bill.createdAt ? new Date(bill.createdAt).toLocaleDateString() : '-'}</span>
                                                 <span className="block text-[10px] font-black text-gray-400">{bill.createdAt ? new Date(bill.createdAt).toLocaleTimeString() : ''}</span>
                                             </td>
@@ -819,10 +950,17 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                                 <div className="flex items-center justify-center gap-2">
                                                     <button
                                                         onClick={() => setSelectedBill(bill)}
-                                                        className="p-2 bg-teal-50 text-teal-600 rounded-xl hover:bg-teal-100"
+                                                        className="p-2 bg-teal-50 text-teal-600 rounded-xl hover:bg-teal-100 transition-colors"
                                                         title="View Invoice"
                                                     >
                                                         <Eye size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleOpenTransferModal(bill)}
+                                                        className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 transition-colors"
+                                                        title={`Transfer OPD ⇄ IPD (Current: ${bill.patientType === 'IPD' || (bill as any).isIPD ? 'IPD' : 'OPD'})`}
+                                                    >
+                                                        <ArrowLeftRight size={16} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -915,6 +1053,17 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                     >
                                         <Pencil size={13} />
                                         <span>Edit Patient</span>
+                                    </button>
+
+                                    {/* Transfer OPD <-> IPD Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => selectedBill && handleOpenTransferModal(selectedBill)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                                        title="Transfer Bill Type (OPD ⇄ IPD)"
+                                    >
+                                        <ArrowLeftRight size={13} />
+                                        <span>Transfer {selectedBill.patientType === 'IPD' || (selectedBill as any).isIPD ? 'to OPD' : 'to IPD'}</span>
                                     </button>
 
                                     {/* Print Now Button */}
@@ -1123,6 +1272,174 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Transfer OPD <-> IPD Modal */}
+            {isTransferModalOpen && (
+                <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-sm sm:max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4 animate-in fade-in zoom-in-95 duration-150">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400 rounded-lg">
+                                    <ArrowLeftRight size={15} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+                                        Transfer Bill: OPD ⇄ IPD
+                                    </h3>
+                                    <p className="text-[10px] text-slate-500">Syncs across all hospital portals</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => !transferSubmitting && setIsTransferModalOpen(false)}
+                                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-4 space-y-3.5">
+                            {transferLoading ? (
+                                <div className="py-8 flex flex-col items-center justify-center gap-2">
+                                    <Loader2 size={24} className="animate-spin text-indigo-600" />
+                                    <p className="text-[11px] font-bold text-slate-500">Checking admissions...</p>
+                                </div>
+                            ) : transferEligibility ? (
+                                <>
+                                    {/* Transfer Target Flow */}
+                                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                                        <div className="min-w-0 pr-2">
+                                            <div className="text-[11px] font-black text-slate-900 dark:text-white truncate">
+                                                {transferEligibility.invoiceNo}
+                                            </div>
+                                            <div className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
+                                                <span className="font-bold text-slate-800 dark:text-slate-200">
+                                                    {(transferEligibility.patientName && transferEligibility.patientName !== 'Patient' && transferEligibility.patientName !== 'IPD Patient')
+                                                        ? transferEligibility.patientName
+                                                        : (transferBill?.patientName || 'Patient')}
+                                                </span>
+                                                {' '}•{' '}
+                                                <span className="font-bold text-teal-600">₹{Math.round(transferEligibility.amount || transferBill?.paymentSummary?.grandTotal || 0).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                                transferEligibility.currentType === 'OPD'
+                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+                                            }`}>
+                                                {transferEligibility.currentType}
+                                            </span>
+                                            <ArrowRight size={13} className="text-slate-400 shrink-0" />
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ring-1 ${
+                                                transferEligibility.targetType === 'OPD'
+                                                    ? 'bg-blue-100 text-blue-800 ring-blue-500/30'
+                                                    : 'bg-purple-100 text-purple-800 ring-purple-500/30'
+                                            }`}>
+                                                {transferEligibility.targetType}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Admission Selection (When transferring OPD -> IPD) */}
+                                    {transferEligibility.targetType === 'IPD' && (
+                                        <div className="space-y-1.5">
+                                            <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1">
+                                                <Bed size={12} className="text-indigo-600" />
+                                                <span>Link Inpatient Admission (Optional):</span>
+                                            </label>
+
+                                            {transferEligibility.admissions && transferEligibility.admissions.length > 0 ? (
+                                                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                                    {transferEligibility.admissions.map((adm) => (
+                                                        <label
+                                                            key={adm._id}
+                                                            className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer text-[11px] transition-colors ${
+                                                                selectedAdmissionId === adm._id
+                                                                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-1 ring-indigo-600 font-bold'
+                                                                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-2 truncate">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="admissionChoice"
+                                                                    value={adm._id}
+                                                                    checked={selectedAdmissionId === adm._id}
+                                                                    onChange={() => setSelectedAdmissionId(adm._id)}
+                                                                    className="text-indigo-600 focus:ring-indigo-500 text-xs"
+                                                                />
+                                                                <span className="truncate">{adm.admissionId} • {adm.roomNo}</span>
+                                                            </div>
+                                                            <span className="text-[9px] uppercase px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-bold text-slate-600 shrink-0">
+                                                                {adm.status}
+                                                            </span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="p-2 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 rounded-lg text-[11px] text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                                                    <span>No active IPD admission. Will convert as Direct Inpatient bill.</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Multi-Portal Consequences List - Sleek & Compact */}
+                                    <div className="space-y-1.5">
+                                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                            <ShieldAlert size={12} className="text-amber-500" />
+                                            <span>Multi-Portal Impact:</span>
+                                        </div>
+                                        <div className="p-2.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-amber-950 dark:text-amber-300">
+                                            {transferEligibility.consequences.map((c, idx) => (
+                                                <div key={idx} className="flex items-start gap-1.5">
+                                                    <span className="text-amber-600 font-bold shrink-0">•</span>
+                                                    <span className="leading-tight">{c}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : null}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                            <button
+                                type="button"
+                                onClick={() => setIsTransferModalOpen(false)}
+                                className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors"
+                                disabled={transferSubmitting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleExecuteTransfer}
+                                disabled={transferSubmitting || transferLoading}
+                                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                                {transferSubmitting ? (
+                                    <>
+                                        <Loader2 size={13} className="animate-spin" />
+                                        <span>Transferring...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ArrowLeftRight size={13} />
+                                        <span>Confirm Transfer to {transferEligibility?.targetType || ''}</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

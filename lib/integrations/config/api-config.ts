@@ -1,100 +1,62 @@
 const RAILWAY_BACKEND_URL = "https://mscurechain-backend-latest-production.up.railway.app/api";
+const LOCAL_BACKEND_URL = "http://localhost:5003/api";
 
-let apiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || RAILWAY_BACKEND_URL;
-
-if (typeof window !== "undefined") {
-  const isLocalProtocol =
-    window.location.protocol === "tauri:" ||
-    window.location.protocol === "asset:" ||
-    window.location.protocol === "file:" ||
-    window.location.hostname === "mscurechain.local" ||
-    window.location.hostname === "app.mscurechain.com" ||
-    Boolean((window as any).AndroidNative || (window as any).AndroidBridge || /MSCureChain|AndroidBridge/i.test(navigator.userAgent));
-
-  // Directly connect to production Railway backend in native mobile APK & offline containers
-  if (isLocalProtocol) {
-    apiUrl = RAILWAY_BACKEND_URL;
+function getResolvedApiUrl(): string {
+  if (typeof window === "undefined") {
+    // Server-side (Node.js / SSR) fallback
+    return process.env.NEXT_PUBLIC_API_URL?.trim() || RAILWAY_BACKEND_URL;
   }
-}
 
-if (typeof window !== "undefined") {
-  const isLocalProtocol =
-    window.location.hostname === "app.mscurechain.com" ||
-    window.location.hostname === "mscurechain.local" ||
-    Boolean((window as any).AndroidNative || (window as any).AndroidBridge || /MSCureChain|AndroidBridge/i.test(navigator.userAgent));
+  const host = window.location.hostname;
+  const protocol = window.location.protocol;
+  const userAgent = navigator.userAgent || "";
 
-  if (isLocalProtocol) {
-    apiUrl = RAILWAY_BACKEND_URL;
-  } else if (apiUrl && apiUrl.startsWith("/")) {
-    apiUrl = `${window.location.origin}${apiUrl}`;
-  } else if (apiUrl && !/^https?:\/\//i.test(apiUrl)) {
-    apiUrl = `https://${apiUrl}`;
-  }
-} else {
-  // Server-side (Node.js / SSR) fallback
-  if (!apiUrl || apiUrl.startsWith("/")) {
-    apiUrl = RAILWAY_BACKEND_URL;
-  }
-}
-
-if (typeof window !== "undefined") {
-  const currentHost = window.location.hostname;
-  const currentPort = window.location.port;
-  
-  // 🌐 DYNAMIC NETWORK ADAPTER:
-  // Automatically rewrite the API_URL to match the current host.
-  // If hitting the internal Next.js proxy (/api/proxy), we also sync the port.
-  if (apiUrl) {
-    try {
-      const url = new URL(apiUrl);
-      if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
-        let modified = false;
-        if (url.hostname !== currentHost) {
-          url.hostname = currentHost;
-          modified = true;
-        }
-        // If it's hitting the Next.js proxy, the port must match the frontend
-        if (url.pathname.startsWith('/api/proxy')) {
-          if (url.port !== currentPort) {
-            url.port = currentPort || "";
-            modified = true;
-          }
-        }
-        
-        if (modified) {
-          console.warn(`[Config] 📶 Dynamically switching API from ${url.host} to ${url.hostname}:${url.port}`);
-          apiUrl = url.toString();
-        }
-      }
-    } catch (e) {
-      if (apiUrl.includes("localhost")) {
-        apiUrl = apiUrl.replace("localhost", currentHost);
-      }
-    }
-  }
-}
-
-if (!apiUrl && typeof window !== "undefined") {
-  console.error(
-    "[Config] NEXT_PUBLIC_API_URL is not set! API calls will fail. " +
-      "Set this env var and rebuild the app.",
+  // 1. Detect Native Android APK
+  const isAndroidApk = Boolean(
+    (window as any).AndroidNative ||
+    (window as any).AndroidBridge ||
+    (window as any).AndroidPrintBridge ||
+    /AndroidBridge|MSCureChain/i.test(userAgent) ||
+    protocol === "asset:" ||
+    protocol === "file:"
   );
+
+  // 2. Detect Desktop .EXE (Tauri / Electron)
+  const isDesktopExe = Boolean(
+    (window as any).__TAURI__ ||
+    (window as any).__TAURI_INTERNALS__ ||
+    /Tauri|Electron/i.test(userAgent) ||
+    protocol === "tauri:" ||
+    host === "tauri.localhost"
+  );
+
+  // 3. Detect Production Web Hosting (Vercel, Cloudflare, custom domain)
+  const isProductionWeb = Boolean(
+    host !== "localhost" &&
+    host !== "127.0.0.1" &&
+    !host.startsWith("192.168.") &&
+    !host.startsWith("10.")
+  );
+
+  // In .APK, .EXE, and production frontend web hosting, STRICTLY talk straight to the hosted Railway backend
+  if (isAndroidApk || isDesktopExe || isProductionWeb) {
+    return RAILWAY_BACKEND_URL;
+  }
+
+  // ONLY when running in local browser on localhost/127.0.0.1, talk dynamically to the local backend on port 5003
+  return `http://${host}:5003/api`;
 }
+
+export const apiUrl = getResolvedApiUrl();
 
 // ─── WS_URL Derivation ────────────────────────────────────────────────────────
-// Converts  https://host/api  →  wss://host
-//           http://host/api   →  ws://host
-// Using a proper protocol swap and stripping only a trailing /api segment.
 function deriveWsUrl(httpUrl: string): string {
   try {
     const url = new URL(httpUrl);
-    // Swap protocol: https → wss, http → ws
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    // Remove trailing /api path segment only
     url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/";
-    return url.toString().replace(/\/$/, ""); // strip trailing slash
+    return url.toString().replace(/\/$/, "");
   } catch {
-    // Fallback for non-URL strings (should not happen)
     return httpUrl
       .replace(/\/api\/?$/, "")
       .replace(/^https:/, "wss:")
@@ -103,8 +65,11 @@ function deriveWsUrl(httpUrl: string): string {
 }
 
 export const API_CONFIG = {
-  // NEXT_PUBLIC_* vars are baked in at build time — set them on the SERVER before building.
-  BASE_URL: apiUrl || "",
-  WS_URL: apiUrl ? deriveWsUrl(apiUrl) : "",
+  get BASE_URL(): string {
+    return getResolvedApiUrl();
+  },
+  get WS_URL(): string {
+    return deriveWsUrl(getResolvedApiUrl());
+  },
   TIMEOUT: 10000,
 };

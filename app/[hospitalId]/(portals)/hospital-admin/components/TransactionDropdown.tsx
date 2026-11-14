@@ -6,7 +6,8 @@ import {
     Pill,
     FlaskConical,
     ChevronDown,
-    Activity
+    Activity,
+    TrendingUp
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { useTenantLink } from "@/hooks/useTenantLink";
@@ -33,6 +34,14 @@ const TransactionDropdown: React.FC<TransactionDropdownProps> = ({ startTransiti
     }, []);
 
     const transactions = [
+        {
+            label: "Pharma Revenue & Profit",
+            shortLabel: "Pharma Audit",
+            path: "/hospital-admin/analytics/pharma-revenue",
+            icon: TrendingUp,
+            color: "text-emerald-600",
+            bg: "bg-emerald-50"
+        },
         {
             label: "Helpdesk Transaction",
             path: "/hospital-admin/transactions",
@@ -72,7 +81,7 @@ const TransactionDropdown: React.FC<TransactionDropdownProps> = ({ startTransiti
                 className="flex items-center gap-1.5 hover:bg-white hover:shadow-sm py-1.5 px-2 sm:px-4 rounded-xl transition-all group"
             >
                 <span className="text-xs font-black text-slate-700 uppercase tracking-wider hidden sm:block">
-                    {activeTransaction ? activeTransaction.label : "Transactions"}
+                    {activeTransaction ? ((activeTransaction as any).shortLabel || activeTransaction.label) : "Transactions"}
                 </span>
                 <ChevronDown
                     size={14}

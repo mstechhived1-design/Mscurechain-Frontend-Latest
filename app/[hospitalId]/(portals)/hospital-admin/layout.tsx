@@ -403,9 +403,14 @@ const HospitalAdminLayout = ({ children }: { children: React.ReactNode }) => {
           className="sticky top-0 z-30" // Sticky navbar
         />
 
-        <main key="hospital-admin-main-content" className="relative flex-1 p-2 md:p-6 mt-0 max-w-full overflow-x-hidden">
+        <main
+          key="hospital-admin-main-content"
+          className={`relative flex-1 ${
+            pathname?.includes('pharma-revenue') ? 'p-1 sm:p-2 md:p-3' : 'p-2 md:p-6'
+          } mt-0 max-w-full overflow-x-hidden`}
+        >
           <ProgressBar key="hospital-admin-progress-bar" isPending={isPending} color="#10b981" />
-          <div className="max-w-[1600px] mx-auto">
+          <div className={pathname?.includes('pharma-revenue') ? 'w-full' : 'max-w-[1600px] mx-auto'}>
             <React.Fragment key="hospital-admin-layout-children">
               {children}
             </React.Fragment>

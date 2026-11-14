@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { Search, ChevronDown, ChevronRight, Download, Activity, FlaskConical, Pill, Building2, Layers } from 'lucide-react';
 import { apiClient } from '@/lib/integrations/api/apiClient';
 import { HOSPITAL_ADMIN_ENDPOINTS } from '@/lib/integrations/config/endpoints';
@@ -16,6 +18,8 @@ interface EnhancedDoctorPerformanceProps {
 export const EnhancedDoctorPerformance: React.FC<EnhancedDoctorPerformanceProps> = ({ range, startDate, endDate, formatCurrency }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
+  const params = useParams();
+  const hospitalId = (params?.hospitalId as string) || '';
 
   const { data: doctors, isLoading } = useQuery({
     queryKey: ['hospital-doctor-performance-detailed', range, startDate, endDate],
@@ -67,28 +71,28 @@ export const EnhancedDoctorPerformance: React.FC<EnhancedDoctorPerformanceProps>
       sheet.mergeCells('A2:G2');
       const docRow = sheet.getRow(2);
       docRow.getCell(1).value = `Doctor: ${doc.name.toUpperCase()} (${doc.department})`;
-      docRow.getCell(1).font = { name: 'Calibri', size: 11, color: { argb: 'FF1A4B8C' } }; // slightly bluish
+      docRow.getCell(1).font = { name: 'Calibri', size: 11, color: { argb: 'FF1A4B8C' } };
       docRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
       docRow.height = 20;
 
       // 3. Report Date
       sheet.mergeCells('A3:G3');
       const dateRow = sheet.getRow(3);
-      const reportDate = new Date().toLocaleDateString('en-GB'); // DD/MM/YYYY
+      const reportDate = new Date().toLocaleDateString('en-GB');
       dateRow.getCell(1).value = `Report Date : ${reportDate}`;
       dateRow.getCell(1).font = { name: 'Calibri', size: 10, italic: true };
       dateRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
       dateRow.height = 18;
 
-      sheet.addRow([]); // Blank row 4
+      sheet.addRow([]);
 
       // 4. Headers
       const headers = ['S.No', 'Date & Time', 'Patient Name', 'Module Type', 'Details', 'Payment Mode', 'Total Amount'];
       const headerRow = sheet.addRow(headers);
       headerRow.height = 25;
       
-      headerRow.eachCell((cell, colNumber) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A2B4C' } }; // Dark blue from screenshot
+      headerRow.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A2B4C' } };
         cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.border = borderAll;
@@ -126,18 +130,17 @@ export const EnhancedDoctorPerformance: React.FC<EnhancedDoctorPerformanceProps>
       });
 
       // 6. Column Widths
-      sheet.getColumn(1).width = 8;  // S.No
-      sheet.getColumn(2).width = 20; // Date & Time
-      sheet.getColumn(3).width = 25; // Patient Name
-      sheet.getColumn(4).width = 15; // Module Type
-      sheet.getColumn(5).width = 30; // Details
-      sheet.getColumn(6).width = 15; // Payment Mode
-      sheet.getColumn(7).width = 18; // Total Amount
+      sheet.getColumn(1).width = 8;
+      sheet.getColumn(2).width = 20;
+      sheet.getColumn(3).width = 25;
+      sheet.getColumn(4).width = 15;
+      sheet.getColumn(5).width = 30;
+      sheet.getColumn(6).width = 15;
+      sheet.getColumn(7).width = 18;
 
-      // Enable AutoFilter for the data table (from Header Row 5 to end of data)
       sheet.autoFilter = `A5:G${transactions.length + 5}`;
 
-      // 7. Totals Row at the bottom of the table
+      // 7. Totals Row
       const totalRow = sheet.addRow(['', '', '', '', '', 'TOTALS:', totalAmount]);
       totalRow.height = 25;
       totalRow.eachCell((cell, colNumber) => {
@@ -157,7 +160,6 @@ export const EnhancedDoctorPerformance: React.FC<EnhancedDoctorPerformanceProps>
       sheet.addRow([]);
 
       // 8. Payment Mode Breakdown
-      const breakDownStartRow = sheet.rowCount + 1;
       const breakdownHeader = sheet.addRow(['', '', 'PAYMENT MODE BREAKDOWN']);
       breakdownHeader.getCell(3).font = { name: 'Calibri', size: 10, bold: true, underline: true };
 
@@ -170,7 +172,6 @@ export const EnhancedDoctorPerformance: React.FC<EnhancedDoctorPerformanceProps>
         r.getCell(4).font = { name: 'Calibri', size: 10, color: isDue ? { argb: 'FFDC2626' } : undefined, bold: isDue };
         r.getCell(4).alignment = { horizontal: 'right' };
         
-        // Add borders to the two cells
         r.getCell(3).border = borderAll;
         r.getCell(4).border = borderAll;
       };
@@ -203,24 +204,34 @@ export const EnhancedDoctorPerformance: React.FC<EnhancedDoctorPerformanceProps>
     }
   };
 
-
-
   return (
     <Card className="p-2 md:p-6 border-slate-200 shadow-sm flex flex-col h-full">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <div>
           <h3 className="text-sm md:text-lg font-bold text-slate-900">Doctor Performance</h3>
           <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5">Cross-Module Analytics</p>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
-          />
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Direct Link to Dedicated Pharma Revenue Page */}
+          <Link
+            href={`/${hospitalId}/hospital-admin/analytics/pharma-revenue?doctorId=all&range=${range}${startDate ? `&startDate=${startDate}` : ''}${endDate ? `&endDate=${endDate}` : ''}`}
+            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200 shrink-0"
+          >
+            <Pill size={12} className="text-emerald-600" />
+            <span>Pharma Revenue Audit</span>
+          </Link>
+
+          <div className="relative flex-1 sm:flex-none">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs focus:ring-1 focus:ring-indigo-500 outline-none w-full"
+            />
+          </div>
         </div>
       </div>
       
@@ -265,13 +276,25 @@ export const EnhancedDoctorPerformance: React.FC<EnhancedDoctorPerformanceProps>
                     <div className="px-4 pb-4 pt-2 border-t border-indigo-50 animate-in slide-in-from-top-2 duration-200">
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">Deep Dive Analytics</span>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); exportDoctorData(doc); }}
-                          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors border border-emerald-100"
-                        >
-                          <Download size={12} />
-                          Export Doctor Data
-                        </button>
+                        
+                        {/* Single Actions: Pharma Revenue Audit Page Link & Export */}
+                        <div className="flex items-center gap-2">
+                          <Link 
+                            href={`/${hospitalId}/hospital-admin/analytics/pharma-revenue?doctorId=${doc.doctorId}&range=${range}${startDate ? `&startDate=${startDate}` : ''}${endDate ? `&endDate=${endDate}` : ''}`}
+                            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200"
+                          >
+                            <Pill size={12} className="text-emerald-600" />
+                            Pharma Revenue Audit
+                          </Link>
+
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); exportDoctorData(doc); }}
+                            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+                          >
+                            <Download size={12} />
+                            Export Doctor Data
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">

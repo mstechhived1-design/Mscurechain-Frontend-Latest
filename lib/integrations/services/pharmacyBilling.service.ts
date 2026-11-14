@@ -19,7 +19,8 @@ const mapInvoiceToBill = (b: any): PharmacyBill => ({
   customerPhone: b.customerPhone || "-",
   doctorName: b.doctorName || "-",
   mrn: b.mrn,
-  patientType: b.patientType,
+  patientType: b.patientType || (b.isIPD ? "IPD" : "OPD"),
+  isIPD: b.isIPD || b.patientType === "IPD",
   patientAddress: b.patientAddress,
   items: (b.items || []).map((item: any) => ({
     productId: item.drug,
@@ -82,6 +83,7 @@ export const PharmacyBillingService = {
     paymentMode?: string,
     startDate?: string,
     endDate?: string,
+    patientType?: string,
   ): Promise<PharmacyBillsResponse> {
     let url = `${PHARMACY_ENDPOINTS.BILLS.BASE}?page=${page}&limit=${limit}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
@@ -94,6 +96,9 @@ export const PharmacyBillingService = {
     }
     if (endDate && endDate !== startDate) {
       url += `&endDate=${endDate}`;
+    }
+    if (patientType && patientType !== "all" && patientType !== "ALL") {
+      url += `&patientType=${patientType.toUpperCase()}`;
     }
 
     const response: any = await apiClient<any>(url, {
@@ -188,6 +193,54 @@ export const PharmacyBillingService = {
   ): Promise<{ success: boolean; message: string; data: any }> => {
     return apiClient<any>(`/pharmacy/invoices/${id}/patient`, {
       method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // ✅ Check transfer eligibility & cross-portal consequences
+  checkTransferEligibility: async (
+    id: string
+  ): Promise<{
+    success: boolean;
+    currentType: "OPD" | "IPD";
+    patientName: string;
+    customerPhone: string;
+    amount: number;
+    invoiceNo: string;
+    admissions: Array<{
+      _id: string;
+      admissionId: string;
+      status: string;
+      paymentStatus: string;
+      admissionDate: string;
+      dischargeDate?: string;
+      doctorName: string;
+      roomNo: string;
+    }>;
+    hasAdmissions: boolean;
+    consequences: string[];
+    message?: string;
+  }> => {
+    return apiClient<any>(`/pharmacy/invoices/${id}/check-transfer`, {
+      method: "GET",
+    });
+  },
+
+  // ✅ Execute transfer between OPD and IPD
+  transferInvoiceType: async (
+    id: string,
+    data: {
+      targetType: "OPD" | "IPD";
+      admissionId?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    bill?: any;
+    requiresAdmission?: boolean;
+  }> => {
+    return apiClient<any>(`/pharmacy/invoices/${id}/transfer-type`, {
+      method: "POST",
       body: JSON.stringify(data),
     });
   },

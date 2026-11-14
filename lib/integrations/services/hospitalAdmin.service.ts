@@ -905,4 +905,26 @@ export const hospitalAdminService = {
     apiClient<{ success: boolean; message: string; data: any[] }>(HOSPITAL_ADMIN_ENDPOINTS.RESET_CHARGES, {
       method: "POST",
     }),
+
+  getDoctorPharmaAudit: async (
+    doctorId: string,
+    params?: {
+      range?: string;
+      startDate?: string;
+      endDate?: string;
+      search?: string;
+      patientType?: string;
+    }
+  ) => {
+    const queryParams = new URLSearchParams();
+    if (params?.range) queryParams.append("range", params.range);
+    if (params?.startDate) queryParams.append("startDate", params.startDate);
+    if (params?.endDate) queryParams.append("endDate", params.endDate);
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.patientType) queryParams.append("patientType", params.patientType);
+
+    const base = HOSPITAL_ADMIN_ENDPOINTS.DOCTOR_PHARMA_AUDIT(doctorId);
+    const url = `${base}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+    return await apiClient<any>(url);
+  },
 };
