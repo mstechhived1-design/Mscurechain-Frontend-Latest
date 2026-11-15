@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/doctors/layout,_N_T_/admin/doctors/page,_N_T_/admin/doctors"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/924fa227d5f29e5d2aea9062ead7a039ed04696db6b1793142c946b67be26717/$/admin/doctors",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/doctors/page"
+    },
+    "isFallback": false
+  }
+}

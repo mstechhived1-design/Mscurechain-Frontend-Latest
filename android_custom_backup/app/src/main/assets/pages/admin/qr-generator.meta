@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/qr-generator/layout,_N_T_/admin/qr-generator/page,_N_T_/admin/qr-generator"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/7f10aca2609828cd7f47e7ab73d763aaaf8e08233840046e1f992617e9b34096/$/admin/qr-generator",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/qr-generator/page"
+    },
+    "isFallback": false
+  }
+}

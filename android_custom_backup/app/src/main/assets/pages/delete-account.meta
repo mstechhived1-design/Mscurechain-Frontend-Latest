@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/delete-account/layout,_N_T_/delete-account/page,_N_T_/delete-account"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/49485d17d10c97762c9cbd4c66915c15f2817adb40e3cf50da82f26363c9c7ca/$/delete-account",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/delete-account/page"
+    },
+    "isFallback": false
+  }
+}

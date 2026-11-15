@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/master-lab-tests/layout,_N_T_/admin/master-lab-tests/page,_N_T_/admin/master-lab-tests"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/2e5e1a1005bf43a51eab4af70ae90e8adccfca36b29de0f07bfec4a315f464ce/$/admin/master-lab-tests",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/master-lab-tests/page"
+    },
+    "isFallback": false
+  }
+}

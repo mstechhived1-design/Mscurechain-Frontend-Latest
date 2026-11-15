@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/create-hr/layout,_N_T_/admin/create-hr/page,_N_T_/admin/create-hr"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/51b884c0808f66906e09ad83521eca15c09cd7b67453279d73f9378081c23ad0/$/admin/create-hr",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/create-hr/page"
+    },
+    "isFallback": false
+  }
+}

@@ -23,7 +23,7 @@ import PrintReceiptPreviewModal from '@/components/common/PrintReceiptPreviewMod
 
 interface DoctorCharge { id: string; code?: string; date?: string; doctorName: string; specialization: string; rate: number; visits: number; amount?: number; }
 interface AdmissionCharge { id: string; code?: string; date?: string; chargeType: string; description: string; rate: number; days: number | string; amount?: number; }
-interface MedCharge { id: string; code?: string; date?: string; medicineName: string; rate: number; quantity: number; amount?: number; }
+interface MedCharge { id: string; code?: string; date?: string; medicineName: string; rate: number; quantity: number; amount?: number; prescriptionSource?: 'DOCTOR_DIGITAL' | 'DIRECT_PHARMACY'; }
 interface ServiceCharge { id: string; code?: string; date?: string; serviceName: string; rate: number; quantity: number | string; amount?: number; isMerged?: boolean; rawChargeId?: string; }
 interface DiagCharge { id: string; code?: string; date?: string; testName: string; rate: number; quantity: number; amount?: number; category?: 'investigation' | 'radiology'; }
 interface Payment { id: string; receiptNo: string; date: string; mode: string; status: string; amount: number; paymentDetails?: { cash?: number; upi?: number; card?: number; bankTransfer?: number; }; }
@@ -347,29 +347,35 @@ export const normalizeAdmission = (a: any, idx: number = 0): AdmissionCharge => 
 };
 
 export const normalizeMed = (m: any, idx: number = 0): MedCharge => {
-    let medicineName = cleanString(m?.medicineName || m?.name, 'Medicine');
-    let amount = Number(m?.amount !== undefined ? m?.amount : (Number(m?.rate || 0) * Number(m?.quantity || 1)));
+    let medicineName = cleanString(m?.medicineName || m?.itemName || m?.productName || m?.name, '');
     let quantity = Number(m?.quantity !== undefined && m?.quantity > 0 ? m.quantity : 1);
-    let rate = Number(m?.rate !== undefined ? m?.rate : (quantity > 0 ? amount / quantity : amount));
+    let rawAmount = Number(m?.amount !== undefined ? m?.amount : (Number(m?.rate || 0) * quantity));
+    let amount = Math.round(rawAmount * 100) / 100;
+    let rawRate = Number(m?.rate !== undefined ? m?.rate : (quantity > 0 ? amount / quantity : amount));
+    let rate = Math.round(rawRate * 100) / 100;
 
     const qtyMatch = medicineName.match(/\((?:Qty\/Days|Qty|Days):\s*([0-9.]+)\)/i);
     if (qtyMatch) {
         const parsedQty = parseFloat(qtyMatch[1]);
         if (!isNaN(parsedQty) && parsedQty > 0) {
             quantity = parsedQty;
-            rate = amount / parsedQty;
+            rate = Math.round((amount / parsedQty) * 100) / 100;
             medicineName = medicineName.replace(/\s*\((?:Qty\/Days|Qty|Days):\s*[0-9.]+\)/i, '').trim();
         }
     }
+
+    const hasDoctorOrder = Boolean(m?.orderId || (m?.notes && /PHARMA-\d+/i.test(m.notes)) || (m?.description && /PHARMA-\d+/i.test(m.description)) || (m?.description && m.description.toLowerCase().includes('order')));
+    const prescriptionSource = m?.prescriptionSource || (hasDoctorOrder ? 'DOCTOR_DIGITAL' : (m?.prescriptionSource === 'DIRECT_PHARMACY' ? 'DIRECT_PHARMACY' : undefined));
 
     return {
         id: m?.id || m?._id || uid(),
         code: cleanString(m?.code || m?.itemCode || (m?._id ? `MED${m._id.toString().slice(-6).toUpperCase()}` : `MED${idx + 1}`)),
         date: m?.date || m?.dateTime || m?.createdAt || '',
         medicineName,
-        rate: Math.round(rate * 100) / 100,
+        rate,
         quantity,
         amount,
+        prescriptionSource,
     };
 };
 
@@ -439,7 +445,7 @@ export const normalizePayment = (p: any, idx: number = 0): Payment => {
         date: p?.date || p?.createdAt || p?.dateTime || new Date().toISOString(),
         mode: p?.mode || p?.paymentMode || 'Cash',
         status: normStatus,
-        amount: Number(p?.amount || 0),
+        amount: Math.round(Number(p?.amount || 0) * 100) / 100,
         paymentDetails: p?.paymentDetails || undefined,
     };
 };
@@ -526,28 +532,38 @@ export const mapBillSummaryToState = (summary: any, targetAdmission: any) => {
 
         // Pharmacy
         if (['Pharmacy', 'Medicine'].includes(item.category)) {
+            const hasDoctorOrder = Boolean(item.orderId || (item.notes && /PHARMA-\d+/i.test(item.notes)) || (item.description && /PHARMA-\d+/i.test(item.description)) || (item.description && item.description.toLowerCase().includes('order')));
+            const resolvedSource = item.prescriptionSource || (hasDoctorOrder ? 'DOCTOR_DIGITAL' : 'DIRECT_PHARMACY');
+
             if (item.medicines && Array.isArray(item.medicines) && item.medicines.length > 0) {
                 item.medicines.forEach((med: any, mIdx: number) => {
-                    const medAmount = med.amount || (parseFloat(med.quantity || '1') * (med.rate || med.price || 0));
+                    const rawQty = parseFloat(med.quantity || '1') || 1;
+                    const rawRate = Number(med.rate || med.price || 0);
+                    const rawAmt = Number(med.amount !== undefined ? med.amount : (rawQty * rawRate));
+                    const medAmount = Math.round(rawAmt * 100) / 100;
+                    const medRate = rawRate ? Math.round(rawRate * 100) / 100 : Math.round((medAmount / rawQty) * 100) / 100;
                     mappedMeds.push({
                         id: uid(),
                         code: item._id ? `MED${item._id.toString().slice(-6).toUpperCase()}_${mIdx + 1}` : `MED${idx + 1}_${mIdx + 1}`,
                         date: med.date || med.createdAt || itemDate,
-                        medicineName: cleanString(med.medicineName || med.name, 'Medicine'),
-                        rate: med.rate || med.price || medAmount,
-                        quantity: med.quantity || 1,
+                        medicineName: cleanString(med.medicineName || med.name || med.itemName || med.productName, ''),
+                        rate: medRate,
+                        quantity: rawQty,
                         amount: medAmount,
+                        prescriptionSource: med.prescriptionSource || resolvedSource,
                     });
                 });
             } else {
+                const medAmount = Math.round(itemAmount * 100) / 100;
                 mappedMeds.push({
                     id: uid(),
                     code: item._id ? `MED${item._id.toString().slice(-6).toUpperCase()}` : `MED${idx + 1}`,
                     date: itemDate,
-                    medicineName: cleanString(item.description || item.name, 'Medicine'),
-                    rate: itemAmount,
+                    medicineName: cleanString(item.description || item.name || item.itemName || item.medicineName, ''),
+                    rate: medAmount,
                     quantity: 1,
-                    amount: itemAmount,
+                    amount: medAmount,
+                    prescriptionSource: resolvedSource,
                 });
             }
             return;
@@ -2617,11 +2633,28 @@ export default function TransactionReportsPage() {
                                     <tbody>
                                         {meds.map((m, i) => (
                                             <tr key={i}>
-                                                <td className="p-1"><input value={m.medicineName || ''} onChange={(e) => updM(i, 'medicineName', e.target.value)} className={tableInputClass} placeholder="Medicine Name" /></td>
+                                                <td className="p-1">
+                                                    <div className="flex flex-col gap-1">
+                                                        <input value={m.medicineName || ''} onChange={(e) => updM(i, 'medicineName', e.target.value)} className={tableInputClass} placeholder="Medicine Name" />
+                                                        {m.prescriptionSource && (
+                                                            <div className="flex items-center">
+                                                                {m.prescriptionSource === 'DOCTOR_DIGITAL' ? (
+                                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                                                                        🩺 Doctor Prescription
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
+                                                                        📝 Direct Pharmacy (Paper Slip)
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={m.date} fallback={admission?.admissionDate} onChange={(newDate) => updM(i, 'date', newDate)} /></td>
-                                                <td className="p-1"><input type="number" min={0} value={m.rate === 0 ? '' : m.rate} onChange={(e) => updM(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
-                                                <td className="p-1"><input type="number" min={0} value={m.quantity === 0 ? '' : m.quantity} onChange={(e) => updM(i, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
-                                                <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(m.amount != null ? m.amount : m.rate * m.quantity)}</td>
+                                                <td className="p-1"><input type="number" step="any" min={0} value={m.rate === 0 ? '' : Math.round(Number(m.rate) * 100) / 100} onChange={(e) => updM(i, 'rate', e.target.value === '' ? 0 : Math.round(Math.max(0, Number(e.target.value)) * 100) / 100)} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
+                                                <td className="p-1"><input type="number" step="any" min={0} value={m.quantity === 0 ? '' : m.quantity} onChange={(e) => updM(i, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
+                                                <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(m.amount != null ? Math.round(Number(m.amount) * 100) / 100 : Math.round(Number(m.rate) * Number(m.quantity) * 100) / 100)}</td>
                                                 <td className="p-1 text-right"><DelBtn onClick={() => setMeds(p => p.filter((_, j) => j !== i))} /></td>
                                             </tr>
                                         ))}

@@ -23,7 +23,10 @@ import {
     ArrowRight,
     ShieldAlert,
     Building2,
-    Bed
+    Bed,
+    User,
+    Users,
+    IndianRupee
 } from 'lucide-react';
 import { usePrintStore } from '@/stores/printStore';
 import { clearApiCache } from '@/lib/integrations/api/apiClient';
@@ -40,6 +43,7 @@ import { PharmacyTableSkeleton } from '@/components/ui/skeletons';
 import { useAuthStore } from '@/stores/authStore';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import FullInvoiceEditModal from '@/components/pharmacy/FullInvoiceEditModal';
 import { PharmacyDashboardService, PharmacyDashboardStats } from '@/lib/integrations/services/pharmacyDashboard.service';
 import { formatPatientNameWithPrefix, formatPatientDisplayName, getHospitalHonorificOptions, getHospitalHonorificItems, addHospitalCustomHonorific, cleanHonorificPrefix } from '@/lib/utils/name-utils';
 
@@ -53,6 +57,15 @@ const TransactionsPage = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalBills, setTotalBills] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm.trim());
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+    const [categoryFilter, setCategoryFilter] = useState<'hospital' | 'walkin'>('hospital');
     const [patientTypeFilter, setPatientTypeFilter] = useState<'all' | 'opd' | 'ipd'>('all');
     const [paymentFilter, setPaymentFilter] = useState('All Methods');
     const [startDate, setStartDate] = useState('');
@@ -65,6 +78,15 @@ const TransactionsPage = () => {
     const printRef = useRef<HTMLDivElement>(null);
     const modalPrintRef = useRef<HTMLDivElement>(null);
     const [isDownloading, setIsDownloading] = useState(false);
+
+    // Full Invoice & Medicines Edit Modal State
+    const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(false);
+    const [billToEdit, setBillToEdit] = useState<any>(null);
+
+    const handleOpenFullEditInvoice = (bill: any) => {
+        setBillToEdit(bill);
+        setIsFullEditModalOpen(true);
+    };
 
     // Edit Patient Data state
     const [isEditPatientOpen, setIsEditPatientOpen] = useState(false);
@@ -106,6 +128,7 @@ const TransactionsPage = () => {
             const res = await PharmacyBillingService.updateInvoicePatient(selectedBill._id, {
                 ...editForm,
                 honorific: cleanHon,
+                patientType: selectedBill.patientType || editForm.patientType,
             });
             if (res && res.success !== false) {
                 toast.success('Patient details updated on bill!');
@@ -116,7 +139,7 @@ const TransactionsPage = () => {
                     honorific: cleanHon,
                     customerPhone: editForm.customerPhone.trim() || '-',
                     patientAddress: editForm.patientAddress.trim(),
-                    patientType: editForm.patientType.trim(),
+                    patientType: selectedBill.patientType || editForm.patientType,
                     doctorName: editForm.doctorName.trim() || '-',
                     mrn: editForm.mrn.trim() || undefined,
                 };
@@ -168,6 +191,16 @@ const TransactionsPage = () => {
         const totalAmt = selectedBill.paymentSummary?.grandTotal ?? 0;
         const statusStr = selectedBill.paymentSummary?.status || 'PAID';
         const pMode = selectedBill.paymentSummary?.paymentMode || 'CASH';
+        const pDetails = selectedBill.paymentSummary?.paymentDetails || (selectedBill as any).paymentDetails;
+        let modeDisplay = String(pMode).toUpperCase();
+        if (modeDisplay.includes('MIXED') && pDetails) {
+            const parts = [
+                Number(pDetails.cash || 0) > 0 ? `Cash: ₹${Number(pDetails.cash).toLocaleString()}` : null,
+                Number(pDetails.upi || 0) > 0 ? `UPI: ₹${Number(pDetails.upi).toLocaleString()}` : null,
+                Number(pDetails.card || 0) > 0 ? `Card: ₹${Number(pDetails.card).toLocaleString()}` : null,
+            ].filter(Boolean);
+            if (parts.length > 0) modeDisplay += ` (${parts.join(', ')})`;
+        }
         const itemsCount = selectedBill.items?.length || 0;
 
         return `*${hospName.toUpperCase()}*
@@ -180,7 +213,7 @@ ${WA_DIVIDER}
 *Invoice No:* ${invId}
 *Invoice Date:* ${dateStr}
 *Medicines Dispensed:* ${itemsCount} Item(s)
-*Payment Mode:* ${String(pMode).toUpperCase()}
+*Payment Mode:* ${modeDisplay}
 *Total Amount:* ₹${totalAmt} (${String(statusStr).toUpperCase()})
 ${WA_DIVIDER}
 ${READ_MORE}
@@ -201,14 +234,18 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     const fetchBills = React.useCallback(async (page = 1) => {
         setLoading(true);
         try {
+            const effectivePatientType = categoryFilter === 'walkin'
+                ? 'WALKIN'
+                : (patientTypeFilter === 'all' ? 'HOSPITAL' : patientTypeFilter.toUpperCase());
+
             const data = await PharmacyBillingService.getBills(
                 page,
                 10,
-                searchTerm,
+                debouncedSearch,
                 paymentFilter,
                 startDate,
                 endDate,
-                patientTypeFilter
+                effectivePatientType
             );
             setBills(data.bills);
             setTotalPages(data.totalPages);
@@ -220,18 +257,19 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
         } finally {
             setLoading(false);
         }
-    }, [searchTerm, paymentFilter, startDate, endDate, patientTypeFilter]);
+    }, [debouncedSearch, paymentFilter, startDate, endDate, patientTypeFilter, categoryFilter]);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchBills(1);
-        }, 300);
-        return () => clearTimeout(timer);
+        setCurrentPage(1);
+        fetchBills(1);
     }, [fetchBills]);
 
-    useEffect(() => {
-        fetchBills(currentPage);
-    }, [currentPage, fetchBills]);
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
+            setCurrentPage(newPage);
+            fetchBills(newPage);
+        }
+    };
 
     // Transfer OPD <-> IPD State
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -373,7 +411,10 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
         }
         setIsExporting(true);
         try {
-            const exportData = await PharmacyBillingService.getBills(1, 2000, searchTerm, paymentFilter, startDate, endDate, patientTypeFilter);
+            const effectivePatientType = categoryFilter === 'walkin'
+                ? 'WALKIN'
+                : (patientTypeFilter === 'all' ? 'HOSPITAL' : patientTypeFilter.toUpperCase());
+            const exportData = await PharmacyBillingService.getBills(1, 2000, searchTerm, paymentFilter, startDate, endDate, effectivePatientType);
             const allBills = exportData.bills;
 
             const workbook = new ExcelJS.Workbook();
@@ -620,14 +661,43 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const data = await PharmacyDashboardService.getStats('today');
+                const range = (startDate || endDate) ? 'custom' : '1month';
+                const data = await PharmacyDashboardService.getStats(range, startDate, endDate);
                 setStats(data);
             } catch (error) {
                 console.error('Failed to fetch stats:', error);
             }
         };
         fetchStats();
-    }, []);
+    }, [startDate, endDate]);
+
+    // Compute live ledger revenue and items count from currently loaded bills
+    const ledgerRevenue = React.useMemo(() => {
+        return bills.reduce((sum, b) => {
+            const amt = b.paymentSummary?.paidAmount ?? b.paymentSummary?.grandTotal ?? 0;
+            return sum + Number(amt || 0);
+        }, 0);
+    }, [bills]);
+
+    const ledgerItemsCount = React.useMemo(() => {
+        return bills.reduce((sum, b) => {
+            const itemsCount = (b.items || []).reduce((iSum, itm) => iSum + Number(itm.qty || 1), 0);
+            return sum + (itemsCount || (b.items?.length || 0));
+        }, 0);
+    }, [bills]);
+
+    // Non-zero stats metrics: uses requested/period stats, with live fallback to active ledger
+    const statTxnCount = (stats?.requestedStats?.billCount ?? 0) > 0 
+        ? stats!.requestedStats.billCount 
+        : (totalBills || bills.length);
+
+    const statRevenue = (stats?.requestedStats?.revenue ?? 0) > 0 
+        ? Math.round(stats!.requestedStats.revenue) 
+        : (stats?.todayStats?.revenue && stats.todayStats.revenue > 0 ? Math.round(stats.todayStats.revenue) : Math.round(ledgerRevenue));
+
+    const statItemsSold = (stats?.requestedStats?.itemsSold ?? 0) > 0 
+        ? stats!.requestedStats.itemsSold 
+        : (stats?.todayStats?.itemsSold && stats.todayStats.itemsSold > 0 ? stats.todayStats.itemsSold : ledgerItemsCount);
 
 
 
@@ -637,7 +707,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
             {/* Unified Top Action Bar */}
             <div className="flex flex-col gap-2 mx-1">
                 {/* Main Action Row */}
-                <div className="bg-white dark:bg-gray-800 p-2 md:p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-wrap lg:flex-nowrap items-center gap-2 md:gap-3">
+                <div className="bg-white dark:bg-gray-800 p-2 md:p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-wrap items-center gap-2 md:gap-3">
                     
                     {/* Heading */}
                     <div className="shrink-0 flex flex-col justify-center min-w-max px-1">
@@ -645,133 +715,149 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                         <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider mt-0.5">Pharmacy Ledger</p>
                     </div>
 
-                    <div className="hidden lg:block h-6 w-px bg-gray-200 dark:bg-gray-700 shrink-0" />
+                    <div className="hidden sm:block h-6 w-px bg-gray-200 dark:bg-gray-700 shrink-0" />
 
-                    {/* Compact Stats */}
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
-                        <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-900 px-2 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
-                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Txn:</span>
-                            <span className="text-xs font-black text-gray-900 dark:text-white">{stats?.todayStats.billCount || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 bg-teal-50 dark:bg-teal-900/20 px-2 py-1.5 rounded-lg border border-teal-100 dark:border-teal-900/30">
-                            <span className="text-[9px] font-bold text-teal-600/70 uppercase tracking-wider">Rev:</span>
-                            <span className="text-xs font-black text-teal-700 dark:text-teal-400">
-                                ₹{Math.round(stats?.todayStats.revenue || 0).toLocaleString()}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 bg-purple-50 dark:bg-purple-900/20 px-2 py-1.5 rounded-lg border border-purple-100 dark:border-purple-900/30">
-                            <span className="text-[9px] font-bold text-purple-600/70 uppercase tracking-wider">Items:</span>
-                            <span className="text-xs font-black text-purple-700 dark:text-purple-400">{stats?.todayStats.itemsSold || 0}</span>
-                        </div>
-                    </div>
-
-                    <div className="hidden lg:block h-6 w-px bg-gray-200 dark:bg-gray-700 shrink-0" />
-
-                    {/* Search Bar - Flex 1 */}
-                    <div className="relative flex-1 min-w-[140px] md:min-w-[180px]">
+                    {/* Search Bar */}
+                    <div className="relative w-36 sm:w-48 md:w-56 shrink-0">
                         <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                         <input
                             type="text"
                             placeholder="Search patient, mobile..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    setDebouncedSearch(searchTerm.trim());
+                                }
+                            }}
                             className="w-full pl-8 pr-6 py-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-[10px] md:text-xs font-bold focus:ring-2 focus:ring-teal-500 outline-none dark:text-white"
                         />
                         {searchTerm && (
-                            <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            <button 
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setDebouncedSearch('');
+                                }} 
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
                                 <X className="w-3 h-3" />
                             </button>
                         )}
                     </div>
 
-                    {/* Patient Type Filter: ALL | OPD | IPD */}
-                    <div className="flex bg-gray-50 dark:bg-gray-800/50 p-1 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm shrink-0">
-                        {(['all', 'opd', 'ipd'] as const).map((type) => (
-                            <button
-                                key={type}
-                                onClick={() => {
-                                    setPatientTypeFilter(type);
-                                    setCurrentPage(1);
-                                }}
-                                className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all ${
-                                    patientTypeFilter === type
-                                        ? 'bg-teal-500 text-white shadow-sm'
-                                        : 'text-gray-500 hover:text-teal-600 hover:bg-white dark:hover:bg-gray-700'
-                                }`}
-                            >
-                                {type === 'all' ? 'All' : type.toUpperCase()}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Toggle Filters Button */}
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`flex items-center gap-1.5 px-2 md:px-3 py-1.5 rounded-lg border text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0 ${
-                            showFilters 
-                            ? 'bg-teal-50 text-teal-600 border-teal-200 dark:bg-teal-900/20 dark:border-teal-900/30' 
-                            : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600'
-                        }`}
-                        title="Toggle Filters"
-                    >
-                        <Filter size={14} />
-                        <span className="hidden sm:inline">{showFilters ? 'Hide Filters' : 'Filters'}</span>
-                    </button>
-
-                    {/* Filtered Total Count Badge */}
-                    <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 shrink-0">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Total:</span>
-                        <span className="text-[11px] md:text-xs font-black text-teal-600 dark:text-teal-400">{totalBills}</span>
-                    </div>
-
-                    {/* Pagination */}
-                    <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-1 py-1 shrink-0">
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
-                            className="p-0.5 text-gray-500 hover:text-teal-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Previous Page"
-                        >
-                            <ChevronLeft size={14} />
-                        </button>
-                        <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300 min-w-[28px] text-center">
-                            {currentPage}/{totalPages}
-                        </span>
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                            disabled={currentPage === totalPages}
-                            className="p-0.5 text-gray-500 hover:text-teal-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Next Page"
-                        >
-                            <ChevronLeft size={14} className="rotate-180" />
-                        </button>
-                    </div>
-
-                    {/* Actions: Title Toggle, Export & Refresh */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Category Filter: Hospital Patients vs Walk-in Patients */}
+                    <div className="flex bg-gray-100 dark:bg-gray-700/60 p-1 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm shrink-0 items-center gap-1">
                         <button
                             type="button"
-                            onClick={() => setShowHonorificInReceipts(!showHonorificInReceipts)}
-                            className={`px-2 py-1.5 rounded-lg border text-[10px] md:text-xs font-bold transition-colors ${
-                                showHonorificInReceipts
-                                    ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:border-teal-700 dark:text-teal-300'
-                                    : 'bg-gray-50 text-gray-400 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                            onClick={() => {
+                                setCategoryFilter('hospital');
+                                setCurrentPage(1);
+                            }}
+                            className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 md:py-1.5 rounded-md text-[10px] md:text-xs font-black uppercase tracking-wider transition-all ${
+                                categoryFilter === 'hospital'
+                                    ? 'bg-teal-600 text-white shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
                             }`}
-                            title={showHonorificInReceipts ? 'Patient Title/Honorific: Visible' : 'Patient Title/Honorific: Hidden'}
                         >
-                            Title: {showHonorificInReceipts ? 'ON' : 'OFF'}
+                            <User size={12} />
+                            <span>Hospital</span>
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCategoryFilter('walkin');
+                                setCurrentPage(1);
+                            }}
+                            className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 md:py-1.5 rounded-md text-[10px] md:text-xs font-black uppercase tracking-wider transition-all ${
+                                categoryFilter === 'walkin'
+                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                            }`}
+                        >
+                            <Users size={12} />
+                            <span>Walk-in</span>
+                        </button>
+                    </div>
+
+                    {/* Patient Type Filter: ALL | OPD | IPD (ONLY shown for Hospital Patients) */}
+                    {categoryFilter === 'hospital' && (
+                        <div className="flex bg-gray-50 dark:bg-gray-800/50 p-1 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm shrink-0">
+                            {(['all', 'opd', 'ipd'] as const).map((type) => (
+                                <button
+                                    key={type}
+                                    onClick={() => {
+                                        setPatientTypeFilter(type);
+                                        setCurrentPage(1);
+                                    }}
+                                    className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all ${
+                                        patientTypeFilter === type
+                                            ? 'bg-teal-500 text-white shadow-sm'
+                                            : 'text-gray-500 hover:text-teal-600 hover:bg-white dark:hover:bg-gray-700'
+                                    }`}
+                                >
+                                    {type === 'all' ? 'All' : type.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Right Hand Controls Cluster: Nothing is cropped */}
+                    <div className="ml-auto flex items-center gap-2 shrink-0">
+                        {/* Toggle Filters & Stats Button */}
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-lg border text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0 ${
+                                showFilters 
+                                ? 'bg-teal-50 text-teal-600 border-teal-200 dark:bg-teal-900/20 dark:border-teal-900/30' 
+                                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600'
+                            }`}
+                            title="Toggle Filters & Stats"
+                        >
+                            <Filter size={13} />
+                            <span>{showFilters ? 'Hide Filters' : 'Filters'}</span>
+                        </button>
+
+                        {/* Filtered Total Count Badge */}
+                        <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 shrink-0">
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Total:</span>
+                            <span className="text-[11px] md:text-xs font-black text-teal-600 dark:text-teal-400">{totalBills}</span>
+                        </div>
+
+                        {/* Pagination */}
+                        <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-1 py-1 shrink-0">
+                            <button
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                disabled={currentPage <= 1 || loading}
+                                className="p-0.5 text-gray-500 hover:text-teal-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Previous Page"
+                            >
+                                <ChevronLeft size={14} />
+                            </button>
+                            <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300 min-w-[28px] text-center">
+                                {currentPage}/{totalPages}
+                            </span>
+                            <button
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                disabled={currentPage >= totalPages || loading}
+                                className="p-0.5 text-gray-500 hover:text-teal-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Next Page"
+                            >
+                                <ChevronLeft size={14} className="rotate-180" />
+                            </button>
+                        </div>
+
+                        {/* Export & Refresh */}
                         <button
                             onClick={handleExportExcel}
                             disabled={isExporting}
-                            className="p-1.5 bg-teal-50 text-teal-600 border border-teal-100 rounded-lg hover:bg-teal-100 dark:bg-teal-900/20 dark:border-teal-900/30 transition-colors"
+                            className="p-1.5 bg-teal-50 text-teal-600 border border-teal-100 rounded-lg hover:bg-teal-100 dark:bg-teal-900/20 dark:border-teal-900/30 transition-colors shrink-0"
                             title="Export Excel"
                         >
                             <Download size={14} />
                         </button>
                         <button
                             onClick={() => { clearApiCache(); fetchBills(currentPage); }}
-                            className="p-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-500 hover:text-teal-600 transition-colors"
+                            className="p-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-500 hover:text-teal-600 transition-colors shrink-0"
                             title="Refresh"
                         >
                             <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
@@ -779,47 +865,115 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                     </div>
                 </div>
 
-                {/* Secondary Filters Row */}
+                {/* Secondary Filters & Insights Row */}
                 {showFilters && (
-                    <div className="bg-white dark:bg-gray-800 p-2 md:p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                        {/* Start Date & End Date */}
-                        <div className="flex items-center gap-1 shrink-0">
-                            <div className="relative">
-                                <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" />
-                                <input 
-                                    type="date" 
-                                    value={startDate} 
-                                    onChange={(e) => setStartDate(e.target.value)} 
-                                    className="w-28 md:w-32 pl-6 pr-1 py-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-[10px] md:text-xs font-bold focus:ring-2 focus:ring-teal-500 outline-none dark:text-white"
-                                />
+                    <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                        {/* Clear Insight Stat Cards */}
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5">
+                            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900/70 px-3 py-2 rounded-xl border border-gray-100 dark:border-gray-700">
+                                <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-lg">
+                                    <Hash size={14} />
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Total Txn</span>
+                                    <span className="text-xs md:text-sm font-black text-gray-900 dark:text-white">{statTxnCount}</span>
+                                </div>
                             </div>
-                            <span className="text-[10px] font-bold text-gray-400">-</span>
-                            <div className="relative">
-                                <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" />
-                                <input 
-                                    type="date" 
-                                    value={endDate} 
-                                    onChange={(e) => setEndDate(e.target.value)} 
-                                    className="w-28 md:w-32 pl-6 pr-1 py-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-[10px] md:text-xs font-bold focus:ring-2 focus:ring-teal-500 outline-none dark:text-white"
-                                />
+
+                            <div className="flex items-center gap-2 bg-teal-50/60 dark:bg-teal-950/30 px-3 py-2 rounded-xl border border-teal-100 dark:border-teal-900/40">
+                                <div className="p-1.5 bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 rounded-lg">
+                                    <IndianRupee size={14} />
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-bold text-teal-700/70 dark:text-teal-400 uppercase tracking-wider block">Revenue</span>
+                                    <span className="text-xs md:text-sm font-black text-teal-700 dark:text-teal-300">
+                                        ₹{statRevenue.toLocaleString('en-IN')}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 bg-purple-50/60 dark:bg-purple-950/30 px-3 py-2 rounded-xl border border-purple-100 dark:border-purple-900/40">
+                                <div className="p-1.5 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg">
+                                    <Package size={14} />
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-bold text-purple-700/70 dark:text-purple-400 uppercase tracking-wider block">Items Sold</span>
+                                    <span className="text-xs md:text-sm font-black text-purple-700 dark:text-purple-300">{statItemsSold}</span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Payment Filter */}
-                        <div className="shrink-0 relative">
-                            <select
-                                className="w-32 md:w-40 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-[10px] md:text-xs font-bold outline-none focus:ring-2 focus:ring-teal-500 dark:text-white cursor-pointer appearance-none"
-                                value={paymentFilter}
-                                onChange={e => setPaymentFilter(e.target.value)}
+                        {/* Filter Controls: Date Range, Payment Method & Title Toggle */}
+                        <div className="flex flex-wrap items-center gap-2.5">
+                            {/* Start Date & End Date cleanly framed and fully readable */}
+                            <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0">From</span>
+                                    <input 
+                                        type="date" 
+                                        value={startDate} 
+                                        onChange={(e) => setStartDate(e.target.value)} 
+                                        className="w-32 sm:w-36 bg-transparent text-xs font-bold focus:outline-none dark:text-white cursor-pointer"
+                                    />
+                                </div>
+                                <span className="text-xs font-bold text-gray-400 shrink-0">-</span>
+                                <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0">To</span>
+                                    <input 
+                                        type="date" 
+                                        value={endDate} 
+                                        onChange={(e) => setEndDate(e.target.value)} 
+                                        className="w-32 sm:w-36 bg-transparent text-xs font-bold focus:outline-none dark:text-white cursor-pointer"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Payment Filter */}
+                            <div className="relative">
+                                <select
+                                    className="w-36 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-500 dark:text-white cursor-pointer appearance-none"
+                                    value={paymentFilter}
+                                    onChange={e => setPaymentFilter(e.target.value)}
+                                >
+                                    <option>All Methods</option>
+                                    <option>Cash</option>
+                                    <option>Card</option>
+                                    <option>UPI</option>
+                                    <option>Mixed</option>
+                                    <option>Credit</option>
+                                </select>
+                                <ChevronLeft className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 -rotate-90 pointer-events-none" />
+                            </div>
+
+                            {/* Title Toggle in Row 2 */}
+                            <button
+                                type="button"
+                                onClick={() => setShowHonorificInReceipts(!showHonorificInReceipts)}
+                                className={`px-2.5 py-2 rounded-lg border text-xs font-bold transition-colors shrink-0 ${
+                                    showHonorificInReceipts
+                                        ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:border-teal-700 dark:text-teal-300'
+                                        : 'bg-gray-50 text-gray-400 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                                }`}
+                                title={showHonorificInReceipts ? 'Patient Title/Honorific: Visible on Receipt' : 'Patient Title/Honorific: Hidden'}
                             >
-                                <option>All Methods</option>
-                                <option>Cash</option>
-                                <option>Card</option>
-                                <option>UPI</option>
-                                <option>Mixed</option>
-                                <option>Credit</option>
-                            </select>
-                            <ChevronLeft className="w-3 h-3 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 -rotate-90 pointer-events-none" />
+                                Title: {showHonorificInReceipts ? 'ON' : 'OFF'}
+                            </button>
+
+                            {/* Reset Filters Button */}
+                            {(startDate || endDate || paymentFilter !== 'All Methods') && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setStartDate('');
+                                        setEndDate('');
+                                        setPaymentFilter('All Methods');
+                                    }}
+                                    className="px-2.5 py-2 text-xs font-bold text-rose-600 bg-rose-50 dark:bg-rose-900/20 rounded-lg hover:bg-rose-100 transition-colors shrink-0"
+                                    title="Reset active filters"
+                                >
+                                    Reset
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -835,7 +989,9 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             <thead>
                                 <tr className="bg-gray-50 dark:bg-gray-700/30 border-b border-gray-100 dark:border-gray-700">
                                     <th className="px-4 md:px-6 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Invoice ID</th>
-                                    <th className="px-3 md:px-4 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Type</th>
+                                    {categoryFilter !== 'walkin' && (
+                                        <th className="px-3 md:px-4 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Type</th>
+                                    )}
                                     <th className="px-4 md:px-6 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Date</th>
                                     <th className="px-4 md:px-6 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Patient</th>
                                     <th className="px-4 md:px-6 py-4 md:py-5 text-left text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest">Items</th>
@@ -847,7 +1003,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                             <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                                 {bills.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-8 py-12 text-center">
+                                        <td colSpan={categoryFilter === 'walkin' ? 7 : 8} className="px-8 py-12 text-center">
                                             <div className="flex flex-col items-center gap-3 text-gray-400">
                                                 <FileText className="w-12 h-12 opacity-10" />
                                                 <p className="text-xs font-black uppercase tracking-widest">No Records Found</p>
@@ -883,18 +1039,33 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                                     <div className="p-2 bg-teal-50 dark:bg-teal-900/20 text-teal-600 rounded-xl">
                                                         <Hash size={14} />
                                                     </div>
-                                                    <span className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-tight">{bill.invoiceId}</span>
+                                                    <div>
+                                                        <span className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-tight">{bill.invoiceId}</span>
+                                                        <div className="mt-0.5">
+                                                            {((bill as any).prescriptionSource === 'DOCTOR_DIGITAL' || bill.orderId || ((bill as any).notes && /PHARMA-\d+/i.test((bill as any).notes))) ? (
+                                                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[8px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                                                                    🩺 Doctor Presc.
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/40">
+                                                                    📝 Direct Slip
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="px-3 md:px-4 py-5">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm ${
-                                                    bill.isIPD || (bill.patientType && bill.patientType.toUpperCase().includes('IPD'))
-                                                        ? 'bg-blue-50 text-blue-600 border border-blue-100/50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30'
-                                                        : 'bg-emerald-50 text-emerald-600 border border-emerald-100/50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30'
-                                                }`}>
-                                                    {bill.isIPD || (bill.patientType && bill.patientType.toUpperCase().includes('IPD')) ? 'IPD' : 'OPD'}
-                                                </span>
-                                            </td>
+                                            {categoryFilter !== 'walkin' && (
+                                                <td className="px-3 md:px-4 py-5">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm ${
+                                                        bill.isIPD || (bill.patientType && bill.patientType.toUpperCase().includes('IPD'))
+                                                            ? 'bg-blue-50 text-blue-600 border border-blue-100/50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30'
+                                                            : 'bg-emerald-50 text-emerald-600 border border-emerald-100/50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30'
+                                                    }`}>
+                                                        {bill.isIPD || (bill.patientType && bill.patientType.toUpperCase().includes('IPD')) ? 'IPD' : 'OPD'}
+                                                    </span>
+                                                </td>
+                                            )}
                                             <td className="px-4 md:px-6 py-5">
                                                 <span className="font-bold text-xs text-gray-500 uppercase">{bill.createdAt ? new Date(bill.createdAt).toLocaleDateString() : '-'}</span>
                                                 <span className="block text-[10px] font-black text-gray-400">{bill.createdAt ? new Date(bill.createdAt).toLocaleTimeString() : ''}</span>
@@ -934,33 +1105,53 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                                 )}
                                             </td>
                                             <td className="px-6 md:px-8 py-5 text-center">
-                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${bill.paymentSummary?.status === 'Paid'
-                                                    ? 'bg-teal-50 text-teal-600 border border-teal-100 dark:bg-teal-900/20 dark:border-teal-900/30'
-                                                    : bill.paymentSummary?.status === 'Partial'
-                                                    ? 'bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/20 dark:border-blue-900/30'
-                                                    : bill.paymentSummary?.status?.toUpperCase() === 'RETURN'
-                                                    ? 'bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/20 dark:border-red-900/30'
-                                                    : 'bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-900/20 dark:border-amber-900/30'
-                                                    }`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${bill.paymentSummary?.status === 'Paid' ? 'bg-teal-500' : bill.paymentSummary?.status === 'Partial' ? 'bg-blue-500' : bill.paymentSummary?.status?.toUpperCase() === 'RETURN' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                                                    {bill.paymentSummary?.status || 'PENDING'}
+                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${
+                                                    bill.paymentSummary?.status === 'CHARGED TO IPD' || (bill as any).status === 'CHARGED TO IPD'
+                                                        ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-300'
+                                                        : bill.paymentSummary?.status === 'Paid' || bill.paymentSummary?.status === 'PAID' || (bill as any).status === 'PAID'
+                                                        ? ((bill.paymentSummary?.paymentMode as any) === 'IPD SETTLED' || (bill as any).mode === 'IPD SETTLED'
+                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300'
+                                                            : 'bg-teal-50 text-teal-600 border border-teal-100 dark:bg-teal-900/20 dark:border-teal-900/30')
+                                                        : bill.paymentSummary?.status === 'Partial'
+                                                        ? 'bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/20 dark:border-blue-900/30'
+                                                        : bill.paymentSummary?.status?.toUpperCase() === 'RETURN'
+                                                        ? 'bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/20 dark:border-red-900/30'
+                                                        : 'bg-rose-50 text-rose-600 border border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/30'
+                                                }`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                                        bill.paymentSummary?.status === 'CHARGED TO IPD' || (bill as any).status === 'CHARGED TO IPD'
+                                                            ? 'bg-amber-500'
+                                                            : bill.paymentSummary?.status === 'Paid' || bill.paymentSummary?.status === 'PAID' || (bill as any).status === 'PAID'
+                                                            ? 'bg-teal-500'
+                                                            : 'bg-rose-500'
+                                                    }`} />
+                                                    {bill.paymentSummary?.status === 'CHARGED TO IPD' || (bill as any).status === 'CHARGED TO IPD'
+                                                        ? 'CHARGED TO IPD'
+                                                        : (bill.paymentSummary?.status || (bill as any).status || 'PENDING')}
                                                 </span>
                                             </td>
                                             <td className="px-6 md:px-8 py-5 text-center">
-                                                <div className="flex items-center justify-center gap-2">
+                                                <div className="flex items-center justify-center gap-1.5">
                                                     <button
                                                         onClick={() => setSelectedBill(bill)}
                                                         className="p-2 bg-teal-50 text-teal-600 rounded-xl hover:bg-teal-100 transition-colors"
                                                         title="View Invoice"
                                                     >
-                                                        <Eye size={16} />
+                                                        <Eye size={15} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleOpenFullEditInvoice(bill)}
+                                                        className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 transition-colors"
+                                                        title="Edit Payment Mode, Status & Medicines"
+                                                    >
+                                                        <Pencil size={15} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleOpenTransferModal(bill)}
                                                         className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 transition-colors"
                                                         title={`Transfer OPD ⇄ IPD (Current: ${bill.patientType === 'IPD' || (bill as any).isIPD ? 'IPD' : 'OPD'})`}
                                                     >
-                                                        <ArrowLeftRight size={16} />
+                                                        <ArrowLeftRight size={15} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -1044,15 +1235,19 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                         />
                                     )}
 
-                                    {/* Edit Patient Button */}
+                                    {/* Edit Bill & Medicines Button */}
                                     <button
                                         type="button"
-                                        onClick={() => selectedBill && handleOpenEditPatient(selectedBill)}
+                                        onClick={() => {
+                                            if (selectedBill) {
+                                                handleOpenFullEditInvoice(selectedBill);
+                                            }
+                                        }}
                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
-                                        title="Edit Patient Details on Bill"
+                                        title="Edit Payment Mode, Status & Medicines on Bill"
                                     >
                                         <Pencil size={13} />
-                                        <span>Edit Patient</span>
+                                        <span>Edit Bill</span>
                                     </button>
 
                                     {/* Transfer OPD <-> IPD Button */}
@@ -1187,15 +1382,17 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                                        Patient Type
+                                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                                        <span>Patient Type</span>
+                                       
                                     </label>
                                     <input
                                         type="text"
                                         value={editForm.patientType}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, patientType: e.target.value }))}
-                                        placeholder="OPD / IPD / Walk-in"
-                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                        readOnly
+                                        disabled
+                                        title="Patient type is locked. Use the Transfer Patient action to move between OPD and IPD."
+                                        className="w-full border border-slate-200 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-xs font-bold text-slate-500 cursor-not-allowed select-none outline-none"
                                     />
                                 </div>
                             </div>
@@ -1210,7 +1407,7 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                                         type="text"
                                         value={editForm.doctorName}
                                         onChange={(e) => setEditForm(prev => ({ ...prev, doctorName: e.target.value }))}
-                                        placeholder="e.g. Dr. Ramesh or Self / Walk-in"
+                                        placeholder="e.g. Dr. Ramesh or Outside Doctor"
                                         className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none"
                                     />
                                 </div>
@@ -1443,6 +1640,24 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                     </div>
                 </div>
             )}
+
+            {/* Full Invoice & Medicines Edit Modal */}
+            <FullInvoiceEditModal
+                isOpen={isFullEditModalOpen}
+                onClose={() => {
+                    setIsFullEditModalOpen(false);
+                    setBillToEdit(null);
+                }}
+                bill={billToEdit}
+                hospitalId={hospitalId}
+                onSuccess={() => {
+                    clearApiCache();
+                    fetchBills(currentPage);
+                    if (selectedBill && billToEdit && (selectedBill._id === billToEdit._id || selectedBill.invoiceId === billToEdit.invoiceId)) {
+                        setSelectedBill(null);
+                    }
+                }}
+            />
         </div>
     );
 };

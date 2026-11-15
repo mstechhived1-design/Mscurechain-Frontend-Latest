@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/hr/layout,_N_T_/admin/hr/page,_N_T_/admin/hr"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/71a733d137d9b6c3150b1b27465775bb2246248994cc64fd401bf3ec7f95f518/$/admin/hr",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/hr/page"
+    },
+    "isFallback": false
+  }
+}

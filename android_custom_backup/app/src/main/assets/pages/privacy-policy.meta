@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/privacy-policy/layout,_N_T_/privacy-policy/page,_N_T_/privacy-policy"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/c30924ab8079d10c3401dbb5eaba114eb2b72390cdd173117572fa9f101807d6/$/privacy-policy",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/privacy-policy/page"
+    },
+    "isFallback": false
+  }
+}

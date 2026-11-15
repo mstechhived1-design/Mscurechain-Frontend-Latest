@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/pharmacy/layout,_N_T_/pharmacy/login/layout,_N_T_/pharmacy/login/page,_N_T_/pharmacy/login"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/a28eca08b376e0053d1643b95554fbb3d0987eade42d0b12d7c5aaca31b62002/$/pharmacy/login",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/pharmacy/login/page"
+    },
+    "isFallback": false
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/create-pharma/layout,_N_T_/admin/create-pharma/page,_N_T_/admin/create-pharma"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/a551af6bb91f314976de55d25bed8e77d40c3bf97ddc8f9cba73ea8a571fad3d/$/admin/create-pharma",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/create-pharma/page"
+    },
+    "isFallback": false
+  }
+}

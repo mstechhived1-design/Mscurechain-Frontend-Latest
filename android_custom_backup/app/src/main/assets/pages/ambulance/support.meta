@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/ambulance/layout,_N_T_/ambulance/support/layout,_N_T_/ambulance/support/page,_N_T_/ambulance/support"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/834950c312f54c9ac68bed1184d4ebdecc1f566fb1ebeff87fd458833ed419de/$/ambulance/support",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/ambulance/support/page"
+    },
+    "isFallback": false
+  }
+}

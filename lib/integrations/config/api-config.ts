@@ -16,7 +16,9 @@ function getResolvedApiUrl(): string {
     (window as any).AndroidNative ||
     (window as any).AndroidBridge ||
     (window as any).AndroidPrintBridge ||
-    /AndroidBridge|MSCureChain/i.test(userAgent) ||
+    (window as any).Capacitor !== undefined ||
+    /AndroidBridge|MSCureChain|Capacitor/i.test(userAgent) ||
+    (host === "localhost" && /Android/i.test(userAgent)) ||
     protocol === "asset:" ||
     protocol === "file:"
   );

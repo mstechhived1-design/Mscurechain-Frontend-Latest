@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/coming-soon/layout,_N_T_/coming-soon/page,_N_T_/coming-soon"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/a097da59a74e510a4c651ec65c8d4f0b31a9bbde020eb7d63fbf59222b9f9228/$/coming-soon",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/coming-soon/page"
+    },
+    "isFallback": false
+  }
+}

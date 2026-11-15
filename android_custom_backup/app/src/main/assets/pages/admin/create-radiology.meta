@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/create-radiology/layout,_N_T_/admin/create-radiology/page,_N_T_/admin/create-radiology"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/de5f9a2aec59ff34f197c083fba6351178eb901e6a413cb24ff451ceb123ac72/$/admin/create-radiology",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/create-radiology/page"
+    },
+    "isFallback": false
+  }
+}

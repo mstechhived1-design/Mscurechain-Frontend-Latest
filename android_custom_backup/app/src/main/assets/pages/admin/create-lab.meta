@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/create-lab/layout,_N_T_/admin/create-lab/page,_N_T_/admin/create-lab"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/7a2040ffb9fa054e79f7ddbe268798891211aab8a27be8a953881d2fc80c0db4/$/admin/create-lab",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/create-lab/page"
+    },
+    "isFallback": false
+  }
+}

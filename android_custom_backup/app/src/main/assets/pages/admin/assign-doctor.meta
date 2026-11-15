@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/assign-doctor/layout,_N_T_/admin/assign-doctor/page,_N_T_/admin/assign-doctor"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/d50535a02657d42a1721f7f6be215125b71a94983473c20530774b909900a458/$/admin/assign-doctor",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/assign-doctor/page"
+    },
+    "isFallback": false
+  }
+}

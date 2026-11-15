@@ -409,7 +409,25 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
 
                         <div style={styles.metaRow}>
                             <span style={styles.metaLabel}>Payment Mode:</span>
-                            <span style={styles.metaValue}>{billData.paymentSummary.paymentMode || 'Cash'}</span>
+                            <span style={styles.metaValue}>
+                                {billData.paymentSummary.paymentMode || 'Cash'}
+                                {(() => {
+                                    const pDetails = billData.paymentSummary.paymentDetails || (billData as any).paymentDetails || {};
+                                    const isMixed = String(billData.paymentSummary.paymentMode || '').toUpperCase().includes('MIXED') ||
+                                        (Number(pDetails.cash || 0) + Number(pDetails.upi || 0) + Number(pDetails.card || 0)) > 0;
+                                    if (!isMixed) return null;
+                                    const parts = [
+                                        Number(pDetails.cash || 0) > 0 ? `Cash: ₹${Number(pDetails.cash).toLocaleString()}` : null,
+                                        Number(pDetails.upi || 0) > 0 ? `UPI: ₹${Number(pDetails.upi).toLocaleString()}` : null,
+                                        Number(pDetails.card || 0) > 0 ? `Card: ₹${Number(pDetails.card).toLocaleString()}` : null,
+                                    ].filter(Boolean);
+                                    return parts.length > 0 ? (
+                                        <span style={{ fontSize: '8px', color: '#64748b', display: 'block', fontWeight: 600 }}>
+                                            ({parts.join(', ')})
+                                        </span>
+                                    ) : null;
+                                })()}
+                            </span>
                         </div>
                         <div style={{ ...styles.metaRow, marginBottom: 0 }}>
                             <span style={styles.metaLabel}>Status:</span>
@@ -529,6 +547,34 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
                                 <span style={styles.metaLabel}>Payment Mode:</span>
                                 <span style={styles.metaValue}>{billData.paymentSummary.paymentMode || 'Cash'}</span>
                             </div>
+                            {(() => {
+                                const pDetails = billData.paymentSummary.paymentDetails || (billData as any).paymentDetails || {};
+                                const isMixed = String(billData.paymentSummary.paymentMode || '').toUpperCase().includes('MIXED') ||
+                                    (Number(pDetails.cash || 0) + Number(pDetails.upi || 0) + Number(pDetails.card || 0)) > 0;
+                                if (!isMixed) return null;
+                                return (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', paddingLeft: '8px', borderLeft: `2px solid ${primaryColor}`, margin: '4px 0' }}>
+                                        {Number(pDetails.cash || 0) > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px' }}>
+                                                <span style={{ color: '#64748b' }}>• Cash:</span>
+                                                <span style={{ fontWeight: 800 }}>₹{Number(pDetails.cash).toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                        {Number(pDetails.upi || 0) > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px' }}>
+                                                <span style={{ color: '#64748b' }}>• UPI:</span>
+                                                <span style={{ fontWeight: 800 }}>₹{Number(pDetails.upi).toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                        {Number(pDetails.card || 0) > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px' }}>
+                                                <span style={{ color: '#64748b' }}>• Card / Bank:</span>
+                                                <span style={{ fontWeight: 800 }}>₹{Number(pDetails.card).toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
 
                         </div>
                     </div>

@@ -28,7 +28,7 @@ export interface PaymentSummary {
   grandTotal: number;
   paidAmount: number;
   balanceDue: number;
-  paymentMode: "Cash" | "UPI" | "Card" | "Mixed" | "Credit";
+  paymentMode: "Cash" | "UPI" | "Card" | "Mixed" | "Credit" | "IPD SETTLED" | "IPD BILLING" | string;
   status: "Paid" | "Partial" | "Due" | "RETURN" | string;
   transactionId?: string;
   paymentDetails?: {
@@ -49,6 +49,8 @@ export interface PharmacyBillPayload {
   items: BillItem[];
   paymentSummary: PaymentSummary;
   orderId?: string;
+  prescriptionSource?: "DOCTOR_DIGITAL" | "DIRECT_PHARMACY";
+  notes?: string;
   honorific?: string;
   patient?: any;
   patientDetails?: any;

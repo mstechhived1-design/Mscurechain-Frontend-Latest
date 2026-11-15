@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/create-hospital/layout,_N_T_/admin/create-hospital/page,_N_T_/admin/create-hospital"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/5e7f96167a259cd93ec6fa4f69e41220290623a7c29c118d3d1d75b7d343d39b/$/admin/create-hospital",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/create-hospital/page"
+    },
+    "isFallback": false
+  }
+}

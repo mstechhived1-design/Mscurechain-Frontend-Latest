@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/create-helpdesk/layout,_N_T_/admin/create-helpdesk/page,_N_T_/admin/create-helpdesk"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/db6f33e5a3f445c8e59b8938b3dc799d4f1445c4033a4d9d442d571c260de57c/$/admin/create-helpdesk",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/create-helpdesk/page"
+    },
+    "isFallback": false
+  }
+}

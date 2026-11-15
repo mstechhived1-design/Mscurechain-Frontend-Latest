@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/cms/layout,_N_T_/admin/cms/testimonials/layout,_N_T_/admin/cms/testimonials/page,_N_T_/admin/cms/testimonials"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/e01c0ec4dad2f32ad315ac6bfac9fe56d8e34b9b1aaf7e6e6d4258508fce7fbf/$/admin/cms/testimonials",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/cms/testimonials/page"
+    },
+    "isFallback": false
+  }
+}

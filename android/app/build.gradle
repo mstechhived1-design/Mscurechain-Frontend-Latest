@@ -1,80 +1,58 @@
-plugins {
-    id 'com.android.application'
-}
+apply plugin: 'com.android.application'
 
 android {
-    namespace 'com.mscurechain.hospital'
-    compileSdk 34
-
+    namespace = "com.mscurechain.hospital"
+    compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.mscurechain.hospital"
-        minSdk 24
-        targetSdk 34
-        versionCode 6
-        versionName "1.1.1"
-
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
     }
-
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug // Uses default debug keystore for easy installation on any device
-        }
-        debug {
-            applicationIdSuffix ".debug"
-            debuggable true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
 
-    lint {
-        abortOnError false
-        checkReleaseBuilds false
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }
 
 dependencies {
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.11.0'
-    implementation 'androidx.core:core:1.12.0'
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
 }
 
-tasks.register('syncFrontendAssets') {
-    doLast {
-        def assetsDir = file("src/main/assets")
-        def nextStatic = file("../../.next/static")
-        def publicDir = file("../../public")
-        def serverApp = file("../../.next/server/app")
+apply from: 'capacitor.build.gradle'
 
-        if (nextStatic.exists()) {
-            println "[syncFrontendAssets] Bundling .next/static into Android assets..."
-            copy {
-                from nextStatic
-                into "${assetsDir}/next_static"
-            }
-        }
-        if (publicDir.exists()) {
-            println "[syncFrontendAssets] Bundling public assets into Android assets..."
-            copy {
-                from publicDir
-                into "${assetsDir}/public"
-            }
-        }
-        if (serverApp.exists()) {
-            println "[syncFrontendAssets] Bundling Next.js pre-rendered pages into Android assets..."
-            copy {
-                from serverApp
-                into "${assetsDir}/pages"
-            }
-        }
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
     }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
-preBuild.dependsOn syncFrontendAssets
-
-

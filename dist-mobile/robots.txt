@@ -1,0 +1,31 @@
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /features
+Allow: /pricing
+Allow: /solutions
+Allow: /blogs
+Allow: /portals
+
+# Block all private / authenticated routes
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /doctor
+Disallow: /hospital-admin
+Disallow: /nurse
+Disallow: /lab
+Disallow: /pharmacy
+Disallow: /staff
+Disallow: /hr
+Disallow: /helpdesk
+Disallow: /patient
+Disallow: /auth
+Disallow: /ambulance
+Disallow: /emergency
+Disallow: /discharge
+Disallow: /frontdesk
+
+# Block tenant-prefixed routes (MongoDB ObjectId pattern)
+Disallow: /*[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]*
+
+Sitemap: https://www.mscurechain.com/sitemap.xml

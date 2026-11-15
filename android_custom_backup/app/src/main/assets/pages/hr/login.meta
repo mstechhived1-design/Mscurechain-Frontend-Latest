@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/hr/layout,_N_T_/hr/login/layout,_N_T_/hr/login/page,_N_T_/hr/login"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/32dced82ef9ec181e92b60902a987dc68a91616bec1195ce448d5f978a62e894/$/hr/login",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/hr/login/page"
+    },
+    "isFallback": false
+  }
+}

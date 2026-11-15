@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/support-feedback/layout,_N_T_/admin/support-feedback/page,_N_T_/admin/support-feedback"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/57b3d2da4ad5a48551fda62153a500e13116299294ca782fec3143f67fc8a03b/$/admin/support-feedback",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/support-feedback/page"
+    },
+    "isFallback": false
+  }
+}

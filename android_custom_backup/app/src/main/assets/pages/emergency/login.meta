@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/emergency/layout,_N_T_/emergency/login/layout,_N_T_/emergency/login/page,_N_T_/emergency/login"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/0ba59701c8ddd6140069460511dd5a6b403c0f42bc1d68dde6bdbc1e79ea4965/$/emergency/login",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/emergency/login/page"
+    },
+    "isFallback": false
+  }
+}

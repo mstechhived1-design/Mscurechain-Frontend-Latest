@@ -689,6 +689,17 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                                         // Pharmacy medicine bill — ONLY from pharmacy issuances (category "Pharmacy", positive amounts)
                                         const pharmaTotal = Math.round(catBreakdown['Pharmacy'] || 0);
 
+                                        // Counter-paid pharmacy payments tracked in advances
+                                        const counterPharmaPayments = (summary?.advances || []).filter((a: any) => 
+                                            (a.description && a.description.toLowerCase().includes('pharmacy')) || 
+                                            (a.reference && a.reference.toLowerCase().includes('ram-'))
+                                        );
+                                        const counterPharmaPaidTotal = Math.round(counterPharmaPayments.reduce((s: number, a: any) => s + Number(a.amount || 0), 0));
+                                        const remainingPharmaDue = Math.max(0, pharmaTotal - counterPharmaPaidTotal);
+                                        const pharmaSubtext = counterPharmaPaidTotal > 0
+                                            ? `Paid at Counter: ₹${counterPharmaPaidTotal.toLocaleString()} • Due at Discharge: ₹${remainingPharmaDue.toLocaleString()}`
+                                            : "IPD medicine issuances • Settle at discharge";
+
                                         // Lab charges — from LabOrders linked to this admission
                                         const labTotal = Math.round(catBreakdown['Lab'] || 0);
 
@@ -749,6 +760,17 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                                                                         <span className="font-bold text-slate-700 capitalize">{item.description || item.bedId || item.type || 'Item'}</span>
                                                                         {item.date && <span className="text-slate-400">{format(new Date(item.date), 'dd MMM')}</span>}
                                                                         {item.category && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider">{item.category}</span>}
+                                                                        {(item.category === 'Pharmacy' || item.isPharmaOrder) && (
+                                                                            (item.prescriptionSource === 'DOCTOR_DIGITAL' || (item.notes && item.notes.includes('PHARMA-')) || (item.description && item.description.includes('PHARMA-')) || item.description?.toLowerCase().includes('order')) ? (
+                                                                                <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded text-[9px] font-bold flex items-center gap-1 shrink-0">
+                                                                                    🩺 Doctor Prescription
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 rounded text-[9px] font-bold flex items-center gap-1 shrink-0">
+                                                                                    📝 Direct Pharmacy (Paper Slip)
+                                                                                </span>
+                                                                            )
+                                                                        )}
                                                                     </div>
                                                                     <span className={`font-black ${item.status === 'Reversed' ? 'text-slate-300 line-through' : 'text-slate-700'}`}>₹ {(item.amount || item.charge || 0).toLocaleString()}</span>
                                                                 </div>
@@ -855,7 +877,7 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
 
                                                     <Row
                                                         label="Pharmacy Medicine Bill"
-                                                        sub="IPD medicine issuances only"
+                                                        sub={pharmaSubtext}
                                                         amount={`₹ ${pharmaTotal.toLocaleString()}`}
                                                         bg="bg-violet-50/50"
                                                         color="text-violet-800"
@@ -1356,6 +1378,17 @@ export const IPDBillingModal: React.FC<IPDBillingModalProps> = ({ isOpen, onClos
                                                                 <div className="flex flex-wrap items-center gap-2">
                                                                     <p className="text-xs font-black text-slate-900 uppercase break-words">{item.description}</p>
                                                                     <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[7px] font-black uppercase tracking-wider shrink-0">{item.category}</span>
+                                                                    {(item.category === 'Pharmacy' || item.isPharmaOrder) && (
+                                                                        (item.prescriptionSource === 'DOCTOR_DIGITAL' || (item.notes && item.notes.includes('PHARMA-')) || (item.description && item.description.includes('PHARMA-')) || item.description?.toLowerCase().includes('order')) ? (
+                                                                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-md text-[7px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1">
+                                                                                🩺 Doctor Prescription
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-md text-[7px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1">
+                                                                                📝 Direct Pharmacy (Paper Slip)
+                                                                            </span>
+                                                                        )
+                                                                    )}
                                                                     {isChargeMergedOrConsolidated(item) && (
                                                                         <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md text-[7px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0">
                                                                             <ArrowRightLeft size={8} /> Merged {item.mergedFrom?.length ? `(${item.mergedFrom.length})` : ''}

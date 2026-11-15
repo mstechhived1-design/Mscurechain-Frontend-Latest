@@ -1,5 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">MS CureChain Portal</string>
-    <string name="portal_url">https://www.mscurechain.com</string>
+    <string name="app_name">MSCureChain Hospital</string>
+    <string name="title_activity_main">MSCureChain Hospital</string>
+    <string name="package_name">com.mscurechain.hospital</string>
+    <string name="custom_url_scheme">com.mscurechain.hospital</string>
 </resources>
-

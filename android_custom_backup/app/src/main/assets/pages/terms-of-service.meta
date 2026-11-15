@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/terms-of-service/layout,_N_T_/terms-of-service/page,_N_T_/terms-of-service"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/387a07c09a9fcaf594686b5b224c57eb0be31e6dc0a8724773b0c21191029b70/$/terms-of-service",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/terms-of-service/page"
+    },
+    "isFallback": false
+  }
+}

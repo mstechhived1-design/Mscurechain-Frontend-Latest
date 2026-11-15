@@ -178,6 +178,34 @@ export default function DischargeSummaryView({
 }: DischargeSummaryViewProps) {
     const medsList = data.dischargeMedications || [];
 
+    // Automatically reflect pharmacy medicines into Discharge Medications if currently empty
+    useEffect(() => {
+        const pharmacyMeds = reportData?.meds || [];
+        if (!pharmacyMeds || pharmacyMeds.length === 0) return;
+
+        const currentFilled = (data.dischargeMedications || []).filter(
+            (m: any) => m.medicineName && m.medicineName.trim().length > 0
+        );
+
+        if (currentFilled.length === 0) {
+            const autoMeds: DischargeMedicine[] = pharmacyMeds.map((pMed: any, i: number) => ({
+                id: `auto_pharma_${Date.now()}_${i}`,
+                medicineName: (pMed.medicineName || pMed.name || '').trim(),
+                dose: '1 Tablet',
+                frequency: 'BD (Morning, Night)',
+                duration: `${pMed.quantity || 5} Days`,
+                quantity: String(pMed.quantity || 10)
+            })).filter((m: any) => Boolean(m.medicineName));
+
+            if (autoMeds.length > 0) {
+                onChange({
+                    ...data,
+                    dischargeMedications: autoMeds
+                });
+            }
+        }
+    }, [reportData?.meds]);
+
     const handleMedChange = (index: number, field: keyof DischargeMedicine, value: string) => {
         const nextMeds = [...medsList];
         if (!nextMeds[index]) return;

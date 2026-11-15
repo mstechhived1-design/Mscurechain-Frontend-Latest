@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/lab/layout,_N_T_/lab/login/layout,_N_T_/lab/login/page,_N_T_/lab/login"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/16d459fa9f3eeed4239274694332fad5aec5e908340e3eca8f2b8b2b5527ce78/$/lab/login",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/lab/login/page"
+    },
+    "isFallback": false
+  }
+}

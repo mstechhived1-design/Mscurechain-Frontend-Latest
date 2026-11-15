@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/cms/layout,_N_T_/admin/cms/blogs/layout,_N_T_/admin/cms/blogs/page,_N_T_/admin/cms/blogs"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/a86b6880ee0bfd4ceade277c1faa6a0f573bcdebea339f71a24700f528877aa9/$/admin/cms/blogs",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/cms/blogs/page"
+    },
+    "isFallback": false
+  }
+}

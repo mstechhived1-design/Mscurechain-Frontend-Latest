@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/auth/layout,_N_T_/auth/superadmin/layout,_N_T_/auth/superadmin/verify-otp/layout,_N_T_/auth/superadmin/verify-otp/page,_N_T_/auth/superadmin/verify-otp"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/47967e283797387d1d8ad82e7938b363774ca9cf45c45d27cfcc04a0bc66a6fd/$/auth/superadmin/verify-otp",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/auth/superadmin/verify-otp/page"
+    },
+    "isFallback": false
+  }
+}

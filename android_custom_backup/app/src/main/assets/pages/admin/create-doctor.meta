@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/create-doctor/layout,_N_T_/admin/create-doctor/page,_N_T_/admin/create-doctor"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/98edf8079e55dc152ed5bdd297bef3b9a907fbc0d16a50d16956c01588609d63/$/admin/create-doctor",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/create-doctor/page"
+    },
+    "isFallback": false
+  }
+}

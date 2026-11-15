@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/realtime/layout,_N_T_/admin/realtime/page,_N_T_/admin/realtime"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/bb724e30f0ea4e70c56fe2d5aef6c267cfe63d2c03b01ee458b7691265b8617d/$/admin/realtime",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/realtime/page"
+    },
+    "isFallback": false
+  }
+}

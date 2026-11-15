@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/patient/layout,_N_T_/patient/page,_N_T_/patient"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/2b1a0effa619b8a95bfc3ab969a7ee038993a81e339044814c69da0446f9eb8c/$/patient",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/patient/page"
+    },
+    "isFallback": false
+  }
+}

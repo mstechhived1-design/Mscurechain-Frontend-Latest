@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/patients/layout,_N_T_/admin/patients/page,_N_T_/admin/patients"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/dca8f86ca0a99a761e8e13a17716b27c94156c49061eda50183b3109fc0626f7/$/admin/patients",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/patients/page"
+    },
+    "isFallback": false
+  }
+}

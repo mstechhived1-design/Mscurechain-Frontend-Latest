@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/hospitals/layout,_N_T_/admin/hospitals/page,_N_T_/admin/hospitals"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/9e080b3e4aba7a2b8c2e2403427f5e702d01216a16a3d46d9d08efa44a7c5a6a/$/admin/hospitals",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/hospitals/page"
+    },
+    "isFallback": false
+  }
+}

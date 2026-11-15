@@ -22,29 +22,32 @@ const mapInvoiceToBill = (b: any): PharmacyBill => ({
   patientType: b.patientType || (b.isIPD ? "IPD" : "OPD"),
   isIPD: b.isIPD || b.patientType === "IPD",
   patientAddress: b.patientAddress,
+  prescriptionSource: b.prescriptionSource,
+  orderId: b.orderId,
+  notes: b.notes,
   items: (b.items || []).map((item: any) => ({
-    productId: item.drug,
-    itemName: item.productName,
-    qty: item.qty,
-    rate: item.unitRate,
-    gst: item.gstPct,
-    total: item.amount,
-    hsn: item.hsnCode || item.hsn,
-    batch: item.batchNo || item.batchNum || (item.batch?.batchNo || item.batch),
+    productId: item.drug || item.product || item._id,
+    itemName: item.productName || item.itemName || item.name || item.brand || item.brandName || "",
+    qty: Number(item.qty ?? item.issuedQty ?? item.quantity ?? 1),
+    rate: Math.round(Number(item.unitRate ?? item.rate ?? item.mrp ?? 0) * 100) / 100,
+    gst: item.gstPct || 0,
+    total: Math.round(Number(item.amount ?? item.totalAmount ?? item.total ?? 0) * 100) / 100,
+    hsn: item.hsnCode || item.hsn || "",
+    batch: item.batchNo || item.batchNum || (item.batch?.batchNo || item.batch || ""),
     expiry: item.expiryDate || item.expDate || item.expiry || (item.batch?.expiry || undefined),
-    mrp: item.mrp || item.unitRate,
-    discountPct: item.discountPct,
-    discount: item.discountAmount || item.discount,
+    mrp: Math.round(Number(item.mrp || item.unitRate || item.rate || 0) * 100) / 100,
+    discountPct: item.discountPct || 0,
+    discount: item.discountAmount || item.discount || 0,
     returnedQty: item.returnedQty || 0,
   })),
   paymentSummary: {
-    subtotal: b.subTotal,
-    taxableAmount: b.subTotal - b.discountTotal,
-    taxGST: b.taxTotal,
-    discount: b.discountTotal,
-    grandTotal: b.netPayable,
-    paidAmount: b.paid,
-    balanceDue: b.balance,
+    subtotal: Math.round(Number(b.subTotal || 0) * 100) / 100,
+    taxableAmount: Math.round(Number((b.subTotal || 0) - (b.discountTotal || 0)) * 100) / 100,
+    taxGST: Math.round(Number(b.taxTotal || 0) * 100) / 100,
+    discount: Math.round(Number(b.discountTotal || 0) * 100) / 100,
+    grandTotal: Math.round(Number(b.netPayable || 0) * 100) / 100,
+    paidAmount: Math.round(Number(b.paid || 0) * 100) / 100,
+    balanceDue: Math.round(Number(b.balance || 0) * 100) / 100,
     transactionId: b.transactionId || b.paymentId,
     paymentMode: (b.mode === "MIXED"
       ? "Mixed"
@@ -192,6 +195,33 @@ export const PharmacyBillingService = {
     }
   ): Promise<{ success: boolean; message: string; data: any }> => {
     return apiClient<any>(`/pharmacy/invoices/${id}/patient`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateFullInvoice: async (
+    id: string,
+    data: {
+      patientName?: string;
+      customerPhone?: string;
+      patientAddress?: string;
+      patientType?: string;
+      doctorName?: string;
+      mrn?: string;
+      honorific?: string;
+      mode?: string;
+      status?: string;
+      paid?: number;
+      balance?: number;
+      items?: any[];
+      subTotal?: number;
+      taxTotal?: number;
+      netPayable?: number;
+      paymentDetails?: any;
+    }
+  ): Promise<{ success: boolean; message: string; data: any }> => {
+    return apiClient<any>(`/pharmacy/invoices/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });

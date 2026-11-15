@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/radiology/layout,_N_T_/radiology/login/layout,_N_T_/radiology/login/page,_N_T_/radiology/login"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/79884b658c68f94b4bf22c040334335772988c782cae39e74f97d5af0c411c2a/$/radiology/login",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/radiology/login/page"
+    },
+    "isFallback": false
+  }
+}

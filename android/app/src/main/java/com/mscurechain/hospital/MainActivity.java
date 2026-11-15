@@ -1,434 +1,359 @@
 package com.mscurechain.hospital;
 
-import android.Manifest;
-import android.annotation.SuppressLint;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.print.PrintAttributes;
-import android.print.PrintDocumentAdapter;
-import android.print.PrintManager;
-import android.view.View;
-import android.view.WindowManager;
+import android.util.Log;
 import android.webkit.CookieManager;
-import android.webkit.JavascriptInterface;
-import android.webkit.PermissionRequest;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
-import android.widget.Toast;
-
-import java.io.IOException;
+import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebViewClient;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import androidx.activity.OnBackPressedCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
+public class MainActivity extends BridgeActivity {
 
-public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MSCureChainApp";
+    private static final Pattern TENANT_ROUTE_PATTERN = Pattern.compile("^/([^/]+)(?:/(.*))?$");
 
-    public static final String APP_ORIGIN = "https://app.mscurechain.com";
-    public static final String LOGIN_URL = "https://app.mscurechain.com/auth/login";
+    private static final Set<String> NON_TENANT_ROOTS = new HashSet<>(Arrays.asList(
+        "admin", "patient", "about", "blogs", "receipts", "ambulance",
+        "display", "auth", "_next", "assets", "api", "index.html", "favicon.ico"
+    ));
 
-    private WebView webView;
-    private WebView splashWebView;
-    private ValueCallback<Uri[]> filePathCallback;
-    private boolean isSplashDismissed = false;
-
-    private final ActivityResultLauncher<Intent> fileChooserLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
-            result -> {
-                if (filePathCallback != null) {
-                    Uri[] results = null;
-                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                        if (result.getData().getClipData() != null) {
-                            int count = result.getData().getClipData().getItemCount();
-                            results = new Uri[count];
-                            for (int i = 0; i < count; i++) {
-                                results[i] = result.getData().getClipData().getItemAt(i).getUri();
-                            }
-                        } else if (result.getData().getData() != null) {
-                            results = new Uri[]{result.getData().getData()};
-                        }
-                    }
-                    filePathCallback.onReceiveValue(results);
-                    filePathCallback = null;
-                }
-            }
-    );
-
-    private final ActivityResultLauncher<String[]> requestPermissionsLauncher = registerForActivityResult(
-            new ActivityResultContracts.RequestMultiplePermissions(),
-            permissions -> {
-                // Permissions granted callback
-            }
-    );
+    private static final String[] DYNAMIC_PLACEHOLDERS = new String[] {
+        "[patientId]", "[id]", "[appointmentId]", "[helpdeskId]", "[slug]"
+    };
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Clear FLAG_SECURE so users can take screenshots without system restrictions
-        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
 
-        // Permanently suppress Android Autofill / Password Manager popups from stealing focus
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                android.view.autofill.AutofillManager afm = getSystemService(android.view.autofill.AutofillManager.class);
-                if (afm != null) {
-                    afm.cancel();
-                    afm.disableAutofillServices();
-                }
-            } catch (Exception ignored) {}
-        }
-
-        setContentView(R.layout.activity_main);
-
-        requestAppPermissions();
-
-        webView = findViewById(R.id.webView);
-        splashWebView = findViewById(R.id.splashWebView);
-
-        setupSplashWebView();
-        setupWebView();
-
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                if (splashWebView != null && splashWebView.getVisibility() == View.VISIBLE) {
-                    finish();
-                    return;
-                }
-                if (webView.canGoBack()) {
-                    webView.goBack();
-                } else {
-                    finish();
-                }
-            }
-        });
-
-        if (savedInstanceState != null) {
-            webView.restoreState(savedInstanceState);
-        } else {
-            // Load local pre-rendered Next.js Login route directly
-            webView.loadUrl(LOGIN_URL);
-        }
-
-        // Safety fallback: Ensure splash is dismissed after 6.5 seconds maximum
-        new Handler(Looper.getMainLooper()).postDelayed(this::dismissSplash, 6500);
-    }
-
-    @SuppressLint("SetJavaScriptEnabled")
-    private void setupSplashWebView() {
-        if (splashWebView == null) return;
-        WebSettings splashSettings = splashWebView.getSettings();
-        splashSettings.setJavaScriptEnabled(true);
-        splashSettings.setDomStorageEnabled(true);
-        splashSettings.setAllowFileAccess(true);
-        splashSettings.setAllowContentAccess(true);
-        splashWebView.setBackgroundColor(0xFFFFFFFF);
-        splashWebView.addJavascriptInterface(new WebAppInterface(this), "AndroidNative");
-        splashWebView.loadUrl("file:///android_asset/splash.html");
-    }
-
-    public synchronized void dismissSplash() {
-        if (isSplashDismissed) return;
-        isSplashDismissed = true;
-        runOnUiThread(() -> {
-            if (splashWebView != null && splashWebView.getVisibility() == View.VISIBLE) {
-                splashWebView.animate()
-                        .alpha(0f)
-                        .setDuration(250)
-                        .withEndAction(() -> {
-                            splashWebView.setVisibility(View.GONE);
-                            if (webView != null) {
-                                webView.requestFocus();
-                            }
-                        });
-            }
-        });
-    }
-
-    @SuppressLint("SetJavaScriptEnabled")
-    private void setupWebView() {
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
-        settings.setLoadWithOverviewMode(true);
-        settings.setUseWideViewPort(true);
-        settings.setSupportZoom(true);
-        settings.setBuiltInZoomControls(true);
-        settings.setDisplayZoomControls(false);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setGeolocationEnabled(true);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-
-        // Enable Cookies (including cross-domain third-party cookies for Railway backend authentication)
+        // 1. Enable cross-origin cookies & configure WebView settings
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            WebView webView = getBridge().getWebView();
             cookieManager.setAcceptThirdPartyCookies(webView, true);
-        }
 
-        // Disable Autofill & Password popups that hijack window focus in Android WebView
-        settings.setSaveFormData(false);
-        settings.setSavePassword(false);
-        webView.clearFormData();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            webView.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
-        }
+            WebSettings settings = webView.getSettings();
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setJavaScriptEnabled(true);
+            settings.setAllowFileAccess(true);
+            settings.setAllowContentAccess(true);
+            settings.setUseWideViewPort(true);
+            settings.setLoadWithOverviewMode(true);
+            settings.setSupportZoom(false);
+            settings.setBuiltInZoomControls(false);
+            settings.setDisplayZoomControls(false);
+            settings.setGeolocationEnabled(true);
+            settings.setGeolocationDatabasePath(getFilesDir().getPath());
+            settings.setTextZoom(100); // Guarantees consistent native mobile layout
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        // Modern Chrome User-Agent with AndroidBridge flag
-        String defaultUA = settings.getUserAgentString();
-        settings.setUserAgentString(defaultUA + " MSCureChainHospitalApp/1.1.0 AndroidBridge/1.0.0");
+            // Proactively request runtime hardware permissions (Camera, Location, Audio)
+            checkAndRequestAppPermissions();
 
-        // Direct Touch & Focus Retention
-        webView.setFocusable(true);
-        webView.setFocusableInTouchMode(true);
-        webView.requestFocus();
-        webView.setBackgroundColor(0xFFFFFFFF);
+            String ua = settings.getUserAgentString();
+            settings.setUserAgentString(ua + " MSCureChainHospitalApp/1.1.2 AndroidBridge/1.0.0");
 
-        // Native Bridge Interface
-        webView.addJavascriptInterface(new WebAppInterface(this), "AndroidNative");
+            // 2. Set custom BridgeWebViewClient to intercept all portal routes and RSC payloads locally
+            getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
 
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("whatsapp:") || url.startsWith("sms:")) {
-                    try {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        startActivity(intent);
-                        return true;
-                    } catch (Exception e) {
-                        Toast.makeText(MainActivity.this, "Application not found to handle request", Toast.LENGTH_SHORT).show();
-                        return true;
-                    }
-                }
-                return false;
-            }
+                @Override
+                public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                    Uri uri = request.getUrl();
+                    String host = uri.getHost();
 
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                Uri uri = request.getUrl();
-                String path = uri != null ? uri.getPath() : null;
-
-                if (path != null) {
-                    // Fast local health response so status indicator stays green
-                    if (path.equals("/api/backend-health") || path.startsWith("/api/backend-health")) {
-                        String json = "{\"connected\":true,\"status\":200,\"backendUrl\":\"https://mscurechain-backend-latest-production.up.railway.app\"}";
-                        try {
-                            return new WebResourceResponse("application/json", "UTF-8", 200, "OK", getCorsHeaders(), new java.io.ByteArrayInputStream(json.getBytes("UTF-8")));
-                        } catch (Exception ignored) {}
+                    // Network requests: If host is Railway backend or cloud asset host, let it pass through to internet
+                    if (host != null && (host.contains("railway.app") || host.contains("cloudinary.com") || host.contains("googleapis.com"))) {
+                        return null;
                     }
 
-                    // 1. Static Next.js Bundles (_next/static/...)
-                    if (path.startsWith("/_next/static/")) {
-                        String relative = path.substring("/_next/static/".length());
-                        try {
-                            InputStream is = getAssets().open("next_static/" + relative);
-                            return new WebResourceResponse(getMimeType(path), "UTF-8", 200, "OK", getCorsHeaders(), is);
-                        } catch (IOException ignored) {}
-                    }
+                    // Handle local requests (localhost, 127.0.0.1, or local scheme)
+                    if (host == null || host.equals("localhost") || host.equals("127.0.0.1") || host.contains("mscurechain")) {
+                        String path = uri.getPath();
+                        if (path == null) path = "/";
 
-                    // 2. Public Static Media & Assets (/assets/, /public/...)
-                    if (path.startsWith("/assets/") || path.startsWith("/icons/") || path.startsWith("/images/") || path.startsWith("/fonts/") || path.equals("/favicon.ico") || path.equals("/manifest.json")) {
-                        try {
-                            String assetPath = "public" + path;
-                            InputStream is = getAssets().open(assetPath);
-                            return new WebResourceResponse(getMimeType(path), null, 200, "OK", getCorsHeaders(), is);
-                        } catch (IOException ignored) {}
-                    }
+                        // Check if Next.js is requesting a React Server Component (RSC) flight payload
+                        String query = uri.getQuery();
+                        Map<String, String> reqHeaders = request.getRequestHeaders();
+                        boolean isRsc = (query != null && query.contains("_rsc=")) ||
+                                        (reqHeaders != null && "1".equals(reqHeaders.get("RSC")));
 
-                    // 3. Local Next.js HTML Routes
-                    if (path.equals("/") || path.equals("/index.html")) {
-                        try {
-                            InputStream is = getAssets().open("pages/index.html");
-                            return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
-                        } catch (IOException ignored) {}
-                    }
+                        // A. Root or login routes -> Serve auth/login.html or index.html
+                        if (path.equals("/") || path.equals("/index.html") || path.startsWith("/auth/login")) {
+                            WebResourceResponse response = serveAsset("public/auth/login.html", "text/html");
+                            if (response == null) {
+                                response = serveAsset("public/index.html", "text/html");
+                            }
+                            if (response != null) {
+                                return response;
+                            }
+                        }
 
-                    if (path.equals("/auth/login") || path.equals("/auth/login/")) {
-                        try {
-                            InputStream is = getAssets().open("pages/auth/login.html");
-                            return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
-                        } catch (IOException ignored) {}
-                    }
+                        // B. Multi-tenant portal routes: /[hospitalId] or /[hospitalId]/<subRoute>
+                        Matcher tenantMatcher = TENANT_ROUTE_PATTERN.matcher(path);
+                        if (tenantMatcher.matches()) {
+                            String firstSegment = tenantMatcher.group(1);
+                            if (!NON_TENANT_ROOTS.contains(firstSegment) && !firstSegment.contains(".")) {
+                                String subRoute = tenantMatcher.group(2);
+                                if (subRoute == null || subRoute.trim().isEmpty()) {
+                                    subRoute = "dashboard";
+                                }
+                                if (subRoute.endsWith("/")) {
+                                    subRoute = subRoute.substring(0, subRoute.length() - 1);
+                                }
 
-                    // Pre-rendered HTML Page Matcher
-                    String cleanPath = path.startsWith("/") ? path.substring(1) : path;
-                    if (cleanPath.endsWith("/")) {
-                        cleanPath = cleanPath.substring(0, cleanPath.length() - 1);
-                    }
+                                if (isRsc) {
+                                    // 1. Direct match in public/pages/portal/<subRoute>.rsc
+                                    WebResourceResponse rscResp = serveAsset("public/pages/portal/" + subRoute + ".rsc", "text/x-component");
+                                    if (rscResp != null) {
+                                        return rscResp;
+                                    }
 
-                    try {
-                        InputStream is = getAssets().open("pages/" + cleanPath + ".html");
-                        return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
-                    } catch (IOException ignored) {}
+                                    // 2. Dynamic ID resolution (e.g. helpdesk/patients/P-1002 -> helpdesk/patients/[patientId].rsc)
+                                    String dynamicRsc = resolveDynamicPath(subRoute, ".rsc", "public/pages/portal/");
+                                    if (dynamicRsc != null) {
+                                        WebResourceResponse dynRscResp = serveAsset("public/pages/portal/" + dynamicRsc, "text/x-component");
+                                        if (dynRscResp != null) {
+                                            return dynRscResp;
+                                        }
+                                    }
 
-                    try {
-                        InputStream is = getAssets().open("pages/" + cleanPath + "/index.html");
-                        return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
-                    } catch (IOException ignored) {}
+                                    // 3. Root portal .rsc fallback (e.g. /helpdesk.rsc)
+                                    String portalBase = subRoute.contains("/") ? subRoute.substring(0, subRoute.indexOf('/')) : subRoute;
+                                    WebResourceResponse baseRsc = serveAsset("public/pages/portal/" + portalBase + ".rsc", "text/x-component");
+                                    if (baseRsc != null) {
+                                        return baseRsc;
+                                    }
 
-                    // 4. SPA Fallback: Any internal Next.js dynamic App Router route (e.g. /[hospitalId]/helpdesk)
-                    // MUST return the SPA shell so WebView never falls back to network DNS (preventing net::ERR_NAME_NOT_RESOLVED)
-                    if (uri.getHost() != null && uri.getHost().equals("app.mscurechain.com")) {
-                        if (!path.startsWith("/api/") && !path.startsWith("/_next/")) {
-                            try {
-                                InputStream is = getAssets().open("pages/index.html");
-                                return new WebResourceResponse("text/html", "UTF-8", 200, "OK", getCorsHeaders(), is);
-                            } catch (IOException ignored) {}
+                                    // 4. Return 404 for RSC so Next.js falls back cleanly to HTML navigation
+                                    Map<String, String> notFoundHeaders = new HashMap<>();
+                                    notFoundHeaders.put("Access-Control-Allow-Origin", "*");
+                                    return new WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", notFoundHeaders, null);
+                                } else {
+                                    // HTML full page load:
+                                    // 1. Direct match in public/pages/portal/<subRoute>.html
+                                    WebResourceResponse htmlResp = serveAsset("public/pages/portal/" + subRoute + ".html", "text/html");
+                                    if (htmlResp != null) {
+                                        return htmlResp;
+                                    }
+
+                                    // 2. Dynamic ID resolution (e.g. helpdesk/patients/[patientId].html)
+                                    String dynamicHtml = resolveDynamicPath(subRoute, ".html", "public/pages/portal/");
+                                    if (dynamicHtml != null) {
+                                        WebResourceResponse dynHtmlResp = serveAsset("public/pages/portal/" + dynamicHtml, "text/html");
+                                        if (dynHtmlResp != null) {
+                                            return dynHtmlResp;
+                                        }
+                                    }
+
+                                    // 3. Root portal HTML shell fallback
+                                    String portalBase = subRoute.contains("/") ? subRoute.substring(0, subRoute.indexOf('/')) : subRoute;
+                                    WebResourceResponse baseHtml = serveAsset("public/pages/portal/" + portalBase + ".html", "text/html");
+                                    if (baseHtml != null) {
+                                        return baseHtml;
+                                    }
+                                }
+                            }
+                        }
+
+                        // C. Static Next.js assets (_next/static, assets, chunks, css, media, fonts)
+                        if (path.startsWith("/_next/") || path.startsWith("/assets/") || path.contains(".")) {
+                            WebResourceResponse capacitorResp = super.shouldInterceptRequest(view, request);
+                            if (capacitorResp != null) {
+                                return capacitorResp;
+                            }
+                            String cleanPath = path.startsWith("/") ? path.substring(1) : path;
+                            WebResourceResponse directResp = serveAsset("public/" + cleanPath, getMimeType(cleanPath));
+                            if (directResp != null) {
+                                return directResp;
+                            }
+                        }
+
+                        // D. Non-tenant routes (e.g. /admin, /admin/hospitals, /patient/dashboard, /display, /about)
+                        String nonTenant = path.startsWith("/") ? path.substring(1) : path;
+                        if (nonTenant.endsWith("/")) {
+                            nonTenant = nonTenant.substring(0, nonTenant.length() - 1);
+                        }
+                        if (!nonTenant.isEmpty() && !nonTenant.startsWith("_next") && !nonTenant.startsWith("assets")) {
+                            if (isRsc) {
+                                WebResourceResponse nonTenantRsc = serveAsset("public/pages/" + nonTenant + ".rsc", "text/x-component");
+                                if (nonTenantRsc != null) return nonTenantRsc;
+
+                                String dynamicRsc = resolveDynamicPath(nonTenant, ".rsc", "public/pages/");
+                                if (dynamicRsc != null) {
+                                    WebResourceResponse dynRsc = serveAsset("public/pages/" + dynamicRsc, "text/x-component");
+                                    if (dynRsc != null) return dynRsc;
+                                }
+                            } else {
+                                WebResourceResponse nonTenantHtml = serveAsset("public/pages/" + nonTenant + ".html", "text/html");
+                                if (nonTenantHtml != null) return nonTenantHtml;
+
+                                String dynamicHtml = resolveDynamicPath(nonTenant, ".html", "public/pages/");
+                                if (dynamicHtml != null) {
+                                    WebResourceResponse dynHtml = serveAsset("public/pages/" + dynamicHtml, "text/html");
+                                    if (dynHtml != null) return dynHtml;
+                                }
+                            }
+                        }
+
+                        // E. Fallback -> serve index.html (Hospital Login Portal)
+                        WebResourceResponse defaultResp = serveAsset("public/index.html", "text/html");
+                        if (defaultResp != null) {
+                            return defaultResp;
                         }
                     }
+
+                    return super.shouldInterceptRequest(view, request);
                 }
 
-                return super.shouldInterceptRequest(view, request);
-            }
-
-            @Override
-            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                super.onReceivedError(view, errorCode, description, failingUrl);
-            }
-
-            @Override
-            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                super.onReceivedError(view, request, error);
-            }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                // Inject print handler into window.print() so receipt print buttons work on Android
-                view.evaluateJavascript(
-                        "if (!window._mscPrintOverridden) {" +
-                        "  window._mscPrintOverridden = true;" +
-                        "  var originalPrint = window.print;" +
-                        "  window.print = function() {" +
-                        "    if (window.AndroidNative && window.AndroidNative.printPage) {" +
-                        "      window.AndroidNative.printPage();" +
-                        "    } else if (originalPrint) {" +
-                        "      originalPrint();" +
-                        "    }" +
-                        "  };" +
-                        "}",
-                        null
-                );
-            }
-        });
-
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                if (MainActivity.this.filePathCallback != null) {
-                    MainActivity.this.filePathCallback.onReceiveValue(null);
+                @Override
+                public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                    Log.e(TAG, "WebView error: " + error.getDescription() + " for URL: " + request.getUrl());
+                    super.onReceivedError(view, request, error);
                 }
-                MainActivity.this.filePathCallback = filePathCallback;
-
-                Intent intent = fileChooserParams.createIntent();
-                try {
-                    fileChooserLauncher.launch(intent);
-                } catch (Exception e) {
-                    MainActivity.this.filePathCallback = null;
-                    return false;
-                }
-                return true;
-            }
-
-            @Override
-            public void onPermissionRequest(PermissionRequest request) {
-                request.grant(request.getResources());
-            }
-        });
-    }
-
-    private Map<String, String> getCorsHeaders() {
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Access-Control-Allow-Origin", "*");
-        headers.put("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        headers.put("Access-Control-Allow-Headers", "*");
-        headers.put("Cache-Control", "no-cache");
-        return headers;
-    }
-
-    private void requestAppPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requestPermissionsLauncher.launch(new String[]{
-                    Manifest.permission.CAMERA,
-                    Manifest.permission.READ_MEDIA_IMAGES
-            });
-        } else {
-            requestPermissionsLauncher.launch(new String[]{
-                    Manifest.permission.CAMERA,
-                    Manifest.permission.READ_EXTERNAL_STORAGE
             });
         }
     }
 
-    public class WebAppInterface {
-        Context context;
+    /**
+     * Resolves dynamic route segments such as:
+     * - Last segment: doctor/patients/P-1234 -> doctor/patients/[id]
+     * - Middle segment: helpdesk/P-1234/book -> helpdesk/[patientId]/book
+     * - Double dynamic: receipts/ipd/REC-01 -> receipts/[type]/[id]
+     */
+    private String resolveDynamicPath(String subRoute, String ext, String baseFolder) {
+        String[] segments = subRoute.split("/");
+        if (segments.length < 2) return null;
 
-        WebAppInterface(Context c) {
-            context = c;
+        AssetManager am = getAssets();
+
+        // 1. Check last segment replacement (most common: .../[id] or .../[patientId])
+        for (String ph : DYNAMIC_PLACEHOLDERS) {
+            String candidate = replaceSegment(segments, segments.length - 1, ph) + ext;
+            if (assetFileExists(am, baseFolder + candidate)) {
+                return candidate;
+            }
         }
 
-        @JavascriptInterface
-        public void onSplashFinished() {
-            dismissSplash();
-        }
-
-        @JavascriptInterface
-        public void setInputActive(boolean active) {
-            // No-op since SwipeRefreshLayout has been permanently removed
-        }
-
-        @JavascriptInterface
-        public void printPage() {
-            runOnUiThread(() -> {
-                PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                if (printManager != null && webView != null) {
-                    String jobName = "MSCureChain_Receipt_" + System.currentTimeMillis();
-                    PrintDocumentAdapter printAdapter = webView.createPrintDocumentAdapter(jobName);
-                    printManager.print(jobName, printAdapter, new PrintAttributes.Builder().build());
+        // 2. Check second-to-last segment replacement (e.g., .../[patientId]/book, .../[helpdeskId]/edit)
+        if (segments.length >= 3) {
+            for (String ph : DYNAMIC_PLACEHOLDERS) {
+                String candidate = replaceSegment(segments, segments.length - 2, ph) + ext;
+                if (assetFileExists(am, baseFolder + candidate)) {
+                    return candidate;
                 }
-            });
+            }
+        }
+
+        // 3. Check two dynamic segments replacement (e.g. receipts/[type]/[id])
+        if (segments.length >= 3) {
+            for (String ph1 : new String[]{"[type]"}) {
+                for (String ph2 : DYNAMIC_PLACEHOLDERS) {
+                    String candidate = replaceTwoSegments(segments, segments.length - 2, ph1, segments.length - 1, ph2) + ext;
+                    if (assetFileExists(am, baseFolder + candidate)) {
+                        return candidate;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private String replaceSegment(String[] segments, int index, String replacement) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < segments.length; i++) {
+            if (i > 0) sb.append("/");
+            sb.append(i == index ? replacement : segments[i]);
+        }
+        return sb.toString();
+    }
+
+    private String replaceTwoSegments(String[] segments, int idx1, String rep1, int idx2, String rep2) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < segments.length; i++) {
+            if (i > 0) sb.append("/");
+            if (i == idx1) sb.append(rep1);
+            else if (i == idx2) sb.append(rep2);
+            else sb.append(segments[i]);
+        }
+        return sb.toString();
+    }
+
+    private boolean assetFileExists(AssetManager am, String fullPath) {
+        try {
+            InputStream is = am.open(fullPath);
+            is.close();
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private WebResourceResponse serveAsset(String assetPath, String mimeType) {
+        try {
+            AssetManager am = getAssets();
+            InputStream is = am.open(assetPath);
+            Map<String, String> headers = new HashMap<>();
+            headers.put("Access-Control-Allow-Origin", "*");
+            headers.put("Cache-Control", "no-cache, no-store, must-revalidate");
+            headers.put("Content-Type", mimeType + "; charset=utf-8");
+            return new WebResourceResponse(mimeType, "UTF-8", 200, "OK", headers, is);
+        } catch (Exception e) {
+            return null;
         }
     }
 
     private String getMimeType(String path) {
-        if (path.endsWith(".js") || path.endsWith(".mjs")) return "application/javascript";
-        if (path.endsWith(".css")) return "text/css";
-        if (path.endsWith(".json")) return "application/json";
-        if (path.endsWith(".png")) return "image/png";
-        if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
-        if (path.endsWith(".svg")) return "image/svg+xml";
-        if (path.endsWith(".webp")) return "image/webp";
-        if (path.endsWith(".ico")) return "image/x-icon";
-        if (path.endsWith(".woff2")) return "font/woff2";
-        if (path.endsWith(".woff")) return "font/woff";
-        if (path.endsWith(".ttf")) return "font/ttf";
-        if (path.endsWith(".html")) return "text/html";
+        String lower = path.toLowerCase();
+        if (lower.endsWith(".html") || lower.endsWith(".htm")) return "text/html";
+        if (lower.endsWith(".rsc")) return "text/x-component";
+        if (lower.endsWith(".js") || lower.endsWith(".mjs")) return "application/javascript";
+        if (lower.endsWith(".css")) return "text/css";
+        if (lower.endsWith(".json")) return "application/json";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".svg")) return "image/svg+xml";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".gif")) return "image/gif";
+        if (lower.endsWith(".ico")) return "image/x-icon";
+        if (lower.endsWith(".woff2")) return "font/woff2";
+        if (lower.endsWith(".woff")) return "font/woff";
+        if (lower.endsWith(".ttf")) return "font/ttf";
         return "application/octet-stream";
     }
 
-    @Override
-    protected void onSaveInstanceState(@NonNull Bundle outState) {
-        super.onSaveInstanceState(outState);
-        webView.saveState(outState);
+    private void checkAndRequestAppPermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            java.util.List<String> needed = new java.util.ArrayList<>();
+            if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                needed.add(android.Manifest.permission.CAMERA);
+            }
+            if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                needed.add(android.Manifest.permission.ACCESS_FINE_LOCATION);
+                needed.add(android.Manifest.permission.ACCESS_COARSE_LOCATION);
+            }
+            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                needed.add(android.Manifest.permission.RECORD_AUDIO);
+            }
+            if (!needed.isEmpty()) {
+                requestPermissions(needed.toArray(new String[0]), 101);
+            }
+        }
     }
 }
