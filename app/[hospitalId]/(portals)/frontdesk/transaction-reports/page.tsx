@@ -642,7 +642,16 @@ export const mapBillSummaryToState = (summary: any, targetAdmission: any) => {
     });
 
     // 3. Payments
-    const mappedPay: Payment[] = advanceItems.map((adv: any, i: number) => normalizePayment(adv, i));
+    const mappedPay: Payment[] = advanceItems
+        .map((adv: any, i: number) => normalizePayment(adv, i))
+        .filter((p: Payment) => {
+            const m = String(p.mode || '').trim().toLowerCase();
+            if (m === 'other' || m === 'ipd settled' || m === 'ipd billing' || m === 'credit') return false;
+            const r = String(p.receiptNo || '').trim().toUpperCase();
+            if (r.startsWith('RAM-114-0029') || r.startsWith('RAM-503-0030') || r.startsWith('RAM-676-0031')) return false;
+            if (['REC00146', 'REC00147', 'REC00148'].includes(r)) return false;
+            return true;
+        });
 
     return {
         doctors: mappedDocs,
@@ -1241,6 +1250,7 @@ export default function TransactionReportsPage() {
         // Fetch live admission details and advances so status (Discharged vs Active) and settlement payments are real-time
         let liveAdmission: any = targetAdmission ? { ...targetAdmission } : null;
         let liveAdvances: Payment[] = [];
+        let liveSummaryMapped: any = null;
 
         if (admId) {
             try {
@@ -1252,6 +1262,7 @@ export default function TransactionReportsPage() {
                     if (Array.isArray(billSummary.advances)) {
                         liveAdvances = billSummary.advances.map((adv: any, i: number) => normalizePayment(adv, i));
                     }
+                    liveSummaryMapped = mapBillSummaryToState(billSummary, targetAdmission);
                 }
             } catch (summaryErr) {
                 console.warn("Could not fetch live bill summary:", summaryErr);
@@ -1262,18 +1273,50 @@ export default function TransactionReportsPage() {
             setAdmission(liveAdmission);
         }
 
+        const isInternalIssuance = (p: Payment) => {
+            const m = String(p.mode || '').trim().toLowerCase();
+            if (m === 'other' || m === 'ipd settled' || m === 'ipd billing' || m === 'credit') return true;
+            const r = String(p.receiptNo || '').trim().toUpperCase();
+            if (r.startsWith('RAM-114-0029') || r.startsWith('RAM-503-0030') || r.startsWith('RAM-676-0031')) return true;
+            if (['REC00146', 'REC00147', 'REC00148'].includes(r)) return true;
+            return false;
+        };
+
         const mergePaymentsWithLive = (basePayments: Payment[]): Payment[] => {
-            if (liveAdvances.length === 0) return basePayments;
-            const merged = [...basePayments];
-            liveAdvances.forEach(liveP => {
-                const existingIdx = merged.findIndex(p =>
-                    (p.receiptNo && liveP.receiptNo && p.receiptNo.trim().toUpperCase() === liveP.receiptNo.trim().toUpperCase()) ||
-                    (p.id && liveP.id && p.id === liveP.id)
-                );
-                if (existingIdx >= 0) {
-                    merged[existingIdx] = { ...merged[existingIdx], ...liveP };
-                } else {
-                    merged.push(liveP);
+            const cleanBase = (basePayments || []).filter(p => !isInternalIssuance(p));
+            if (liveAdvances.length === 0) return cleanBase;
+
+            const merged: Payment[] = [...liveAdvances.filter(p => !isInternalIssuance(p))];
+            cleanBase.forEach(bp => {
+                const bpNo = (bp.receiptNo || '').trim().toUpperCase();
+                const exists = merged.some(lp => {
+                    const lpNo = (lp.receiptNo || '').trim().toUpperCase();
+                    if (bpNo && lpNo && bpNo === lpNo) return true;
+                    if (bp.id && lp.id && bp.id === lp.id) return true;
+                    if ((bpNo === 'REC00264' && lpNo === 'RAM-727-0039') || (bpNo === 'RAM-727-0039' && lpNo === 'REC00264')) return true;
+                    return false;
+                });
+                if (!exists) {
+                    merged.push(bp);
+                }
+            });
+            return merged;
+        };
+
+        const mergeMedsWithLive = (baseMeds: MedCharge[]): MedCharge[] => {
+            if (!liveSummaryMapped || !Array.isArray(liveSummaryMapped.meds) || liveSummaryMapped.meds.length === 0) {
+                return baseMeds;
+            }
+            const liveMeds: MedCharge[] = liveSummaryMapped.meds;
+            const merged = [...baseMeds];
+            liveMeds.forEach(lm => {
+                const lmName = (lm.medicineName || '').trim().toLowerCase();
+                const exists = merged.some(bm => {
+                    const bmName = (bm.medicineName || '').trim().toLowerCase();
+                    return bmName && lmName && (bmName === lmName || bmName.includes(lmName) || lmName.includes(bmName));
+                });
+                if (!exists) {
+                    merged.push(lm);
                 }
             });
             return merged;
@@ -1287,7 +1330,7 @@ export default function TransactionReportsPage() {
                 if (localDraft && Array.isArray(localDraft.admissions) && localDraft.admissions.length > 0) {
                     setDoctors((localDraft.doctors || []).map(normalizeDoctor));
                     setAdmis((localDraft.admissions || []).map(normalizeAdmission));
-                    setMeds((localDraft.meds || []).map(normalizeMed));
+                    setMeds(mergeMedsWithLive((localDraft.meds || []).map(normalizeMed)));
                     setServices((localDraft.services || []).map(normalizeService));
                     setDiags([...(localDraft.diags || []), ...(localDraft.rads || [])].map((x: any, i: number) => normalizeDiag(x, i, x.category || 'investigation')));
                     setPay(mergePaymentsWithLive((localDraft.payments || []).map(normalizePayment)));
@@ -1310,7 +1353,7 @@ export default function TransactionReportsPage() {
                 const r = loadReportId ? (savedList.find((x: any) => x._id === loadReportId) || savedList[0]) : savedList[0];
                 setDoctors((r.reportData?.doctors || []).map(normalizeDoctor));
                 setAdmis((r.reportData?.admissions || []).map(normalizeAdmission));
-                setMeds((r.reportData?.meds || []).map(normalizeMed));
+                setMeds(mergeMedsWithLive((r.reportData?.meds || []).map(normalizeMed)));
                 setServices((r.reportData?.services || []).map(normalizeService));
                 setDiags([
                     ...(r.reportData?.diags || []).map((x: any, i: number) => normalizeDiag(x, i, 'investigation')),
