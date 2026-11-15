@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, Trash2, FileText, Stethoscope, Bed, Pill, Wrench, FlaskConical, CreditCard, Printer, Calendar, Search, Activity, RefreshCw, UserCheck, Save, UserCog, ArrowRightLeft, Clock, Check, CheckCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Plus, Trash2, FileText, Stethoscope, Bed, Pill, Wrench, FlaskConical, CreditCard, Printer, Calendar, Search, Activity, RefreshCw, UserCheck, Save, UserCog, ArrowRightLeft, Clock, Check, CheckCircle, Eye, X } from 'lucide-react';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import { helpdeskService } from '@/lib/integrations/services/helpdesk.service';
 import { ipdService } from '@/lib/integrations/services/ipd.service';
@@ -21,9 +21,21 @@ import { apiClient } from '@/lib/integrations/api/apiClient';
 import ClockTimePicker from '@/components/ui/ClockTimePicker';
 import PrintReceiptPreviewModal from '@/components/common/PrintReceiptPreviewModal';
 
+export interface DetailedMedicineItem {
+    medicineName: string;
+    quantity: number;
+    rate: number;
+    amount: number;
+    batchNo?: string;
+    expiryDate?: string;
+    invoiceNumber?: string;
+    date?: string;
+    sourceDesc?: string;
+}
+
 interface DoctorCharge { id: string; code?: string; date?: string; doctorName: string; specialization: string; rate: number; visits: number; amount?: number; }
 interface AdmissionCharge { id: string; code?: string; date?: string; chargeType: string; description: string; rate: number; days: number | string; amount?: number; }
-interface MedCharge { id: string; code?: string; date?: string; medicineName: string; rate: number; quantity: number; amount?: number; prescriptionSource?: 'DOCTOR_DIGITAL' | 'DIRECT_PHARMACY'; }
+interface MedCharge { id: string; code?: string; date?: string; medicineName: string; rate: number; quantity: number; amount?: number; prescriptionSource?: 'DOCTOR_DIGITAL' | 'DIRECT_PHARMACY'; invoiceNumber?: string; detailedItems?: DetailedMedicineItem[]; }
 interface ServiceCharge { id: string; code?: string; date?: string; serviceName: string; rate: number; quantity: number | string; amount?: number; isMerged?: boolean; rawChargeId?: string; }
 interface DiagCharge { id: string; code?: string; date?: string; testName: string; rate: number; quantity: number; amount?: number; category?: 'investigation' | 'radiology'; }
 interface Payment { id: string; receiptNo: string; date: string; mode: string; status: string; amount: number; paymentDetails?: { cash?: number; upi?: number; card?: number; bankTransfer?: number; }; }
@@ -376,6 +388,8 @@ export const normalizeMed = (m: any, idx: number = 0): MedCharge => {
         quantity,
         amount,
         prescriptionSource,
+        invoiceNumber: m?.invoiceNumber,
+        detailedItems: m?.detailedItems,
     };
 };
 
@@ -534,6 +548,41 @@ export const mapBillSummaryToState = (summary: any, targetAdmission: any) => {
         if (['Pharmacy', 'Medicine'].includes(item.category)) {
             const hasDoctorOrder = Boolean(item.orderId || (item.notes && /PHARMA-\d+/i.test(item.notes)) || (item.description && /PHARMA-\d+/i.test(item.description)) || (item.description && item.description.toLowerCase().includes('order')));
             const resolvedSource = item.prescriptionSource || (hasDoctorOrder ? 'DOCTOR_DIGITAL' : 'DIRECT_PHARMACY');
+
+            const isPharmaInvoiceBill = item.isPharmaOrder || 
+                (typeof item.description === 'string' && (item.description.includes('Pharmacy Bill') || item.description.includes('Pharmacy Invoice')));
+
+            if (isPharmaInvoiceBill) {
+                const medAmount = Math.round(itemAmount * 100) / 100;
+                const itemsCount = (item.medicines && Array.isArray(item.medicines)) ? item.medicines.length : 0;
+                const invTitle = cleanString(item.description || item.name || 'Pharmacy Bill', '');
+                const displayName = itemsCount > 0 && !invTitle.includes('item(s)') ? `${invTitle} - ${itemsCount} item(s)` : invTitle;
+
+                const detailedItems: DetailedMedicineItem[] = (item.medicines && Array.isArray(item.medicines)) ? item.medicines.map((m: any) => ({
+                    medicineName: cleanString(m.medicineName || m.productName || m.name, 'Medicine'),
+                    quantity: parseFloat(m.quantity || m.qty || '1') || 1,
+                    rate: Number(m.rate || m.unitRate || m.price || 0),
+                    amount: Number(m.amount !== undefined ? m.amount : ((parseFloat(m.quantity || m.qty || '1') || 1) * Number(m.rate || m.unitRate || 0))),
+                    batchNo: m.batchNo || m.batch || '',
+                    expiryDate: m.expiryDate || m.expiry || '',
+                    invoiceNumber: item.invoiceNo || (item.description && item.description.match(/\(([^)]+)\)/)?.[1]),
+                    date: m.date || m.createdAt || itemDate,
+                })) : [];
+
+                mappedMeds.push({
+                    id: uid(),
+                    code: item._id ? `MED${item._id.toString().slice(-6).toUpperCase()}` : `MED${idx + 1}`,
+                    date: itemDate,
+                    medicineName: displayName,
+                    rate: medAmount,
+                    quantity: 1,
+                    amount: medAmount,
+                    prescriptionSource: resolvedSource,
+                    invoiceNumber: item.invoiceNo || (item.description && item.description.match(/\(([^)]+)\)/)?.[1]),
+                    detailedItems: detailedItems.length > 0 ? detailedItems : undefined,
+                });
+                return;
+            }
 
             if (item.medicines && Array.isArray(item.medicines) && item.medicines.length > 0) {
                 item.medicines.forEach((med: any, mIdx: number) => {
@@ -770,6 +819,58 @@ export default function TransactionReportsPage() {
     const [totalAdmissionsCount, setTotalAdmissionsCount] = useState<number>(0);
     const [hasActiveAdmission, setHasActiveAdmission] = useState<boolean>(true);
     const [isLoadingActive, setIsLoadingActive] = useState<boolean>(false);
+
+    // Itemized Medicines Modal State (Default OFF)
+    const [showMedicineDetailsModal, setShowMedicineDetailsModal] = useState<boolean>(false);
+    const [medicineSearchTerm, setMedicineSearchTerm] = useState<string>('');
+    const [modalFilterInvoice, setModalFilterInvoice] = useState<string | null>(null);
+
+    const allDetailedItems = useMemo<DetailedMedicineItem[]>(() => {
+        const items: DetailedMedicineItem[] = [];
+        meds.forEach(m => {
+            if (m.detailedItems && m.detailedItems.length > 0) {
+                m.detailedItems.forEach(item => {
+                    items.push({
+                        ...item,
+                        invoiceNumber: item.invoiceNumber || m.invoiceNumber || (m.medicineName.match(/\(([^)]+)\)/)?.[1]),
+                        date: item.date || m.date
+                    });
+                });
+            } else if (m.medicineName && m.medicineName.trim()) {
+                items.push({
+                    medicineName: m.medicineName,
+                    quantity: m.quantity || 1,
+                    rate: m.rate || 0,
+                    amount: m.amount !== undefined ? m.amount : ((m.rate || 0) * (m.quantity || 1)),
+                    invoiceNumber: m.invoiceNumber || (m.medicineName.match(/\(([^)]+)\)/)?.[1]),
+                    date: m.date
+                });
+            }
+        });
+        return items;
+    }, [meds]);
+
+    const totalDetailedMedsCount = useMemo(() => allDetailedItems.length, [allDetailedItems]);
+
+    const filteredDetailedItems = useMemo(() => {
+        let list = allDetailedItems;
+        if (modalFilterInvoice) {
+            const cleanFilter = modalFilterInvoice.trim().toLowerCase();
+            list = list.filter(item => {
+                const inv = (item.invoiceNumber || '').trim().toLowerCase();
+                return inv === cleanFilter || inv.includes(cleanFilter);
+            });
+        }
+        if (medicineSearchTerm.trim()) {
+            const q = medicineSearchTerm.trim().toLowerCase();
+            list = list.filter(item => 
+                (item.medicineName || '').toLowerCase().includes(q) ||
+                (item.batchNo || '').toLowerCase().includes(q) ||
+                (item.invoiceNumber || '').toLowerCase().includes(q)
+            );
+        }
+        return list;
+    }, [allDetailedItems, modalFilterInvoice, medicineSearchTerm]);
 
     // Template Format & Discharge Summary State
     const [templateFormat, setTemplateFormat] = useState<ReportTemplateFormat>(() => {
@@ -1308,6 +1409,15 @@ export default function TransactionReportsPage() {
                 return baseMeds;
             }
             const liveMeds: MedCharge[] = liveSummaryMapped.meds;
+            const hasGroupedBills = liveMeds.some(lm => (lm.medicineName || '').includes('Pharmacy Bill') || (lm.detailedItems && lm.detailedItems.length > 0));
+            if (hasGroupedBills) {
+                const customMeds = (baseMeds || []).filter(bm => 
+                    !(bm.medicineName || '').includes('Pharmacy Bill') && 
+                    !liveMeds.some(lm => (lm.medicineName || '').toLowerCase() === (bm.medicineName || '').toLowerCase())
+                );
+                return [...liveMeds, ...customMeds];
+            }
+
             const merged = [...baseMeds];
             liveMeds.forEach(lm => {
                 const lmName = (lm.medicineName || '').trim().toLowerCase();
@@ -2670,7 +2780,29 @@ export default function TransactionReportsPage() {
                         )}
 
                         {printConfig.pharmacy && (
-                            <Card icon={<Pill className="w-4 h-4" />} title="Pharmacy" color="indigo" total={totMed} onAdd={() => setMeds(p => [...p, { id: uid(), code: `MED${p.length + 1}`, date: new Date().toISOString(), medicineName: '', rate: 0, quantity: 1 }])}>
+                            <Card 
+                                icon={<Pill className="w-4 h-4" />} 
+                                title="Pharmacy" 
+                                color="indigo" 
+                                total={totMed} 
+                                onAdd={() => setMeds(p => [...p, { id: uid(), code: `MED${p.length + 1}`, date: new Date().toISOString(), medicineName: '', rate: 0, quantity: 1 }])}
+                                extraAction={
+                                    totalDetailedMedsCount > 0 ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setModalFilterInvoice(null);
+                                                setShowMedicineDetailsModal(true);
+                                            }}
+                                            className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[8px] sm:text-[9px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer"
+                                            title="View itemized medicines list"
+                                        >
+                                            <Eye className="w-3.5 h-3.5" />
+                                            <span>View Medicine Details ({totalDetailedMedsCount})</span>
+                                        </button>
+                                    ) : undefined
+                                }
+                            >
                                 <table className="w-full text-left">
                                     <thead><tr>{['Medicine Name', 'Date / Time', 'Rate (₹)', 'Quantity', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
@@ -2678,7 +2810,23 @@ export default function TransactionReportsPage() {
                                             <tr key={i}>
                                                 <td className="p-1">
                                                     <div className="flex flex-col gap-1">
-                                                        <input value={m.medicineName || ''} onChange={(e) => updM(i, 'medicineName', e.target.value)} className={tableInputClass} placeholder="Medicine Name" />
+                                                        <div className="flex items-center gap-1.5">
+                                                            <input value={m.medicineName || ''} onChange={(e) => updM(i, 'medicineName', e.target.value)} className={tableInputClass} placeholder="Medicine Name" />
+                                                            {m.detailedItems && m.detailedItems.length > 0 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setModalFilterInvoice(m.invoiceNumber || (m.medicineName.match(/\(([^)]+)\)/)?.[1]) || null);
+                                                                        setShowMedicineDetailsModal(true);
+                                                                    }}
+                                                                    className="shrink-0 flex items-center gap-1 px-2 py-1 text-[9px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md shadow-2xs transition-all cursor-pointer"
+                                                                    title="View individual medicines in this bill"
+                                                                >
+                                                                    <Eye className="w-3 h-3" />
+                                                                    <span>{m.detailedItems.length} SKUs</span>
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                         {m.prescriptionSource && (
                                                             <div className="flex items-center">
                                                                 {m.prescriptionSource === 'DOCTOR_DIGITAL' ? (
@@ -3010,6 +3158,142 @@ export default function TransactionReportsPage() {
                 </div>
             )}
 
+
+            {/* Itemized Medicine Details Modal (Default OFF) */}
+            {showMedicineDetailsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl max-w-4xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                                    <Pill className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
+                                        Itemized Medicine Details
+                                        {modalFilterInvoice && (
+                                            <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-200 font-bold">
+                                                Invoice: {modalFilterInvoice}
+                                            </span>
+                                        )}
+                                    </h3>
+                                    <p className="text-[10px] sm:text-xs text-slate-500 font-medium">
+                                        Showing {filteredDetailedItems.length} of {totalDetailedMedsCount} medicines
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowMedicineDetailsModal(false)}
+                                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Search and Filters Bar */}
+                        <div className="py-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100">
+                            <div className="relative flex-1 min-w-[200px]">
+                                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="text"
+                                    value={medicineSearchTerm}
+                                    onChange={(e) => setMedicineSearchTerm(e.target.value)}
+                                    placeholder="Search medicine name, batch, invoice..."
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                />
+                            </div>
+                            {modalFilterInvoice && (
+                                <button
+                                    type="button"
+                                    onClick={() => setModalFilterInvoice(null)}
+                                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline px-2 py-1 cursor-pointer"
+                                >
+                                    Show All Invoices
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Table */}
+                        <div className="overflow-y-auto flex-1 min-h-0 py-2">
+                            {filteredDetailedItems.length === 0 ? (
+                                <div className="text-center py-8 text-slate-400 text-xs font-semibold">
+                                    No medicines found matching the search.
+                                </div>
+                            ) : (
+                                <table className="w-full text-left border-collapse text-xs">
+                                    <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                        <tr>
+                                            <th className="py-2 px-2.5">#</th>
+                                            <th className="py-2 px-2.5">Medicine Name</th>
+                                            <th className="py-2 px-2.5">Invoice</th>
+                                            <th className="py-2 px-2.5">Batch / Expiry</th>
+                                            <th className="py-2 px-2.5 text-right">Qty</th>
+                                            <th className="py-2 px-2.5 text-right">Rate (₹)</th>
+                                            <th className="py-2 px-2.5 text-right">Amount (₹)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 font-medium">
+                                        {filteredDetailedItems.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                                                <td className="py-1.5 px-2.5 text-slate-400 text-[10px] font-bold">{idx + 1}</td>
+                                                <td className="py-1.5 px-2.5 font-bold text-slate-800">
+                                                    {item.medicineName}
+                                                </td>
+                                                <td className="py-1.5 px-2.5 text-slate-500 text-[11px] font-semibold">
+                                                    {item.invoiceNumber || '—'}
+                                                </td>
+                                                <td className="py-1.5 px-2.5 text-slate-500 text-[10px]">
+                                                    {item.batchNo ? `B: ${item.batchNo}` : ''} {item.expiryDate ? `Exp: ${item.expiryDate}` : ''}
+                                                    {!item.batchNo && !item.expiryDate && '—'}
+                                                </td>
+                                                <td className="py-1.5 px-2.5 text-right font-semibold text-slate-700">
+                                                    {item.quantity}
+                                                </td>
+                                                <td className="py-1.5 px-2.5 text-right text-slate-600">
+                                                    ₹{Number(item.rate || 0).toFixed(2)}
+                                                </td>
+                                                <td className="py-1.5 px-2.5 text-right font-black text-slate-900">
+                                                    ₹{Number(item.amount || 0).toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot className="sticky bottom-0 bg-slate-100 font-black text-slate-800 border-t border-slate-300">
+                                        <tr>
+                                            <td colSpan={4} className="py-2 px-2.5 text-right uppercase tracking-wider text-[10px]">
+                                                Subtotal ({filteredDetailedItems.length} items):
+                                            </td>
+                                            <td className="py-2 px-2.5 text-right">
+                                                {filteredDetailedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}
+                                            </td>
+                                            <td className="py-2 px-2.5"></td>
+                                            <td className="py-2 px-2.5 text-right text-indigo-700 font-extrabold">
+                                                ₹{filteredDetailedItems.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-500">
+                                Default View: Invoices Consolidate Cleanly
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setShowMedicineDetailsModal(false)}
+                                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Print & Document Live Preview Modal */}
             <PrintReceiptPreviewModal
