@@ -1345,49 +1345,140 @@ export default function TransactionReportsPage() {
 
     // Persistence: Load from localStorage
     useEffect(() => {
-        if (patientId) {
+        if (!patientId) {
+            setDoctors([]);
+            setAdmis([]);
+            setMeds([]);
+            setServices([]);
+            setDiags([]);
+            setPay([]);
+            setDiscount(0);
+            setPatient(null);
+            setAdmission(null);
+            setLoadReportId(null);
+            setTotalAdmissionsCount(0);
+            setPatientType(null);
             try {
-                const cachedDischarge = localStorage.getItem(`discharge_data_${patientId}`);
-                if (cachedDischarge) {
-                    const parsed = JSON.parse(cachedDischarge);
-                    if (Array.isArray(parsed?.dischargeMedications)) {
-                        parsed.dischargeMedications = parsed.dischargeMedications.filter((m: any) =>
-                            !['Tab. Paracetamol 650 mg', 'Tab. Amoxicillin + Clavulanate 625 mg', 'Tab. Pantoprazole 40 mg'].includes(m.medicineName) || m.id?.startsWith('custom_')
-                        );
-                    }
-                    setDischargeData(parsed);
-                }
-            } catch (e) {
-                console.error("Failed to parse cached discharge data:", e);
-            }
+                localStorage.removeItem('txn_report_draft');
+                localStorage.removeItem('txn_report_draft_OPD');
+            } catch (e) {}
+            return;
         }
-        const saved = localStorage.getItem(`txn_report_${patientId || 'draft'}`);
+
+        try {
+            const cachedDischarge = localStorage.getItem(`discharge_data_${patientId}`);
+            if (cachedDischarge) {
+                const parsed = JSON.parse(cachedDischarge);
+                if (Array.isArray(parsed?.dischargeMedications)) {
+                    parsed.dischargeMedications = parsed.dischargeMedications.filter((m: any) =>
+                        !['Tab. Paracetamol 650 mg', 'Tab. Amoxicillin + Clavulanate 625 mg', 'Tab. Pantoprazole 40 mg'].includes(m.medicineName) || m.id?.startsWith('custom_')
+                    );
+                }
+                setDischargeData(parsed);
+            }
+        } catch (e) {
+            console.error("Failed to parse cached discharge data:", e);
+        }
+
+        const saved = localStorage.getItem(`txn_report_${patientId}`);
         if (saved) {
             try {
                 const data = JSON.parse(saved);
-                setDoctors((data.doctors || []).map(normalizeDoctor));
-                setAdmis((data.admissions || []).map(normalizeAdmission));
-                setMeds((data.meds || []).map(normalizeMed));
-                setServices((data.services || []).map(normalizeService));
-                setDiags([...(data.diags || []), ...(data.rads || [])].map((x: any, i: number) => normalizeDiag(x, i, x.category || 'investigation')));
-                setPay((data.payments || []).map(normalizePayment));
-                setDiscount(data.discount || 0);
-                if (data.printConfig) setPrintConfig(prev => ({ ...prev, ...data.printConfig }));
+                if (data && (data.doctors?.length || data.admissions?.length || data.meds?.length || data.services?.length || data.payments?.length)) {
+                    setDoctors((data.doctors || []).map(normalizeDoctor));
+                    setAdmis((data.admissions || []).map(normalizeAdmission));
+                    setMeds((data.meds || []).map(normalizeMed));
+                    setServices((data.services || []).map(normalizeService));
+                    setDiags([...(data.diags || []), ...(data.rads || [])].map((x: any, i: number) => normalizeDiag(x, i, x.category || 'investigation')));
+                    setPay((data.payments || []).map(normalizePayment));
+                    setDiscount(data.discount || 0);
+                    if (data.printConfig) setPrintConfig(prev => ({ ...prev, ...data.printConfig }));
+                }
             } catch (e) { console.error("Failed to parse saved draft", e); }
         }
     }, [patientId]);
 
-    // Persistence: Save to localStorage
+    // Persistence: Save to localStorage (only when patientId is present)
     useEffect(() => {
-        const data = { doctors, admissions, meds, services, diags, payments, discount, printConfig };
-        localStorage.setItem(`txn_report_${patientId || 'draft'}`, JSON.stringify(data));
-    }, [doctors, admissions, meds, services, diags, payments, discount, printConfig, patientId]);
+        if (!patientId) return;
+        const data = { doctors, admissions, meds, services, diags, payments, discount, printConfig, activeEncounterType };
+        const key = activeEncounterType === 'OPD' ? `txn_report_${patientId}_OPD` : `txn_report_${patientId}`;
+        localStorage.setItem(key, JSON.stringify(data));
+    }, [doctors, admissions, meds, services, diags, payments, discount, printConfig, patientId, activeEncounterType]);
 
     const loadEncounterData = useCallback(async (type: 'IPD' | 'OPD', ipdRecord?: any) => {
         if (!patientId) return;
         setIsLoadingActive(true);
         setActiveEncounterType(type);
         setPatientType(type);
+
+        if (type === 'OPD') {
+            setAdmission(null);
+            setLoadReportId(null);
+
+            // Check if there is an OPD-specific draft in localStorage
+            try {
+                const localDraftStr = localStorage.getItem(`txn_report_${patientId}_OPD`);
+                if (localDraftStr) {
+                    const localDraft = JSON.parse(localDraftStr);
+                    if (localDraft && (localDraft.doctors?.length || localDraft.meds?.length || localDraft.services?.length || localDraft.payments?.length)) {
+                        setDoctors((localDraft.doctors || []).map(normalizeDoctor));
+                        setAdmis([]);
+                        setMeds((localDraft.meds || []).map(normalizeMed));
+                        setServices((localDraft.services || []).map(normalizeService));
+                        setDiags([...(localDraft.diags || []), ...(localDraft.rads || [])].map((x: any, i: number) => normalizeDiag(x, i, x.category || 'investigation')));
+                        setPay((localDraft.payments || []).map(normalizePayment));
+                        setDiscount(localDraft.discount || localDraft.totals?.discount || 0);
+                        if (localDraft.loadReportId) setLoadReportId(localDraft.loadReportId);
+                        setIsLoadingActive(false);
+                        return;
+                    }
+                }
+            } catch (draftErr) {
+                console.warn("Could not load local OPD draft:", draftErr);
+            }
+
+            // Fetch clean OPD bills strictly for OPD
+            try {
+                const opdBill = await helpdeskService.getOPDFinalBill(patientId, true);
+                if (Array.isArray(opdBill) && opdBill.length > 0) {
+                    const r = opdBill[0];
+                    setDoctors((r.reportData?.doctors || []).map(normalizeDoctor));
+                    setAdmis([]);
+                    setMeds((r.reportData?.meds || []).map(normalizeMed));
+                    setServices((r.reportData?.services || []).map(normalizeService));
+                    setDiags([
+                        ...(r.reportData?.diags || []).map((x: any, i: number) => normalizeDiag(x, i, 'investigation')),
+                        ...(r.reportData?.rads || []).map((x: any, i: number) => normalizeDiag(x, i, 'radiology'))
+                    ]);
+                    setPay((r.reportData?.payments || []).map(normalizePayment));
+                    setDiscount(r.totals?.discount || 0);
+                    if (r._id) setLoadReportId(r._id);
+                } else {
+                    setDoctors([]);
+                    setAdmis([]);
+                    setMeds([]);
+                    setServices([]);
+                    setDiags([]);
+                    setPay([]);
+                    setDiscount(0);
+                }
+            } catch (err) {
+                console.error("Failed to load OPD bill:", err);
+                setDoctors([]);
+                setAdmis([]);
+                setMeds([]);
+                setServices([]);
+                setDiags([]);
+                setPay([]);
+                setDiscount(0);
+            } finally {
+                setIsLoadingActive(false);
+            }
+            return;
+        }
+
+        // --- IPD Encounter Loading ---
 
         const targetAdmission = ipdRecord || availableEncounters.ipd;
         const admId = targetAdmission?._id || targetAdmission?.admissionId;
@@ -1434,11 +1525,18 @@ export default function TransactionReportsPage() {
             const merged: Payment[] = [...liveAdvances.filter(p => !isInternalIssuance(p))];
             cleanBase.forEach(bp => {
                 const bpNo = (bp.receiptNo || '').trim().toUpperCase();
+                const bpRef = ((bp as any).reference || '').trim().toUpperCase();
                 const exists = merged.some(lp => {
                     const lpNo = (lp.receiptNo || '').trim().toUpperCase();
+                    const lpRef = ((lp as any).reference || '').trim().toUpperCase();
                     if (bpNo && lpNo && bpNo === lpNo) return true;
+                    if (bpNo && lpRef && bpNo === lpRef) return true;
+                    if (bpRef && lpNo && bpRef === lpNo) return true;
+                    if (bpRef && lpRef && bpRef === lpRef) return true;
                     if (bp.id && lp.id && bp.id === lp.id) return true;
                     if ((bpNo === 'REC00264' && lpNo === 'RAM-727-0039') || (bpNo === 'RAM-727-0039' && lpNo === 'REC00264')) return true;
+                    // Deduplicate identical amounts collected for the same encounter
+                    if (bp.amount > 0 && bp.amount === lp.amount && Math.abs(new Date(bp.date).getTime() - new Date(lp.date).getTime()) < 86400000) return true;
                     return false;
                 });
                 if (!exists) {
@@ -1603,37 +1701,6 @@ export default function TransactionReportsPage() {
             } finally {
                 setIsLoadingActive(false);
             }
-        } else {
-            // OPD
-            setAdmission(null);
-            try {
-                const opdBill = await helpdeskService.getOPDFinalBill(patientId, true);
-                if (Array.isArray(opdBill) && opdBill.length > 0) {
-                    const r = opdBill[0];
-                    setDoctors((r.reportData?.doctors || []).map(normalizeDoctor));
-                    setAdmis([]);
-                    setMeds((r.reportData?.meds || []).map(normalizeMed));
-                    setServices((r.reportData?.services || []).map(normalizeService));
-                    setDiags([
-                        ...(r.reportData?.diags || []).map((x: any, i: number) => normalizeDiag(x, i, 'investigation')),
-                        ...(r.reportData?.rads || []).map((x: any, i: number) => normalizeDiag(x, i, 'radiology'))
-                    ]);
-                    setPay((r.reportData?.payments || []).map(normalizePayment));
-                    setDiscount(r.totals?.discount || 0);
-                } else {
-                    setDoctors([]);
-                    setAdmis([]);
-                    setMeds([]);
-                    setServices([]);
-                    setDiags([]);
-                    setPay([]);
-                    setDiscount(0);
-                }
-            } catch (err) {
-                console.error("Failed to load OPD bill:", err);
-            } finally {
-                setIsLoadingActive(false);
-            }
         }
     }, [patientId, availableEncounters.ipd]);
 
@@ -1641,6 +1708,7 @@ export default function TransactionReportsPage() {
         hospitalAdminService.getHospital().then(res => setHospital(res?.hospital)).catch(() => { });
 
         if (patientId) {
+            setLoadReportId(searchParams?.get('loadReport') || null);
             setIsLoadingActive(true);
             setHasActiveAdmission(true);
 
@@ -1800,7 +1868,13 @@ export default function TransactionReportsPage() {
                             else if (r.templateFormat) setTemplateFormat(r.templateFormat);
                         }
                     } else if (loadReportId) {
-                        toast.error("Could not find the specified report.");
+                        setLoadReportId(null);
+                        const fallbackAdm = availableEncounters.ipd;
+                        if (fallbackAdm) {
+                            loadEncounterData('IPD', fallbackAdm);
+                        } else if (availableEncounters.opd) {
+                            loadEncounterData('OPD');
+                        }
                     }
                 }
             })
@@ -2500,6 +2574,18 @@ export default function TransactionReportsPage() {
                         {patientId && (
                             <button
                                 onClick={() => {
+                                    if (patientId) {
+                                        try {
+                                            localStorage.removeItem(`txn_report_${patientId}`);
+                                            localStorage.removeItem(`txn_report_${patientId}_OPD`);
+                                            localStorage.removeItem(`discharge_draft_${patientId}`);
+                                            localStorage.removeItem(`discharge_data_${patientId}`);
+                                        } catch (e) {}
+                                    }
+                                    try {
+                                        localStorage.removeItem('txn_report_draft');
+                                        localStorage.removeItem('txn_report_draft_OPD');
+                                    } catch (e) {}
                                     setPatient(null);
                                     setAdmission(null);
                                     setDoctors([]);
@@ -2511,6 +2597,7 @@ export default function TransactionReportsPage() {
                                     setDiscount(0);
                                     setTotalAdmissionsCount(0);
                                     setPatientType(null);
+                                    setLoadReportId(null);
                                     router.push(`/${params.hospitalId}/frontdesk/transaction-reports`);
                                 }}
                                 className="h-7 px-2.5 bg-white text-rose-600 font-bold text-[9px] sm:text-xs rounded-lg border border-rose-200 hover:bg-rose-50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
