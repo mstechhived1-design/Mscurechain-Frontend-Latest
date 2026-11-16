@@ -994,7 +994,7 @@ export const generateLabReceiptHtml = (data: any) => {
   const paymentMode = formatReceiptPaymentMode(payment, appointment) || data.paymentMode || "Cash";
 
   const rawReceiptNo = payment.receiptNo || payment.receiptNumber || (payment as any).receiptId || appointment.receiptNo || (appointment as any).receiptNumber || (appointment as any).receiptId || data.receiptNo || data.receiptNumber || (data as any).receiptId || "";
-  const rawInvoiceId = data.invoiceId || data.invoiceNo || appointment.appointmentId || appointment.sampleId || "";
+  const rawInvoiceId = appointment.sampleId || (appointment as any).sampleId || data.sampleId || data.invoiceId || data.invoiceNo || appointment.appointmentId || "";
   let invoiceId = rawInvoiceId;
   if (!invoiceId) {
     invoiceId = "OPD-INVOICE";

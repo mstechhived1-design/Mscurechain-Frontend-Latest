@@ -1969,17 +1969,19 @@ export default function TransactionsPage() {
                             symptoms: previewTx.symptoms || apptData.symptoms || previewTx.reason || apptData.reason || activePatient?.symptoms,
                             chiefComplaint: previewTx.reason || apptData.reason || previewTx.symptoms || apptData.symptoms,
                         }}
-                        appointment={{
-                            appointmentId: previewTx.referenceId?.appointmentId || previewTx.referenceId?.admissionId || previewTx.referenceId?.sampleId || previewTx.transactionId || previewTx.receiptNumber || 'N/A',
+                        appointment={({
+                            appointmentId: previewTx.sampleId || previewTx.referenceId?.sampleId || previewTx.referenceId?.appointmentId || previewTx.referenceId?.admissionId || previewTx.transactionId || previewTx.receiptNumber || 'N/A',
+                            sampleId: previewTx.sampleId || previewTx.referenceId?.sampleId || (previewTx.type === 'lab_test' ? previewTx.transactionId : undefined),
+                            receiptNo: previewTx.receiptNo || previewTx.receiptNumber,
                             type: isDischargeTx ? 'IPD_FINAL_SETTLEMENT' : (previewTx.type || 'consultation'),
                             date: previewTx.createdAt || new Date().toISOString(),
-                                                        time: previewTx.appointmentTime || previewTx.time || '10:00 AM',
+                            time: previewTx.appointmentTime || previewTx.time || '10:00 AM',
                             doctorName: previewTx.referenceId?.primaryDoctor || previewTx.referenceId?.suggestedDoctorName || previewTx.referenceId?.doctorName || 'Doctor',
                             specialization: isDischargeTx ? 'IPD DISCHARGE' : (previewTx.type || 'Consultation'),
                             symptoms: previewTx.symptoms || apptData.symptoms || previewTx.reason || apptData.reason,
                             reason: previewTx.reason || apptData.reason || (Array.isArray(previewTx.symptoms) ? previewTx.symptoms.join(', ') : previewTx.symptoms),
                             notes: previewTx.notes || apptData.notes || previewTx.reason || apptData.reason,
-                        }}
+                        } as any)}
                         payment={{
                             amount: isDischargeTx ? settlementPaid : Number(previewTx.amount || previewTx.payment?.amount || 0),
                             fee: grandTotal,
@@ -1999,7 +2001,8 @@ export default function TransactionsPage() {
                             method: (previewTx.paymentMethod || previewTx.paymentMode || 'cash').toLowerCase(),
                             mode: previewTx.paymentMethod || previewTx.paymentMode || 'Cash',
                             status: previewTx.status || 'Paid',
-                            receiptNumber: previewTx.receiptNumber || previewTx.transactionId || previewTx.invoiceNumber || 'REC-N/A',
+                            receiptNumber: previewTx.receiptNumber || previewTx.receiptNo || previewTx.transactionId || previewTx.invoiceNumber || 'REC-N/A',
+                            receiptNo: previewTx.receiptNo || previewTx.receiptNumber,
                             receipts: receiptList,
                             payments: receiptList,
                             isDischarge: isDischargeTx,
