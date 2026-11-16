@@ -341,13 +341,36 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
           notes: patient.symptoms || appointment.notes,
         };
 
-        const rawHtml = isLab || receiptFormat === 'lab_receipt'
+        const rawReceiptNo = payment.receiptNo || payment.receiptNumber || (payment as any).receiptId || (appointment as any).receiptNo || (appointment as any).receiptNumber || (appointment as any).receiptId || '';
+        const invId = appointment.appointmentId || (appointment as any).sampleId || (payment as any).transactionId || '';
+        const isFakeReceipt = !rawReceiptNo ||
+          rawReceiptNo === '-' ||
+          rawReceiptNo === 'N/A' ||
+          rawReceiptNo.toLowerCase() === invId.toLowerCase() ||
+          /^(manual_|smp-|order-|temp_|txn_|preview)/i.test(rawReceiptNo);
+        const cleanReceiptNo = isFakeReceipt ? '' : rawReceiptNo;
+
+        const rawHtml = receiptFormat === 'detailed_bill'
+          ? generateClinicalReceiptHtml({
+              forceDetailed: true,
+              hospital: safeHospital,
+              patient: mappedPatient,
+              appointment: mappedAppointment,
+              payment: mappedPayment,
+              registrationType: (payment.isDischarge || payment.isDischargeTransaction || appointment.specialization?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('DISCHARGE') || appointment.type?.toUpperCase().includes('SETTLEMENT') || (patient.dischargeType && patient.dischargeType.toUpperCase() !== 'NONE')) ? 'DISCHARGE' : isOPDOrReg ? 'OPD' : 'IPD',
+              headerHtml,
+              footerHtml,
+              returnUrl: '#',
+              showGuardianDetails,
+              printWithHeader
+            })
+          : (isLab || receiptFormat === 'lab_receipt')
           ? generateLabReceiptHtml({
               hospital: safeHospital,
               patient: mappedPatient,
               appointment: mappedAppointment,
               payment: mappedPayment,
-              receiptNo: payment.receiptNo || payment.receiptNumber || (payment as any).receiptId || (appointment as any).receiptNo || (appointment as any).receiptNumber || (appointment as any).receiptId || '',
+              receiptNo: cleanReceiptNo,
               headerHtml,
               footerHtml,
               labTests: propLabTests || appointment.tests || [],

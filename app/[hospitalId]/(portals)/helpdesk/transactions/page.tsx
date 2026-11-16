@@ -287,11 +287,24 @@ export default function TransactionsPage() {
             totalInDB: raw.pagination?.total
         });
 
-        if (Array.isArray(raw)) return { transactions: raw, total: raw.length, totalRevenue: 0 };
+        const list = Array.isArray(raw) ? raw : (raw.data || []);
+        // DEDUPLICATE by unique transaction ID / receipt / referenceId to ensure no bill is duplicated
+        const seen = new Set<string>();
+        const uniqueTx: any[] = [];
+        for (const tx of list) {
+            const key = tx._id || tx.id || tx.transactionId || `${tx.referenceNode || ''}_${tx.amount}_${tx.createdAt || tx.date}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                uniqueTx.push(tx);
+            }
+        }
+
+        const calcRevenue = uniqueTx.reduce((acc, t) => acc + (Number(t.amount || t.totalAmount) || 0), 0);
+
         return {
-            transactions: raw.data || [],
-            total: raw.pagination?.total || (raw.data?.length || 0),
-            totalRevenue: raw.totalRevenue || 0
+            transactions: uniqueTx,
+            total: raw.pagination?.total ? Math.min(raw.pagination.total, uniqueTx.length) : uniqueTx.length,
+            totalRevenue: raw.totalRevenue && uniqueTx.length === list.length ? raw.totalRevenue : calcRevenue
         };
     }, [txRaw]);
 

@@ -994,15 +994,23 @@ export const generateLabReceiptHtml = (data: any) => {
   const paymentMode = formatReceiptPaymentMode(payment, appointment) || data.paymentMode || "Cash";
 
   const rawReceiptNo = payment.receiptNo || payment.receiptNumber || (payment as any).receiptId || appointment.receiptNo || (appointment as any).receiptNumber || (appointment as any).receiptId || data.receiptNo || data.receiptNumber || (data as any).receiptId || "";
-  const receiptNo = rawReceiptNo ? String(rawReceiptNo).trim() : "";
-
-  const rawInvoiceId = data.invoiceId || data.invoiceNo || (!receiptNo ? (payment.receiptNumber || payment.receiptNo) : "") || appointment.appointmentId || appointment.sampleId || "";
+  const rawInvoiceId = data.invoiceId || data.invoiceNo || appointment.appointmentId || appointment.sampleId || "";
   let invoiceId = rawInvoiceId;
   if (!invoiceId) {
     invoiceId = "OPD-INVOICE";
   } else if (invoiceId.length >= 24) {
     invoiceId = `OPD-${invoiceId.slice(-6).toUpperCase()}`;
   }
+
+  // Only consider as genuine receipt if it's NOT a fake/internal transaction key and not equal to invoiceId
+  const isFakeReceipt = !rawReceiptNo ||
+    rawReceiptNo === '-' ||
+    rawReceiptNo === 'N/A' ||
+    String(rawReceiptNo).trim().toLowerCase() === String(invoiceId).trim().toLowerCase() ||
+    String(rawReceiptNo).trim().toLowerCase() === String(rawInvoiceId).trim().toLowerCase() ||
+    /^(manual_|smp-|order-|temp_|txn_|preview)/i.test(String(rawReceiptNo).trim());
+
+  const receiptNo = isFakeReceipt ? "" : String(rawReceiptNo).trim();
 
   const labName = data.labInfo?.name || (hospital.name ? (hospital.name.toUpperCase().includes("LAB") ? hospital.name.toUpperCase() : `${hospital.name.toUpperCase()} LABORATORY`) : "LABORATORY");
   const labAddress = data.labInfo?.address || hospital.address || "";
