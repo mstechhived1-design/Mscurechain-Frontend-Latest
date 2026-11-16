@@ -108,7 +108,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
       "installerIcon": "src-tauri/icons/icon.ico",
       "differentialPackage": true
     },
