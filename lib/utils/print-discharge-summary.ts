@@ -150,8 +150,9 @@ export const generateDischargeSummaryHTML = (
         ? dischargeData.conditionAtDischarge
         : (admission?.conditionAtDischarge || 'Stable');
 
-    // 4. Discharge Medications (Manually entered or mapped - no dummy/duplicate items)
-    const meds: DischargeMedicine[] = dischargeData?.dischargeMedications || [];
+    // 4. Discharge Medications (Individual medicines - filter out any raw pharmacy invoice headers)
+    const rawMeds: DischargeMedicine[] = dischargeData?.dischargeMedications || [];
+    const meds: DischargeMedicine[] = rawMeds.filter(m => !(/^pharmacy\s+bill/i.test(m.medicineName || '') || /\d+\s*item\(s\)/i.test(m.medicineName || '')));
 
     // 5. Discharge Advice
     const dietAdvice = dischargeData?.dietAndActivityAdvice !== undefined

@@ -1946,6 +1946,7 @@ export default function TransactionReportsPage() {
             GuardianName: gName,
             guardianMobile: gMob,
             GuardianMobile: gMob,
+            allDetailedItems,
             dischargeData,
         };
         const totals = isDateFilterActive
@@ -2441,7 +2442,7 @@ export default function TransactionReportsPage() {
         <div className="w-full max-w-[98%] mx-auto space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
             <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-2">
-                {/* Row 1: Title, Patient Badges, and Action Toolbar */}
+                {/* Row 1: Title & Patient Status Chips */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     {/* Left: Title + Patient Status Chips */}
                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
@@ -2452,7 +2453,7 @@ export default function TransactionReportsPage() {
                             {templateFormat === 'discharge' ? 'Discharge Summary' : 'Financial Statement'}
                         </h1>
                         {patient && (
-                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-indigo-100/80 truncate max-w-[180px] sm:max-w-none">
+                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-indigo-100/80 truncate max-w-[200px] sm:max-w-none">
                                 {formatPatientDisplayName(patient)}
                             </span>
                         )}
@@ -2479,13 +2480,22 @@ export default function TransactionReportsPage() {
                             </span>
                         )}
                         {totalAdmissionsCount > 0 && (
-                            <span className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold text-slate-600 bg-slate-50 border border-slate-200/80">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold text-slate-600 bg-slate-50 border border-slate-200/80">
                                 <span>Visits: <strong className="font-black text-slate-800">{totalAdmissionsCount}</strong></span>
                             </span>
                         )}
                     </div>
 
-                    {/* Right: Actions Toolbar */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-400">
+                            Mode: <strong className="text-indigo-600">{templateFormat === 'discharge' ? 'Discharge Summary' : 'Detailed Bill'}</strong>
+                        </span>
+                    </div>
+                </div>
+
+                {/* Row 2: Action Buttons - Left actions on left, Right actions on right utilizing the empty space */}
+                <div className="w-full flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100/80">
+                    {/* Left: Patient Management Actions */}
                     <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                         {patientId && (
                             <button
@@ -2503,7 +2513,7 @@ export default function TransactionReportsPage() {
                                     setPatientType(null);
                                     router.push(`/${params.hospitalId}/frontdesk/transaction-reports`);
                                 }}
-                                className="h-7 px-2 bg-white text-rose-600 font-bold text-[9px] sm:text-xs rounded-lg border border-rose-200 hover:bg-rose-50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
+                                className="h-7 px-2.5 bg-white text-rose-600 font-bold text-[9px] sm:text-xs rounded-lg border border-rose-200 hover:bg-rose-50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
                             >
                                 <RefreshCw className="w-3 h-3" />
                                 <span>Clear</span>
@@ -2555,6 +2565,10 @@ export default function TransactionReportsPage() {
                                 <span>Delete</span>
                             </button>
                         )}
+                    </div>
+
+                    {/* Right: Output and Save Actions placed at the right side */}
+                    <div className="flex flex-wrap items-center gap-1.5 ml-auto">
                         <ReportFormatToggle
                             format={templateFormat}
                             onChange={handleFormatChange}
@@ -2589,9 +2603,9 @@ export default function TransactionReportsPage() {
                     </div>
                 </div>
 
-                {/* Row 2: Encounter Switcher + Date Range Filter + Live Paid/Remaining */}
+                {/* Row 3: Encounter Switcher + Date Range Filter + Live Paid/Remaining */}
                 {patientId && (
-                    <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                    <div className="w-full pt-1.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                         {/* Left: Encounter Switcher */}
                         <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                             <span className="text-[8px] sm:text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Encounter:</span>
@@ -2634,7 +2648,7 @@ export default function TransactionReportsPage() {
                         </div>
 
                         {/* Right: Date Range Filter + Paid / Remaining Mini Badges */}
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 ml-auto">
                             <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 rounded-md px-1.5 py-0.5 shadow-2xs">
                                 <Calendar className="w-3 h-3 text-indigo-600" />
                                 <span className="text-[8px] font-bold text-slate-400">From</span>
@@ -2740,7 +2754,7 @@ export default function TransactionReportsPage() {
                         }}
                         patient={patient}
                         admission={admission || availableEncounters.ipd}
-                        reportData={{ doctors, admissions, meds, services, diags }}
+                        reportData={{ doctors, admissions, meds, services, diags, allDetailedItems }}
                     />
                 ) : (
                     <div className="space-y-3 sm:space-y-4">

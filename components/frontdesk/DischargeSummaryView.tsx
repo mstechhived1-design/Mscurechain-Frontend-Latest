@@ -178,24 +178,77 @@ export default function DischargeSummaryView({
 }: DischargeSummaryViewProps) {
     const medsList = data.dischargeMedications || [];
 
-    // Automatically reflect pharmacy medicines into Discharge Medications if currently empty
-    useEffect(() => {
+    // Extract actual individual medicine names from reportData (ignoring bundled invoice titles)
+    const extractIndividualMedicines = (): { name: string; quantity: number | string }[] => {
+        const list: { name: string; quantity: number | string }[] = [];
+        const seen = new Set<string>();
+
+        // 1. First extract from allDetailedItems if provided
+        const detailed = reportData?.allDetailedItems || [];
+        if (Array.isArray(detailed) && detailed.length > 0) {
+            for (const item of detailed) {
+                const name = (item.medicineName || item.productName || item.name || '').trim();
+                if (!name || /^pharmacy\s+bill/i.test(name) || /\d+\s*item\(s\)/i.test(name)) continue;
+                const key = name.toLowerCase();
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    list.push({ name, quantity: item.quantity || 10 });
+                }
+            }
+        }
+
+        // 2. Also check each pMed in reportData?.meds
         const pharmacyMeds = reportData?.meds || [];
-        if (!pharmacyMeds || pharmacyMeds.length === 0) return;
+        for (const pMed of pharmacyMeds) {
+            if (pMed.detailedItems && Array.isArray(pMed.detailedItems) && pMed.detailedItems.length > 0) {
+                for (const item of pMed.detailedItems) {
+                    const name = (item.medicineName || item.productName || item.name || '').trim();
+                    if (!name || /^pharmacy\s+bill/i.test(name) || /\d+\s*item\(s\)/i.test(name)) continue;
+                    const key = name.toLowerCase();
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        list.push({ name, quantity: item.quantity || 10 });
+                    }
+                }
+            } else {
+                const rawName = (pMed.medicineName || pMed.name || '').trim();
+                if (!rawName || /^pharmacy\s+bill/i.test(rawName) || /\d+\s*item\(s\)/i.test(rawName)) {
+                    continue;
+                }
+                const key = rawName.toLowerCase();
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    list.push({ name: rawName, quantity: pMed.quantity || 10 });
+                }
+            }
+        }
+
+        return list;
+    };
+
+    // Automatically reflect pharmacy individual medicines into Discharge Medications if currently empty
+    // OR if currently only holding invoice headers like "Pharmacy Bill (DHR-xxx)"
+    useEffect(() => {
+        const individualMeds = extractIndividualMedicines();
+        if (individualMeds.length === 0) return;
 
         const currentFilled = (data.dischargeMedications || []).filter(
             (m: any) => m.medicineName && m.medicineName.trim().length > 0
         );
 
-        if (currentFilled.length === 0) {
-            const autoMeds: DischargeMedicine[] = pharmacyMeds.map((pMed: any, i: number) => ({
+        const hasOnlyInvoiceSummaries = currentFilled.length > 0 && currentFilled.every(
+            (m: any) => /^pharmacy\s+bill/i.test(m.medicineName || '') || /\d+\s*item\(s\)/i.test(m.medicineName || '')
+        );
+
+        if (currentFilled.length === 0 || hasOnlyInvoiceSummaries) {
+            const autoMeds: DischargeMedicine[] = individualMeds.map((item, i) => ({
                 id: `auto_pharma_${Date.now()}_${i}`,
-                medicineName: (pMed.medicineName || pMed.name || '').trim(),
+                medicineName: item.name,
                 dose: '1 Tablet',
                 frequency: 'BD (Morning, Night)',
-                duration: `${pMed.quantity || 5} Days`,
-                quantity: String(pMed.quantity || 10)
-            })).filter((m: any) => Boolean(m.medicineName));
+                duration: `${item.quantity || 5} Days`,
+                quantity: String(item.quantity || 10)
+            }));
 
             if (autoMeds.length > 0) {
                 onChange({
@@ -204,7 +257,7 @@ export default function DischargeSummaryView({
                 });
             }
         }
-    }, [reportData?.meds]);
+    }, [reportData?.meds, reportData?.allDetailedItems]);
 
     const handleMedChange = (index: number, field: keyof DischargeMedicine, value: string) => {
         const nextMeds = [...medsList];
@@ -257,35 +310,38 @@ export default function DischargeSummaryView({
     };
 
     const handleImportFromPharmacy = () => {
-        const pharmacyMeds = reportData?.meds || [];
-        if (!pharmacyMeds || pharmacyMeds.length === 0) return;
+        const individualMeds = extractIndividualMedicines();
+        if (individualMeds.length === 0) return;
+
+        // Strip any existing invoice summary headers from the list
+        const cleanExistingMeds = medsList.filter(
+            (m: any) => !(/^pharmacy\s+bill/i.test(m.medicineName || '') || /\d+\s*item\(s\)/i.test(m.medicineName || ''))
+        );
 
         const existingNames = new Set(
-            medsList.map((m: any) => (m.medicineName || '').trim().toLowerCase()).filter(Boolean)
+            cleanExistingMeds.map((m: any) => (m.medicineName || '').trim().toLowerCase()).filter(Boolean)
         );
 
         const newMeds: DischargeMedicine[] = [];
-        for (let i = 0; i < pharmacyMeds.length; i++) {
-            const pMed = pharmacyMeds[i];
-            const name = (pMed.medicineName || pMed.name || '').trim();
-            if (!name) continue;
-            if (existingNames.has(name.toLowerCase())) continue;
+        for (let i = 0; i < individualMeds.length; i++) {
+            const item = individualMeds[i];
+            if (existingNames.has(item.name.toLowerCase())) continue;
 
-            existingNames.add(name.toLowerCase());
+            existingNames.add(item.name.toLowerCase());
             newMeds.push({
                 id: `imported_${Date.now()}_${i}`,
-                medicineName: name,
+                medicineName: item.name,
                 dose: '1 Tablet',
                 frequency: 'BD (Morning, Night)',
-                duration: `${pMed.quantity || 5} Days`,
-                quantity: String(pMed.quantity || 10)
+                duration: `${item.quantity || 5} Days`,
+                quantity: String(item.quantity || 10)
             });
         }
 
-        if (newMeds.length > 0) {
+        if (newMeds.length > 0 || cleanExistingMeds.length !== medsList.length) {
             onChange({
                 ...data,
-                dischargeMedications: [...medsList, ...newMeds]
+                dischargeMedications: [...cleanExistingMeds, ...newMeds]
             });
         }
     };
