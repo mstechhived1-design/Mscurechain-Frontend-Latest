@@ -820,6 +820,50 @@ export default function TransactionReportsPage() {
     const [hasActiveAdmission, setHasActiveAdmission] = useState<boolean>(true);
     const [isLoadingActive, setIsLoadingActive] = useState<boolean>(false);
 
+    // Date Range Filters State
+    const [filterStartDate, setFilterStartDate] = useState<string>('');
+    const [filterEndDate, setFilterEndDate] = useState<string>('');
+    const [dateValidationError, setDateValidationError] = useState<string | null>(null);
+
+    const handleStartDateChange = (val: string) => {
+        setFilterStartDate(val);
+        if (val && filterEndDate && val > filterEndDate) {
+            setDateValidationError("Start date cannot be after End date");
+        } else {
+            setDateValidationError(null);
+        }
+    };
+
+    const handleEndDateChange = (val: string) => {
+        setFilterEndDate(val);
+        if (filterStartDate && val && filterStartDate > val) {
+            setDateValidationError("End date cannot be before Start date");
+        } else {
+            setDateValidationError(null);
+        }
+    };
+
+    const handleClearDateRange = () => {
+        setFilterStartDate('');
+        setFilterEndDate('');
+        setDateValidationError(null);
+    };
+
+    const isDateInRange = useCallback((val: any, fallback?: any): boolean => {
+        if (!filterStartDate && !filterEndDate) return true;
+        const d = parseRowDate(val, fallback);
+        if (!d || isNaN(d.getTime())) return true;
+
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${day}`;
+
+        if (filterStartDate && dateStr < filterStartDate) return false;
+        if (filterEndDate && dateStr > filterEndDate) return false;
+        return true;
+    }, [filterStartDate, filterEndDate]);
+
     // Itemized Medicines Modal State (Default OFF)
     const [showMedicineDetailsModal, setShowMedicineDetailsModal] = useState<boolean>(false);
     const [medicineSearchTerm, setMedicineSearchTerm] = useState<string>('');
@@ -1808,7 +1852,39 @@ export default function TransactionReportsPage() {
     const rawBalance = grand - discount - activeTotPaid;
     const balance = (rawBalance < 0 && rawBalance > -1) ? 0 : rawBalance;
 
+    // Date Range Filtered Calculations
+    const isDateFilterActive = Boolean(filterStartDate || filterEndDate);
+
+    const rangeDoctors = useMemo(() => isDateFilterActive ? doctors.filter(d => isDateInRange(d.date)) : doctors, [doctors, isDateInRange, isDateFilterActive]);
+    const rangeAdmissions = useMemo(() => isDateFilterActive ? admissions.filter(a => isDateInRange(a.date, admission?.admissionDate)) : admissions, [admissions, isDateInRange, admission, isDateFilterActive]);
+    const rangeMeds = useMemo(() => isDateFilterActive ? meds.filter(m => isDateInRange(m.date, admission?.admissionDate)) : meds, [meds, isDateInRange, admission, isDateFilterActive]);
+    const rangeServices = useMemo(() => isDateFilterActive ? services.filter(s => isDateInRange(s.date, admission?.admissionDate)) : services, [services, isDateInRange, admission, isDateFilterActive]);
+    const rangeDiags = useMemo(() => isDateFilterActive ? visibleDiags.filter(d => isDateInRange(d.date, admission?.admissionDate)) : visibleDiags, [visibleDiags, isDateInRange, admission, isDateFilterActive]);
+    const rangePayments = useMemo(() => isDateFilterActive ? payments.filter(p => isPaymentPaid(p) && isDateInRange(p.date)) : payments.filter(isPaymentPaid), [payments, isDateInRange, isDateFilterActive]);
+
+    const rangeTotDoc = rangeDoctors.reduce((s, r) => s + (r.amount != null ? r.amount : r.rate * r.visits), 0);
+    const rangeTotAdm = rangeAdmissions.reduce((s, r) => s + (r.amount != null ? r.amount : (r.rate * (typeof r.days === 'number' ? r.days : 1))), 0);
+    const rangeTotMed = rangeMeds.reduce((s, r) => s + (r.amount != null ? r.amount : r.rate * r.quantity), 0);
+    const rangeTotSvc = rangeServices.reduce((s, r) => s + (r.amount != null ? r.amount : r.rate * (Number(r.quantity) || 1)), 0);
+    const rangeTotDiag = rangeDiags.reduce((s, r) => s + (r.amount != null ? r.amount : r.rate * r.quantity), 0);
+
+    const rangeActiveTotDoc = printConfig.consultations ? rangeTotDoc : 0;
+    const rangeActiveTotAdm = (patientType !== 'OPD' && printConfig.wards) ? rangeTotAdm : 0;
+    const rangeActiveTotMed = printConfig.pharmacy ? rangeTotMed : 0;
+    const rangeActiveTotSvc = printConfig.services ? rangeTotSvc : 0;
+    const rangeActiveTotDiag = rangeTotDiag;
+    const rangeActiveTotPaid = rangePayments.reduce((s, r) => s + Number(r.amount || 0), 0);
+
+    const rangeGrand = rangeActiveTotDoc + rangeActiveTotAdm + rangeActiveTotMed + rangeActiveTotSvc + rangeActiveTotDiag;
+    const rangeRawBalance = rangeGrand - (isDateFilterActive ? 0 : discount) - rangeActiveTotPaid;
+    const rangeBalance = (rangeRawBalance < 0 && rangeRawBalance > -1) ? 0 : rangeRawBalance;
+
     const handlePrint = () => {
+        if (dateValidationError) {
+            toast.error(dateValidationError);
+            return;
+        }
+
         const h = hospital || { name: 'Hospital Name', address: 'Hospital Address', phone: 'Contact Info' };
 
         const baseAdm = activeEncounterType === 'IPD' ? (admission || availableEncounters.ipd || {}) : (admission || {});
@@ -1852,17 +1928,17 @@ export default function TransactionReportsPage() {
             currentAdm?.guardianMobile ||
             '';
 
-        const activeDiags = diags.filter(d =>
+        const activeDiags = (isDateFilterActive ? rangeDiags : diags).filter(d =>
             d.category === 'radiology' ? printConfig.radiology : printConfig.investigations
         );
         const reportData = {
-            doctors: printConfig.consultations ? doctors : [],
-            admissions: (patientType !== 'OPD' && printConfig.wards) ? admissions : [],
-            meds: printConfig.pharmacy ? meds : [],
-            services: printConfig.services ? services : [],
+            doctors: printConfig.consultations ? (isDateFilterActive ? rangeDoctors : doctors) : [],
+            admissions: (patientType !== 'OPD' && printConfig.wards) ? (isDateFilterActive ? rangeAdmissions : admissions) : [],
+            meds: printConfig.pharmacy ? (isDateFilterActive ? rangeMeds : meds) : [],
+            services: printConfig.services ? (isDateFilterActive ? rangeServices : services) : [],
             diags: printConfig.investigations ? activeDiags.filter(d => d.category !== 'radiology') : [],
             rads: printConfig.radiology ? activeDiags.filter(d => d.category === 'radiology') : [],
-            payments: printConfig.receipts ? payments : [],
+            payments: printConfig.receipts ? (isDateFilterActive ? rangePayments : payments) : [],
             doctorReference: docRef,
             referredBy: docRef,
             guardianName: gName,
@@ -1871,7 +1947,9 @@ export default function TransactionReportsPage() {
             GuardianMobile: gMob,
             dischargeData,
         };
-        const totals = { grandTotal: grand, totalPaid: activeTotPaid, balance: balance, discount: discount };
+        const totals = isDateFilterActive
+            ? { grandTotal: rangeGrand, totalPaid: rangeActiveTotPaid, balance: rangeBalance, discount: 0 }
+            : { grandTotal: grand, totalPaid: activeTotPaid, balance: balance, discount: discount };
 
         const html = templateFormat === 'discharge'
             ? generateDischargeSummaryHTML(h, patient || {}, currentAdm, reportData, dischargeData)
@@ -2625,6 +2703,92 @@ export default function TransactionReportsPage() {
                                 <span>Visits: <strong className="font-black text-slate-800">{totalAdmissionsCount}</strong> <span className="hidden sm:inline">(Showing Latest Only)</span></span>
                             </span>
                         )}
+                    </div>
+                )}
+
+                {/* Date Range Filter & Financial Summary Sub-Header */}
+                {patientId && (
+                    <div className="pt-2.5 sm:pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5 sm:gap-4">
+                        {/* Left: Date Range Filter with Validation */}
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                            <div className="flex items-center gap-1.5 text-slate-500">
+                                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600">Date Range Filter:</span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 rounded-lg px-2 py-1 shadow-2xs">
+                                    <span className="text-[9px] font-bold text-slate-400">From</span>
+                                    <input
+                                        type="date"
+                                        value={filterStartDate}
+                                        onChange={(e) => handleStartDateChange(e.target.value)}
+                                        className="bg-transparent text-[10px] sm:text-xs font-bold text-slate-800 outline-none cursor-pointer"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 rounded-lg px-2 py-1 shadow-2xs">
+                                    <span className="text-[9px] font-bold text-slate-400">To</span>
+                                    <input
+                                        type="date"
+                                        value={filterEndDate}
+                                        onChange={(e) => handleEndDateChange(e.target.value)}
+                                        className="bg-transparent text-[10px] sm:text-xs font-bold text-slate-800 outline-none cursor-pointer"
+                                    />
+                                </div>
+
+                                {isDateFilterActive && (
+                                    <button
+                                        type="button"
+                                        onClick={handleClearDateRange}
+                                        className="h-7 px-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9px] font-extrabold rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                                        title="Clear date filter"
+                                    >
+                                        <X className="w-3 h-3" />
+                                        <span>Clear</span>
+                                    </button>
+                                )}
+                            </div>
+
+                            {dateValidationError && (
+                                <span className="text-[10px] font-extrabold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md flex items-center gap-1 animate-in fade-in">
+                                    ⚠️ {dateValidationError}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Right: Live Paid and Remaining Summary for that Date Range */}
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                            <div className="flex items-center gap-1.5 bg-emerald-50/90 border border-emerald-200 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 shadow-2xs">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                <div className="flex flex-col">
+                                    <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800">
+                                        {isDateFilterActive ? "Paid in Range" : "Total Paid"}
+                                    </span>
+                                    <span className="text-xs sm:text-sm font-black text-emerald-700">
+                                        ₹{(isDateFilterActive ? rangeActiveTotPaid : activeTotPaid).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 bg-rose-50/90 border border-rose-200 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 shadow-2xs">
+                                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                <div className="flex flex-col">
+                                    <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-800">
+                                        {isDateFilterActive ? "Remaining (Range)" : "Remaining Amount"}
+                                    </span>
+                                    <span className="text-xs sm:text-sm font-black text-rose-700">
+                                        ₹{(isDateFilterActive ? rangeBalance : balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {isDateFilterActive && (
+                                <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">
+                                    Print will output only selected date range
+                                </span>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
