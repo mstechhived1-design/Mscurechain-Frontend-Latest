@@ -347,6 +347,7 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
               patient: mappedPatient,
               appointment: mappedAppointment,
               payment: mappedPayment,
+              receiptNo: payment.receiptNo || payment.receiptNumber || (payment as any).receiptId || (appointment as any).receiptNo || (appointment as any).receiptNumber || (appointment as any).receiptId || '',
               headerHtml,
               footerHtml,
               labTests: propLabTests || appointment.tests || [],

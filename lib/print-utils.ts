@@ -993,7 +993,10 @@ export const generateLabReceiptHtml = (data: any) => {
   const balanceAmount = Number(payment.balance ?? data.balance ?? (totalAmount - discountAmount - paidAmount > 0 ? totalAmount - discountAmount - paidAmount : 0));
   const paymentMode = formatReceiptPaymentMode(payment, appointment) || data.paymentMode || "Cash";
 
-  const rawInvoiceId = data.invoiceId || data.invoiceNo || payment.receiptNumber || payment.receiptNo || appointment.appointmentId || appointment.sampleId || "";
+  const rawReceiptNo = payment.receiptNo || payment.receiptNumber || (payment as any).receiptId || appointment.receiptNo || (appointment as any).receiptNumber || (appointment as any).receiptId || data.receiptNo || data.receiptNumber || (data as any).receiptId || "";
+  const receiptNo = rawReceiptNo ? String(rawReceiptNo).trim() : "";
+
+  const rawInvoiceId = data.invoiceId || data.invoiceNo || (!receiptNo ? (payment.receiptNumber || payment.receiptNo) : "") || appointment.appointmentId || appointment.sampleId || "";
   let invoiceId = rawInvoiceId;
   if (!invoiceId) {
     invoiceId = "OPD-INVOICE";
@@ -1115,6 +1118,10 @@ export const generateLabReceiptHtml = (data: any) => {
                 <td style="width: 85px; font-weight: 600; color: #000000;">Invoice ID:</td>
                 <td style="color: #000000; font-weight: 700;">${invoiceId}</td>
               </tr>
+              ${receiptNo ? `<tr>
+                <td style="width: 85px; font-weight: 600; color: #000000;">Receipt No:</td>
+                <td style="color: #000000; font-weight: 700;">${receiptNo}</td>
+              </tr>` : ""}
               <tr>
                 <td style="width: 85px; font-weight: 600; color: #000000;">Date:</td>
                 <td style="color: #000000;">${currentDate}</td>

@@ -10,6 +10,7 @@ interface PrintReceiptPreviewModalProps {
     htmlContent: string | null;
     title?: string;
     subtitle?: string;
+    buttonText?: string;
 }
 
 export default function PrintReceiptPreviewModal({
@@ -17,7 +18,8 @@ export default function PrintReceiptPreviewModal({
     onClose,
     htmlContent,
     title = 'Document Print Preview',
-    subtitle = 'A4 Standard Layout • Live Document Preview'
+    subtitle = 'A4 Standard Layout • Live Document Preview',
+    buttonText
 }: PrintReceiptPreviewModalProps) {
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -87,7 +89,7 @@ export default function PrintReceiptPreviewModal({
                 <div className="px-6 py-3.5 bg-white border-t border-slate-100 flex items-center justify-between shrink-0">
                     <div className="text-[11px] font-bold text-slate-500 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span>Preview matches exact printed final receipt</span>
+                        <span>{htmlContent?.includes('Interim') ? 'Preview matches exact printed interim receipt' : 'Preview matches exact printed final receipt'}</span>
                     </div>
                     <div className="flex items-center gap-2.5">
                         <button
@@ -103,7 +105,7 @@ export default function PrintReceiptPreviewModal({
                             className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-teal-500/25 transition-all cursor-pointer"
                         >
                             <Printer size={14} />
-                            <span>Print Final Receipt</span>
+                            <span>{buttonText || (htmlContent?.includes('Interim') ? 'Print Interim Receipt' : 'Print Final Receipt')}</span>
                         </button>
                     </div>
                 </div>

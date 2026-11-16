@@ -12,6 +12,7 @@ import FooterPrint from './FooterPrint';
 interface BillPrintViewProps {
     billData: BillPayload;
     invoiceId?: string; // Optional because previews might not have it yet
+    receiptNo?: string;
     date?: string;
     patientType?: 'opd' | 'ipd' | 'lab';
 }
@@ -20,11 +21,21 @@ interface BillPrintViewProps {
 // It should be wrapped in a container that typically handles visibility (hidden on screen, visible on print)
 // OR used in a modal that is then printed.
 
-const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date, patientType }) => {
+const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, receiptNo, date, patientType }) => {
     const { showHonorificInReceipts } = usePrintStore();
     const safeDate = parseSafeDate(date || (billData as any)?.createdAt || (billData as any)?.billDate) || new Date();
     const currentDate = safeDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     const effectiveType = patientType || billData.patientType || 'opd';
+    const effectiveReceiptNo = (
+        receiptNo ||
+        (billData as any)?.receiptNo ||
+        (billData as any)?.receiptNumber ||
+        (billData as any)?.receiptId ||
+        (billData as any)?.payment?.receiptNo ||
+        (billData as any)?.payment?.receiptNumber ||
+        (billData as any)?.payment?.receiptId ||
+        ''
+    ).trim();
 
     const invoiceLabel = effectiveType === 'ipd'
         ? 'IPD INVOICE'
@@ -116,6 +127,13 @@ const BillPrintView: React.FC<BillPrintViewProps> = ({ billData, invoiceId, date
                                 if (effectiveType === 'lab') return `L2L-${cleanId}`;
                                 return `ORDER-${cleanId}`; // Changed from WLK to ORDER as per user request
                             })()}</span>
+
+                            {effectiveReceiptNo && (
+                                <>
+                                    <span className="font-semibold text-black">Receipt No:</span>
+                                    <span className="font-bold text-black">{effectiveReceiptNo}</span>
+                                </>
+                            )}
 
                             <span className="font-semibold text-black">Date:</span>
                             <span>{currentDate}</span>

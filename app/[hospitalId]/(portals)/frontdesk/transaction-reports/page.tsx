@@ -2027,11 +2027,12 @@ export default function TransactionReportsPage() {
             ? { grandTotal: rangeGrand, totalPaid: rangeActiveTotPaid, balance: rangeBalance, discount: 0 }
             : { grandTotal: grand, totalPaid: activeTotPaid, balance: balance, discount: discount };
 
+        const isActuallyDischarged = /discharged/i.test(currentAdm?.status || '') && !/active|admitted/i.test(currentAdm?.status || '');
         const html = templateFormat === 'discharge'
             ? generateDischargeSummaryHTML(h, patient || {}, currentAdm, reportData, dischargeData)
             : generateTransactionReportHTML(h, patient || {}, currentAdm, reportData, totals, printConfig, {
                 isHistory: Boolean(loadReportId),
-                isFinalBill: Boolean(loadReportId) || /discharged/i.test(currentAdm?.status || '') || Boolean(currentAdm?.dischargeDate)
+                isFinalBill: isActuallyDischarged
             });
 
         setPreviewTitle(templateFormat === 'discharge' ? 'Discharge Summary - Print Preview' : 'Detailed Financial Statement - Print Preview');

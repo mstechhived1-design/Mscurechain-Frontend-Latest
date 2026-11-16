@@ -336,6 +336,9 @@ const LabReportTemplate = forwardRef<HTMLDivElement, LabReportTemplateProps>(
                             <div className="lab-patient-grid" style={{ position: 'relative', zIndex: 1 }}>
                                 <div>
                                     <div className="info-row"><span className="info-label">Reg No</span><span>:</span><span>{sample.sampleId}</span></div>
+                                    {((sample as any)?.receiptNo || (sample as any)?.receiptNumber || (sample as any)?.payment?.receiptNo || (sample as any)?.payment?.receiptNumber) && (
+                                        <div className="info-row"><span className="info-label">Receipt No</span><span>:</span><span style={{ fontWeight: 700 }}>{(sample as any)?.receiptNo || (sample as any)?.receiptNumber || (sample as any)?.payment?.receiptNo || (sample as any)?.payment?.receiptNumber}</span></div>
+                                    )}
                                     <div className="info-row"><span className="info-label">Patient Name</span><span>:</span><span>{formatPatientNameWithPrefix(sample.patientDetails.originalPatientName || sample.patientDetails.name, (sample.patientDetails as any).honorific, true)}</span></div>
                                     <div className="info-row"><span className="info-label">Age</span><span>:</span><span>{(() => {
                                         const dob = (sample.patientDetails as any)?.dob || (sample.patientDetails as any)?.dateOfBirth || (sample as any)?.patient?.dob || (sample as any)?.patientProfile?.dob;

@@ -106,20 +106,17 @@ export const generateTransactionReportHTML = (
     const phoneNo = patient?.mobile || patient?.user?.mobile || patient?.profile?.contactNumber || patient?.profile?.phone || patient?.phone || patient?.patientDetails?.phone || '';
 
     const isIPD = Boolean((admission && Object.keys(admission).length > 0) || (reportData?.admissions && reportData.admissions.length > 0) || !reportData?.isOPD);
-    const isDischarged = Boolean(
-        options?.isHistory ||
-        options?.isFinalBill ||
+    const isActuallyDischarged = Boolean(
         /discharged/i.test(admission?.status || '') ||
-        admission?.dischargeDate ||
-        reportData?.dischargeData ||
-        reportData?.admission?.dischargeDate ||
-        /discharged/i.test(reportData?.admission?.status || '')
+        /discharged/i.test(reportData?.admission?.status || '') ||
+        (options?.isFinalBill && !/active|admitted/i.test(admission?.status || '') && !/active|admitted/i.test(reportData?.admission?.status || ''))
     );
+    const isDischarged = isActuallyDischarged;
     const titleBarText = options?.customTitle
         ? options.customTitle
         : (isIPD
-            ? (isDischarged ? 'IP Final Bill - Detailed' : 'IP Interim Bill-Detailed')
-            : 'OP Interim Bill-Detailed');
+            ? (isDischarged ? 'IP Final Bill - Detailed' : 'IP Interim Bill - Detailed')
+            : 'OP Interim Bill - Detailed');
 
     let html = `
     <!DOCTYPE html>
@@ -283,9 +280,9 @@ export const generateTransactionReportHTML = (
                         <tr><td class="info-label">UMR No</td><td>: ${umrNo}</td></tr>
                         <tr><td class="info-label">Bill No</td><td>: ${invoiceNo}</td></tr>
                         <tr><td class="info-label">Bill Dt</td><td>: ${formatDate(new Date())}</td></tr>
-                        ${(isDischarged) ? `
+                        ${(isDischarged && (admission?.dischargeDate || reportData?.dischargeData?.dischargeDate || reportData?.dischargeDate)) ? `
                         <tr><td class="info-label">Discharge Type</td><td>: ${admission?.dischargeType || reportData?.dischargeData?.dischargeType || reportData?.dischargeType || 'Regular'}</td></tr>
-                        <tr><td class="info-label">Discharge Dt</td><td>: ${formatDate(admission?.dischargeDate || reportData?.dischargeData?.dischargeDate || reportData?.dischargeDate || admission?.updatedAt || reportData?.updatedAt || new Date())}</td></tr>
+                        <tr><td class="info-label">Discharge Dt</td><td>: ${formatDate(admission?.dischargeDate || reportData?.dischargeData?.dischargeDate || reportData?.dischargeDate)}</td></tr>
                         ` : ''}
                         ${(admission?.wardName || admission?.ward?.name || admission?.bed?.wardName || admission?.bed?.type || fallbackWard) ? `<tr><td class="info-label">Ward</td><td>: ${admission?.wardName || admission?.ward?.name || admission?.bed?.wardName || admission?.bed?.type || fallbackWard}</td></tr>` : ''}
                         ${(admission?.bedNumber || admission?.bed?.bedId || admission?.bed?.number || admission?.bedId || fallbackBed) ? `<tr><td class="info-label">Bed No</td><td>: ${admission?.bedNumber || admission?.bed?.bedId || admission?.bed?.number || admission?.bedId || fallbackBed}</td></tr>` : ''}
