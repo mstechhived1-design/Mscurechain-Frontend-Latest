@@ -1860,7 +1860,8 @@ export default function TransactionReportsPage() {
     const rangeMeds = useMemo(() => isDateFilterActive ? meds.filter(m => isDateInRange(m.date, admission?.admissionDate)) : meds, [meds, isDateInRange, admission, isDateFilterActive]);
     const rangeServices = useMemo(() => isDateFilterActive ? services.filter(s => isDateInRange(s.date, admission?.admissionDate)) : services, [services, isDateInRange, admission, isDateFilterActive]);
     const rangeDiags = useMemo(() => isDateFilterActive ? visibleDiags.filter(d => isDateInRange(d.date, admission?.admissionDate)) : visibleDiags, [visibleDiags, isDateInRange, admission, isDateFilterActive]);
-    const rangePayments = useMemo(() => isDateFilterActive ? payments.filter(p => isPaymentPaid(p) && isDateInRange(p.date)) : payments.filter(isPaymentPaid), [payments, isDateInRange, isDateFilterActive]);
+    const rangePayments = useMemo(() => isDateFilterActive ? payments.filter(p => isPaymentPaid(p) && isDateInRange(p.date, admission?.admissionDate)) : payments.filter(isPaymentPaid), [payments, isDateInRange, admission, isDateFilterActive]);
+    const uiRangePayments = useMemo(() => isDateFilterActive ? payments.filter(p => isDateInRange(p.date, admission?.admissionDate)) : payments, [payments, isDateInRange, admission, isDateFilterActive]);
 
     const rangeTotDoc = rangeDoctors.reduce((s, r) => s + (r.amount != null ? r.amount : r.rate * r.visits), 0);
     const rangeTotAdm = rangeAdmissions.reduce((s, r) => s + (r.amount != null ? r.amount : (r.rate * (typeof r.days === 'number' ? r.days : 1))), 0);
@@ -2212,13 +2213,20 @@ export default function TransactionReportsPage() {
         }, 500);
     }, [performAutoSave]);
 
-    const updD = (i: number, k: keyof DoctorCharge, v: any) => {
-        setDoctors(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'visits') nx.amount = nx.rate * nx.visits; return nx; }));
+    const updD = (idOrIdx: any, k: keyof DoctorCharge, v: any) => {
+        setDoctors(p => p.map((x, j) => {
+            const match = typeof idOrIdx === 'string' ? x.id === idOrIdx : j === idOrIdx;
+            if (!match) return x;
+            const nx = { ...x, [k]: v };
+            if (k === 'rate' || k === 'visits') nx.amount = nx.rate * nx.visits;
+            return nx;
+        }));
         scheduleAutoSave();
     };
-    const updA = (i: number, k: keyof AdmissionCharge, v: any) => {
+    const updA = (idOrIdx: any, k: keyof AdmissionCharge, v: any) => {
         setAdmis(p => p.map((x, j) => {
-            if (j !== i) return x;
+            const match = typeof idOrIdx === 'string' ? x.id === idOrIdx : j === idOrIdx;
+            if (!match) return x;
             const nx = { ...x, [k]: v };
 
             if (k === 'date') {
@@ -2228,7 +2236,7 @@ export default function TransactionReportsPage() {
                     nx.days = stayCalc.readableDuration;
                     nx.amount = stayCalc.charge;
                 }
-                if (i === 0) {
+                if (j === 0) {
                     setAdmission((prev: any) => prev ? { ...prev, admissionDate: v } : prev);
                 }
             } else if (k === 'rate') {
@@ -2256,20 +2264,41 @@ export default function TransactionReportsPage() {
         }));
         scheduleAutoSave();
     };
-    const updM = (i: number, k: keyof MedCharge, v: any) => {
-        setMeds(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * nx.quantity; return nx; }));
+    const updM = (idOrIdx: any, k: keyof MedCharge, v: any) => {
+        setMeds(p => p.map((x, j) => {
+            const match = typeof idOrIdx === 'string' ? x.id === idOrIdx : j === idOrIdx;
+            if (!match) return x;
+            const nx = { ...x, [k]: v };
+            if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * nx.quantity;
+            return nx;
+        }));
         scheduleAutoSave();
     };
-    const updS = (i: number, k: keyof ServiceCharge, v: any) => {
-        setServices(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * (Number(nx.quantity) || 1); return nx; }));
+    const updS = (idOrIdx: any, k: keyof ServiceCharge, v: any) => {
+        setServices(p => p.map((x, j) => {
+            const match = typeof idOrIdx === 'string' ? x.id === idOrIdx : j === idOrIdx;
+            if (!match) return x;
+            const nx = { ...x, [k]: v };
+            if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * (Number(nx.quantity) || 1);
+            return nx;
+        }));
         scheduleAutoSave();
     };
-    const updDiag = (i: number, k: keyof DiagCharge, v: any) => {
-        setDiags(p => p.map((x, j) => { if (j !== i) return x; const nx = { ...x, [k]: v }; if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * nx.quantity; return nx; }));
+    const updDiag = (idOrIdx: any, k: keyof DiagCharge, v: any) => {
+        setDiags(p => p.map((x, j) => {
+            const match = typeof idOrIdx === 'string' ? x.id === idOrIdx : j === idOrIdx;
+            if (!match) return x;
+            const nx = { ...x, [k]: v };
+            if (k === 'rate' || k === 'quantity') nx.amount = nx.rate * nx.quantity;
+            return nx;
+        }));
         scheduleAutoSave();
     };
-    const updP = (i: number, k: keyof Payment, v: any) => {
-        setPay(p => p.map((x, j) => j === i ? { ...x, [k]: v } : x));
+    const updP = (idOrIdx: any, k: keyof Payment, v: any) => {
+        setPay(p => p.map((x, j) => {
+            const match = typeof idOrIdx === 'string' ? x.id === idOrIdx : j === idOrIdx;
+            return match ? { ...x, [k]: v } : x;
+        }));
         scheduleAutoSave();
     };
 
@@ -2411,54 +2440,53 @@ export default function TransactionReportsPage() {
     return (
         <div className="w-full max-w-[98%] mx-auto space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
-            <div className="bg-white p-2.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5 sm:space-y-3.5">
-                {/* Row 1: Dedicated Heading Row */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-                        <div className="w-8 h-8 sm:w-11 sm:h-11 bg-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-xs sm:shadow-md shadow-indigo-500/20 shrink-0 text-white">
-                            <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-2">
+                {/* Row 1: Title, Patient Badges, and Action Toolbar */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    {/* Left: Title + Patient Status Chips */}
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs">
+                            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
-                        <div className="min-w-0 flex flex-wrap items-center gap-2">
-                            <h1 className="text-base sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
-                                {templateFormat === 'discharge' ? 'Discharge Summary' : 'Financial Statement'}
-                            </h1>
-                            {patient && (
-                                <span className="bg-indigo-50 text-indigo-700 px-2 sm:px-2.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-indigo-100/80">
-                                    {formatPatientDisplayName(patient)}
-                                </span>
-                            )}
-                            {patientType && (
-                                <span className={`px-2 sm:px-2.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider border ${patientType === 'IPD' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
-                                    {patientType}
-                                </span>
-                            )}
-                            {Boolean(
-                                /discharged/i.test(admission?.status || '') ||
-                                /discharged/i.test(availableEncounters.ipd?.status || '') ||
-                                admission?.dischargeDate ||
-                                availableEncounters.ipd?.dischargeDate ||
-                                dischargeData?.dischargeDate
-                            ) && (
-                                <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 sm:px-2.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-                                    <CheckCircle className="w-3 h-3 text-emerald-600" />
-                                    <span>Discharged</span>
-                                </span>
-                            )}
-                        </div>
+                        <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight leading-none">
+                            {templateFormat === 'discharge' ? 'Discharge Summary' : 'Financial Statement'}
+                        </h1>
+                        {patient && (
+                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-indigo-100/80 truncate max-w-[180px] sm:max-w-none">
+                                {formatPatientDisplayName(patient)}
+                            </span>
+                        )}
+                        {patientType && (
+                            <span className={`px-1.5 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider border ${patientType === 'IPD' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                {patientType}
+                            </span>
+                        )}
+                        {Boolean(
+                            /discharged/i.test(admission?.status || '') ||
+                            /discharged/i.test(availableEncounters.ipd?.status || '') ||
+                            admission?.dischargeDate ||
+                            availableEncounters.ipd?.dischargeDate ||
+                            dischargeData?.dischargeDate
+                        ) ? (
+                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3 text-emerald-600" />
+                                <span>Discharged</span>
+                            </span>
+                        ) : (
+                            <span className="bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                                <span>Active</span>
+                            </span>
+                        )}
+                        {totalAdmissionsCount > 0 && (
+                            <span className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold text-slate-600 bg-slate-50 border border-slate-200/80">
+                                <span>Visits: <strong className="font-black text-slate-800">{totalAdmissionsCount}</strong></span>
+                            </span>
+                        )}
                     </div>
 
-                    {/* Mode Status Pill */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] sm:text-xs font-bold text-slate-400">
-                            Mode: <strong className="text-indigo-600">{templateFormat === 'discharge' ? 'Discharge Summary' : 'Detailed Bill'}</strong>
-                        </span>
-                    </div>
-                </div>
-
-                {/* Row 2: Action Buttons & Template Toggle Toolbar */}
-                <div className="flex flex-wrap items-center justify-between gap-2.5">
-                    {/* Left: Patient & Doctor Management Actions */}
-                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    {/* Right: Actions Toolbar */}
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                         {patientId && (
                             <button
                                 onClick={() => {
@@ -2475,18 +2503,18 @@ export default function TransactionReportsPage() {
                                     setPatientType(null);
                                     router.push(`/${params.hospitalId}/frontdesk/transaction-reports`);
                                 }}
-                                className="h-7 sm:h-9 px-2 sm:px-3 bg-white text-rose-600 font-bold text-[9px] sm:text-xs rounded-lg sm:rounded-xl border border-rose-200 hover:bg-rose-50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
+                                className="h-7 px-2 bg-white text-rose-600 font-bold text-[9px] sm:text-xs rounded-lg border border-rose-200 hover:bg-rose-50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
                             >
-                                <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                <RefreshCw className="w-3 h-3" />
                                 <span>Clear</span>
                             </button>
                         )}
                         <div className="relative shrink-0">
                             <button
                                 onClick={() => setShowPatientSearch(!showPatientSearch)}
-                                className="h-7 sm:h-9 px-2 sm:px-3.5 bg-white text-indigo-600 font-bold text-[9px] sm:text-xs rounded-lg sm:rounded-xl border border-indigo-200 hover:bg-indigo-50 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                                className="h-7 px-2.5 bg-white text-indigo-600 font-bold text-[9px] sm:text-xs rounded-lg border border-indigo-200 hover:bg-indigo-50 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
                             >
-                                <UserCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                <UserCheck className="w-3 h-3" />
                                 <span>{patient ? "Change" : "Select"}</span>
                                 <span className="hidden sm:inline">Patient</span>
                             </button>
@@ -2503,314 +2531,179 @@ export default function TransactionReportsPage() {
                         {patientId && (
                             <button
                                 onClick={openEditDetailsModal}
-                                className="h-7 sm:h-9 px-2 sm:px-3.5 bg-white text-emerald-600 font-bold text-[9px] sm:text-xs rounded-lg sm:rounded-xl border border-emerald-200 hover:bg-emerald-50 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
-                                title="Edit Doctor, Guardian Name, Phone & Referred By"
+                                className="h-7 px-2.5 bg-white text-emerald-600 font-bold text-[9px] sm:text-xs rounded-lg border border-emerald-200 hover:bg-emerald-50 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                                title="Edit Doctor, Guardian Name, Phone and Referred By"
                             >
-                                <UserCog className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                <UserCog className="w-3 h-3" />
                                 <span>Edit Details</span>
                             </button>
                         )}
                         <button
                             onClick={() => router.push(`/${params.hospitalId}/frontdesk/transaction-history`)}
-                            className="h-7 sm:h-9 px-2 sm:px-3.5 bg-white text-slate-700 font-bold text-[9px] sm:text-xs rounded-lg sm:rounded-xl border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
+                            className="h-7 px-2.5 bg-white text-slate-700 font-bold text-[9px] sm:text-xs rounded-lg border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
                         >
-                            <Search className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                            <Search className="w-3 h-3" />
                             <span>History</span>
                         </button>
-
                         {isManualReport && (
                             <button
                                 onClick={handleDeleteReport}
                                 disabled={isDeleting}
-                                className="h-7 sm:h-9 px-2 sm:px-3 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-bold text-[9px] sm:text-xs rounded-lg sm:rounded-xl transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
+                                className="h-7 px-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-bold text-[9px] sm:text-xs rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
                             >
-                                {isDeleting ? <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" /> : <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
+                                {isDeleting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                                 <span>Delete</span>
                             </button>
                         )}
-                    </div>
-
-                    {/* Right: Save, Format Toggle, Print */}
-                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                        {/* Template Format Toggle (Standard Bill vs Discharge Summary) */}
                         <ReportFormatToggle
                             format={templateFormat}
                             onChange={handleFormatChange}
                         />
-
                         {autoSaveStatus === 'saving' && (
-                            <span className="text-[10px] text-amber-600 font-bold flex items-center gap-1 bg-amber-50 border border-amber-200/80 px-2 py-1 rounded-lg">
+                            <span className="text-[9px] text-amber-600 font-bold flex items-center gap-1 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded">
                                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                                <span className="hidden sm:inline">Saving...</span>
+                                <span className="hidden sm:inline">Saving</span>
                             </span>
                         )}
                         {autoSaveStatus === 'saved' && (
-                            <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 bg-emerald-50 border border-emerald-200/80 px-2 py-1 rounded-lg">
-                                <Check className="w-3 h-3 text-emerald-600" />
+                            <span className="text-[9px] text-emerald-600 font-bold flex items-center gap-1 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded">
+                                <Check className="w-2.5 h-2.5 text-emerald-600" />
                                 <span className="hidden sm:inline">Saved</span>
                             </span>
                         )}
-
                         <button
                             onClick={handleSaveReport}
                             disabled={isSaving}
-                            className="h-7 sm:h-9 px-2.5 sm:px-4 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-[9px] sm:text-xs rounded-lg sm:rounded-xl transition-all flex items-center gap-1 shrink-0 shadow-2xs shadow-emerald-600/20 cursor-pointer"
+                            className="h-7 px-3 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-[9px] sm:text-xs rounded-lg transition-all flex items-center gap-1 shrink-0 shadow-2xs shadow-emerald-600/20 cursor-pointer"
                         >
-                            {isSaving ? <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" /> : <Save className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
+                            {isSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                             <span>{isManualReport ? "Update" : "Save"}</span>
                         </button>
-
                         <button
                             onClick={handlePrint}
-                            className="h-7 sm:h-9 px-2.5 sm:px-4.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-[9px] sm:text-xs rounded-lg sm:rounded-xl shadow-2xs shadow-indigo-600/20 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                            className="h-7 px-3.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-[9px] sm:text-xs rounded-lg shadow-2xs shadow-indigo-600/20 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
                         >
-                            <Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                            <Printer className="w-3 h-3" />
                             <span>Print</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Sub-Row (Second Header): Encounter Tabs, Dynamic Status in Center, and Visit Stats */}
-                {patientId && (availableEncounters.ipd || availableEncounters.opd || totalAdmissionsCount > 0) && (
-                    <div className="pt-2 sm:pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5 sm:gap-3">
+                {/* Row 2: Encounter Switcher + Date Range Filter + Live Paid/Remaining */}
+                {patientId && (
+                    <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                         {/* Left: Encounter Switcher */}
                         <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                            <span className="text-[8px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Encounter:</span>
+                            <span className="text-[8px] sm:text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Encounter:</span>
                             {availableEncounters.ipd && availableEncounters.opd ? (
-                                <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-slate-100 rounded-lg sm:rounded-xl border border-slate-200/80 shadow-2xs">
+                                <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-lg border border-slate-200/80 shadow-2xs">
                                     <button
                                         type="button"
                                         onClick={() => loadEncounterData('IPD', availableEncounters.ipd)}
-                                        className={`flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-lg text-[8px] sm:text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${activeEncounterType === 'IPD'
-                                                ? 'bg-rose-600 text-white shadow-2xs ring-1 ring-rose-500'
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${activeEncounterType === 'IPD'
+                                                ? 'bg-rose-600 text-white shadow-2xs'
                                                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                                             }`}
                                     >
-                                        <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${activeEncounterType === 'IPD' ? 'bg-white animate-pulse' : 'bg-rose-500'}`} />
+                                        <span className={`w-1 h-1 rounded-full ${activeEncounterType === 'IPD' ? 'bg-white animate-pulse' : 'bg-rose-500'}`} />
                                         <span>IPD Stay <span className="hidden sm:inline">({availableEncounters.ipd.admissionId || 'Admission'})</span></span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => loadEncounterData('OPD')}
-                                        className={`flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-lg text-[8px] sm:text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${activeEncounterType === 'OPD'
-                                                ? 'bg-orange-600 text-white shadow-2xs ring-1 ring-orange-500'
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${activeEncounterType === 'OPD'
+                                                ? 'bg-orange-600 text-white shadow-2xs'
                                                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                                             }`}
                                     >
-                                        <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${activeEncounterType === 'OPD' ? 'bg-white animate-pulse' : 'bg-orange-500'}`} />
+                                        <span className={`w-1 h-1 rounded-full ${activeEncounterType === 'OPD' ? 'bg-white animate-pulse' : 'bg-orange-500'}`} />
                                         <span>OPD Visit ({new Date(availableEncounters.opd.date || availableEncounters.opd.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})</span>
                                     </button>
                                 </div>
                             ) : availableEncounters.ipd ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-lg text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-800 border border-rose-200">
-                                    <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-rose-500" />
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider bg-rose-50 text-rose-800 border border-rose-200">
+                                    <span className="w-1 h-1 rounded-full bg-rose-500" />
                                     <span>IPD Stay ({availableEncounters.ipd.admissionId || 'Admission'})</span>
                                 </span>
                             ) : availableEncounters.opd ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-lg text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-orange-50 text-orange-800 border border-orange-200">
-                                    <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-orange-500" />
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider bg-orange-50 text-orange-800 border border-orange-200">
+                                    <span className="w-1 h-1 rounded-full bg-orange-500" />
                                     <span>OPD Visit ({new Date(availableEncounters.opd.date || availableEncounters.opd.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})</span>
                                 </span>
                             ) : null}
                         </div>
 
-                        {/* Center: Dynamic Discharge / Active Status Badge */}
-                        <div className="flex items-center justify-center">
-                            {(() => {
-                                const baseAdm = admission || availableEncounters.ipd;
-                                const isIPDEncounter = patientType === 'IPD' || activeEncounterType === 'IPD' || Boolean(baseAdm?.admissionId || baseAdm?.ipNo || availableEncounters.ipd);
-                                
-                                if (!isIPDEncounter && patientType === 'OPD') {
-                                    return (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-teal-50 text-teal-800 border border-teal-200 shadow-2xs">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                                            <span>Active OPD (Outpatient)</span>
-                                        </span>
-                                    );
-                                }
-
-                                const currentAdm = {
-                                    ...(availableEncounters.ipd || {}),
-                                    ...(baseAdm || {}),
-                                    status: (availableEncounters.ipd?.status && /discharged/i.test(availableEncounters.ipd.status))
-                                        ? availableEncounters.ipd.status
-                                        : (baseAdm?.status || availableEncounters.ipd?.status),
-                                    dischargeDate: availableEncounters.ipd?.dischargeDate || baseAdm?.dischargeDate || dischargeData?.dischargeDate || (baseAdm?.status === 'Discharged' ? baseAdm?.updatedAt : undefined),
-                                    dischargeType: availableEncounters.ipd?.dischargeType || baseAdm?.dischargeType || dischargeData?.dischargeType || 'Regular',
-                                };
-
-                                const isDischarged = /discharged/i.test(currentAdm?.status || '') || Boolean(currentAdm?.dischargeDate) || Boolean(dischargeData?.dischargeDate) || Boolean(loadReportId);
-                                const isDischargeInitiated = /discharge\s*initiated/i.test(currentAdm?.status || '') && !isDischarged;
-                                
-                                const formatDischargeDateTime = (raw: any) => {
-                                    if (!raw) return '';
-                                    try {
-                                        const d = new Date(raw);
-                                        if (isNaN(d.getTime())) return '';
-                                        const day = String(d.getDate()).padStart(2, '0');
-                                        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                                        const month = months[d.getMonth()];
-                                        const year = d.getFullYear();
-                                        let hours = d.getHours();
-                                        const minutes = String(d.getMinutes()).padStart(2, '0');
-                                        const ampm = hours >= 12 ? 'PM' : 'AM';
-                                        hours = hours % 12;
-                                        hours = hours ? hours : 12;
-                                        const strHours = String(hours).padStart(2, '0');
-                                        return `${day} ${month} ${year}, ${strHours}:${minutes} ${ampm}`;
-                                    } catch {
-                                        return '';
-                                    }
-                                };
-
-                                const rawDate = currentAdm?.dischargeDate || dischargeData?.dischargeDate || (isDischarged ? (currentAdm?.updatedAt || currentAdm?.createdAt) : null);
-                                const dischargeDateTimeFormatted = formatDischargeDateTime(rawDate);
-
-                                if (isDischarged) {
-                                    return (
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl text-[9px] sm:text-[11px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs">
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                            <span>DISCHARGE COMPLETED</span>
-                                            {dischargeDateTimeFormatted && (
-                                                <span className="normal-case font-bold text-emerald-700 tracking-normal ml-0.5">
-                                                    ({dischargeDateTimeFormatted})
-                                                </span>
-                                            )}
-                                        </span>
-                                    );
-                                }
-                                if (isDischargeInitiated) {
-                                    return (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                            <span>Discharge Initiated <span className="hidden sm:inline">(Pending Processing)</span></span>
-                                        </span>
-                                    );
-                                }
-                                return (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        <span>Active IPD {currentAdm?.bedNumber ? `(Bed ${currentAdm.bedNumber})` : ''}</span>
-                                    </span>
-                                );
-                            })()}
-                        </div>
-
-                        {/* Right: Total Visits Count */}
-                        {totalAdmissionsCount > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-lg text-[8px] sm:text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200/80 shadow-2xs">
-                                <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500" />
-                                <span>Visits: <strong className="font-black text-slate-800">{totalAdmissionsCount}</strong> <span className="hidden sm:inline">(Showing Latest Only)</span></span>
-                            </span>
-                        )}
-                    </div>
-                )}
-
-                {/* Date Range Filter & Financial Summary Sub-Header */}
-                {patientId && (
-                    <div className="pt-2.5 sm:pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5 sm:gap-4">
-                        {/* Left: Date Range Filter with Validation */}
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-                            <div className="flex items-center gap-1.5 text-slate-500">
-                                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-                                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600">Date Range Filter:</span>
+                        {/* Right: Date Range Filter + Paid / Remaining Mini Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 rounded-md px-1.5 py-0.5 shadow-2xs">
+                                <Calendar className="w-3 h-3 text-indigo-600" />
+                                <span className="text-[8px] font-bold text-slate-400">From</span>
+                                <input
+                                    type="date"
+                                    value={filterStartDate}
+                                    onChange={(e) => handleStartDateChange(e.target.value)}
+                                    className="bg-transparent text-[10px] font-bold text-slate-800 outline-none cursor-pointer"
+                                />
                             </div>
 
-                            <div className="flex items-center gap-1.5">
-                                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 rounded-lg px-2 py-1 shadow-2xs">
-                                    <span className="text-[9px] font-bold text-slate-400">From</span>
-                                    <input
-                                        type="date"
-                                        value={filterStartDate}
-                                        onChange={(e) => handleStartDateChange(e.target.value)}
-                                        className="bg-transparent text-[10px] sm:text-xs font-bold text-slate-800 outline-none cursor-pointer"
-                                    />
-                                </div>
-
-                                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 rounded-lg px-2 py-1 shadow-2xs">
-                                    <span className="text-[9px] font-bold text-slate-400">To</span>
-                                    <input
-                                        type="date"
-                                        value={filterEndDate}
-                                        onChange={(e) => handleEndDateChange(e.target.value)}
-                                        className="bg-transparent text-[10px] sm:text-xs font-bold text-slate-800 outline-none cursor-pointer"
-                                    />
-                                </div>
-
-                                {isDateFilterActive && (
-                                    <button
-                                        type="button"
-                                        onClick={handleClearDateRange}
-                                        className="h-7 px-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9px] font-extrabold rounded-lg flex items-center gap-1 transition-all cursor-pointer"
-                                        title="Clear date filter"
-                                    >
-                                        <X className="w-3 h-3" />
-                                        <span>Clear</span>
-                                    </button>
-                                )}
-                            </div>
-
-                            {dateValidationError && (
-                                <span className="text-[10px] font-extrabold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md flex items-center gap-1 animate-in fade-in">
-                                    ⚠️ {dateValidationError}
-                                </span>
-                            )}
-                        </div>
-
-                        {/* Right: Live Paid and Remaining Summary for that Date Range */}
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                            <div className="flex items-center gap-1.5 bg-emerald-50/90 border border-emerald-200 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 shadow-2xs">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                                <div className="flex flex-col">
-                                    <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800">
-                                        {isDateFilterActive ? "Paid in Range" : "Total Paid"}
-                                    </span>
-                                    <span className="text-xs sm:text-sm font-black text-emerald-700">
-                                        ₹{(isDateFilterActive ? rangeActiveTotPaid : activeTotPaid).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 bg-rose-50/90 border border-rose-200 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 shadow-2xs">
-                                <span className="w-2 h-2 rounded-full bg-rose-500" />
-                                <div className="flex flex-col">
-                                    <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-800">
-                                        {isDateFilterActive ? "Remaining (Range)" : "Remaining Amount"}
-                                    </span>
-                                    <span className="text-xs sm:text-sm font-black text-rose-700">
-                                        ₹{(isDateFilterActive ? rangeBalance : balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                </div>
+                            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 rounded-md px-1.5 py-0.5 shadow-2xs">
+                                <span className="text-[8px] font-bold text-slate-400">To</span>
+                                <input
+                                    type="date"
+                                    value={filterEndDate}
+                                    onChange={(e) => handleEndDateChange(e.target.value)}
+                                    className="bg-transparent text-[10px] font-bold text-slate-800 outline-none cursor-pointer"
+                                />
                             </div>
 
                             {isDateFilterActive && (
-                                <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">
-                                    Print will output only selected date range
+                                <button
+                                    type="button"
+                                    onClick={handleClearDateRange}
+                                    className="h-6 px-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[8px] font-extrabold rounded flex items-center gap-0.5 transition-all cursor-pointer"
+                                    title="Clear date filter"
+                                >
+                                    <X className="w-2.5 h-2.5" />
+                                    <span>Clear</span>
+                                </button>
+                            )}
+
+                            {dateValidationError && (
+                                <span className="text-[9px] font-extrabold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    ⚠️ {dateValidationError}
                                 </span>
                             )}
+
+                            <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span className="text-[8px] font-bold uppercase text-emerald-800">{isDateFilterActive ? "Paid (Range):" : "Paid:"}</span>
+                                <span className="text-[10px] sm:text-xs font-black text-emerald-700">
+                                    ₹{(isDateFilterActive ? rangeActiveTotPaid : activeTotPaid).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-lg px-2 py-0.5 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                <span className="text-[8px] font-bold uppercase text-rose-800">{isDateFilterActive ? "Rem (Range):" : "Remaining:"}</span>
+                                <span className="text-[10px] sm:text-xs font-black text-rose-700">
+                                    ₹{(isDateFilterActive ? rangeBalance : balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 )}
             </div>
 
+            {/* Compact Notice Strip */}
             {patient && !isLoadingActive && (
-                <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/90 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-2xs flex items-start gap-2.5 sm:gap-3.5 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs sm:shadow-md shadow-emerald-500/20 mt-0.5">
-                        <Save className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-lg px-2.5 py-1 shadow-2xs flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-emerald-900 font-semibold truncate text-[10px] sm:text-[11px]">
+                        <Save className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span><strong>Save Report:</strong> Remember to click <strong className="underline decoration-emerald-500 font-bold">Save</strong> to permanently record finalized charges under <strong>History</strong>.</span>
                     </div>
-                    <div className="flex-1 min-w-0 space-y-0.5 sm:space-y-1">
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                            <span className="text-[9px] sm:text-[11px] font-black text-emerald-950 uppercase tracking-wider">
-                                Notice &bull; Save Report
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-emerald-200/70 text-emerald-900 text-[8px] sm:text-[9px] font-extrabold rounded-full uppercase tracking-wider">
-                                Archive
-                            </span>
-                        </div>
-                        <p className="text-[10px] sm:text-xs font-semibold text-emerald-900 leading-snug sm:leading-relaxed">
-                            Once all transactions and charges are finalized, please make sure to click <strong className="font-black text-emerald-950 underline decoration-emerald-500">Save</strong> to permanently record this report under <strong className="font-black text-emerald-950">History</strong>.
-                        </p>
-                    </div>
+                    <span className="shrink-0 px-1.5 py-0.5 bg-emerald-200/70 text-emerald-900 text-[8px] font-black rounded uppercase">
+                        Archive
+                    </span>
                 </div>
             )}
 
@@ -2886,11 +2779,11 @@ export default function TransactionReportsPage() {
 
                     <div className="grid grid-cols-1 gap-4">
                         {printConfig.consultations && (
-                            <Card icon={<Stethoscope className="w-4 h-4" />} title="Doctor Consultation Charges" color="indigo" total={totDoc} onAdd={() => setDoctors(p => [...p, { id: uid(), code: `DOC${p.length + 1}`, date: new Date().toISOString(), doctorName: '', specialization: '', rate: 0, visits: 1 }])}>
+                            <Card icon={<Stethoscope className="w-4 h-4" />} title="Doctor Consultation Charges" color="indigo" total={isDateFilterActive ? rangeTotDoc : totDoc} onAdd={() => setDoctors(p => [...p, { id: uid(), code: `DOC${p.length + 1}`, date: new Date().toISOString(), doctorName: '', specialization: '', rate: 0, visits: 1 }])}>
                                 <table className="w-full text-left">
                                     <thead><tr>{['Doctor Name', 'Date / Time', 'Specialization', 'Rate (₹)', 'Visits', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
-                                        {doctors.map((d, i) => (
+                                        {(isDateFilterActive ? rangeDoctors : doctors).map((d, i) => (
                                             <tr key={i}>
                                                 <td className="p-1"><input value={d.doctorName || ''} onChange={(e) => updD(i, 'doctorName', e.target.value)} className={tableInputClass} placeholder="Doctor Name" /></td>
                                                 <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={d.date} fallback={admission?.admissionDate} onChange={(newDate) => updD(i, 'date', newDate)} /></td>
@@ -2898,7 +2791,7 @@ export default function TransactionReportsPage() {
                                                 <td className="p-1"><input type="number" min={0} value={d.rate === 0 ? '' : d.rate} onChange={(e) => updD(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
                                                 <td className="p-1"><input type="number" min={0} value={d.visits === 0 ? '' : d.visits} onChange={(e) => updD(i, 'visits', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
                                                 <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(d.amount != null ? d.amount : d.rate * d.visits)}</td>
-                                                <td className="p-1 text-right"><DelBtn onClick={() => setDoctors(p => p.filter((_, j) => j !== i))} /></td>
+                                                <td className="p-1 text-right"><DelBtn onClick={() => setDoctors(p => p.filter((x, j) => (d.id ? x.id !== d.id : j !== i)))} /></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -2907,11 +2800,11 @@ export default function TransactionReportsPage() {
                         )}
 
                         {patientType !== 'OPD' && printConfig.wards && (
-                            <Card icon={<Bed className="w-4 h-4" />} title="Admission & ICU Stay" color="indigo" total={totAdm} onAdd={() => setAdmis(p => [...p, { id: uid(), code: `BED${p.length + 1}`, date: new Date().toISOString(), chargeType: 'Stay', description: '', rate: 0, days: 1 }])}>
+                            <Card icon={<Bed className="w-4 h-4" />} title="Admission & ICU Stay" color="indigo" total={isDateFilterActive ? rangeTotAdm : totAdm} onAdd={() => setAdmis(p => [...p, { id: uid(), code: `BED${p.length + 1}`, date: new Date().toISOString(), chargeType: 'Stay', description: '', rate: 0, days: 1 }])}>
                                 <table className="w-full text-left">
                                     <thead><tr>{['Charge Type', 'Date / Time', 'Description', 'Rate (₹)', 'Days', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
-                                        {admissions.map((a, i) => (
+                                        {(isDateFilterActive ? rangeAdmissions : admissions).map((a, i) => (
                                             <tr key={i}>
                                                 <td className="p-1">
                                                     <select value={a.chargeType || 'Admission'} onChange={(e) => updA(i, 'chargeType', e.target.value)} className={tableSelectClass}>
@@ -2935,7 +2828,7 @@ export default function TransactionReportsPage() {
                                                     />
                                                 </td>
                                                 <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(a.amount != null ? a.amount : (a.rate * (typeof a.days === 'number' ? a.days : 1)))}</td>
-                                                <td className="p-1 text-right"><DelBtn onClick={() => setAdmis(p => p.filter((_, j) => j !== i))} /></td>
+                                                <td className="p-1 text-right"><DelBtn onClick={() => setAdmis(p => p.filter((x, j) => (a.id ? x.id !== a.id : j !== i)))} /></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -2948,7 +2841,7 @@ export default function TransactionReportsPage() {
                                 icon={<Pill className="w-4 h-4" />} 
                                 title="Pharmacy" 
                                 color="indigo" 
-                                total={totMed} 
+                                total={isDateFilterActive ? rangeTotMed : totMed} 
                                 onAdd={() => setMeds(p => [...p, { id: uid(), code: `MED${p.length + 1}`, date: new Date().toISOString(), medicineName: '', rate: 0, quantity: 1 }])}
                                 extraAction={
                                     totalDetailedMedsCount > 0 ? (
@@ -2970,7 +2863,7 @@ export default function TransactionReportsPage() {
                                 <table className="w-full text-left">
                                     <thead><tr>{['Medicine Name', 'Date / Time', 'Rate (₹)', 'Quantity', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
-                                        {meds.map((m, i) => (
+                                        {(isDateFilterActive ? rangeMeds : meds).map((m, i) => (
                                             <tr key={i}>
                                                 <td className="p-1">
                                                     <div className="flex flex-col gap-1">
@@ -3010,7 +2903,7 @@ export default function TransactionReportsPage() {
                                                 <td className="p-1"><input type="number" step="any" min={0} value={m.rate === 0 ? '' : Math.round(Number(m.rate) * 100) / 100} onChange={(e) => updM(i, 'rate', e.target.value === '' ? 0 : Math.round(Math.max(0, Number(e.target.value)) * 100) / 100)} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
                                                 <td className="p-1"><input type="number" step="any" min={0} value={m.quantity === 0 ? '' : m.quantity} onChange={(e) => updM(i, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
                                                 <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(m.amount != null ? Math.round(Number(m.amount) * 100) / 100 : Math.round(Number(m.rate) * Number(m.quantity) * 100) / 100)}</td>
-                                                <td className="p-1 text-right"><DelBtn onClick={() => setMeds(p => p.filter((_, j) => j !== i))} /></td>
+                                                <td className="p-1 text-right"><DelBtn onClick={() => setMeds(p => p.filter((x, j) => (m.id ? x.id !== m.id : j !== i)))} /></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -3023,7 +2916,7 @@ export default function TransactionReportsPage() {
                                 icon={<Wrench className="w-4 h-4" />} 
                                 title="Services" 
                                 color="indigo" 
-                                total={totSvc} 
+                                total={isDateFilterActive ? rangeTotSvc : totSvc} 
                                 onAdd={() => setServices(p => [...p, { id: uid(), code: `SVC${p.length + 1}`, date: new Date().toISOString(), serviceName: '', rate: 0, quantity: 1 }])}
                                 extraAction={
                                     mergeableServicesGroups.length > 0 ? (
@@ -3043,7 +2936,7 @@ export default function TransactionReportsPage() {
                                 <table className="w-full text-left">
                                     <thead><tr>{['Service Name', 'Date / Time', 'Rate (₹)', 'Quantity', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
-                                        {services.map((s, i) => (
+                                        {(isDateFilterActive ? rangeServices : services).map((s, i) => (
                                             <tr key={i}>
                                                 <td className="p-1">
                                                     <div className="flex items-center gap-1.5">
@@ -3073,7 +2966,7 @@ export default function TransactionReportsPage() {
                                                                 <span>{unmergingSvcId === s.id ? '...' : 'Unmerge'}</span>
                                                             </button>
                                                         )}
-                                                        <DelBtn onClick={() => setServices(p => p.filter((_, j) => j !== i))} />
+                                                        <DelBtn onClick={() => setServices(p => p.filter((x, j) => (s.id ? x.id !== s.id : j !== i)))} />
                                                     </div>
                                                 </td>
                                             </tr>
@@ -3084,11 +2977,11 @@ export default function TransactionReportsPage() {
                         )}
 
                         {(printConfig.investigations || printConfig.radiology) && (
-                            <Card icon={<FlaskConical className="w-4 h-4" />} title={`Diagnostics ${!printConfig.investigations ? '(Radiology Only)' : !printConfig.radiology ? '(Investigations Only)' : ''}`} color="indigo" total={totDiagActive} onAdd={() => setDiags(p => [...p, { id: uid(), code: printConfig.investigations ? `LAB${p.length + 1}` : `RAD${p.length + 1}`, date: new Date().toISOString(), testName: '', rate: 0, quantity: 1, category: printConfig.investigations ? 'investigation' : 'radiology' }])}>
+                            <Card icon={<FlaskConical className="w-4 h-4" />} title={`Diagnostics ${!printConfig.investigations ? '(Radiology Only)' : !printConfig.radiology ? '(Investigations Only)' : ''}`} color="indigo" total={isDateFilterActive ? rangeTotDiag : totDiagActive} onAdd={() => setDiags(p => [...p, { id: uid(), code: printConfig.investigations ? `LAB${p.length + 1}` : `RAD${p.length + 1}`, date: new Date().toISOString(), testName: '', rate: 0, quantity: 1, category: printConfig.investigations ? 'investigation' : 'radiology' }])}>
                                 <table className="w-full text-left">
                                     <thead><tr>{['Test / Scan Name', 'Date / Time', 'Type', 'Rate (₹)', 'Quantity', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
-                                        {visibleDiags.map((d, i) => {
+                                        {(isDateFilterActive ? rangeDiags : visibleDiags).map((d, i) => {
                                             const realIndex = diags.findIndex(item => item.id === d.id);
                                             const idx = realIndex >= 0 ? realIndex : i;
                                             return (
@@ -3113,11 +3006,11 @@ export default function TransactionReportsPage() {
                         )}
 
                         {printConfig.receipts && (
-                            <Card icon={<CreditCard className="w-4 h-4" />} title="Payments" color="emerald" total={totPaid} onAdd={() => setPay(p => [...p, { id: uid(), receiptNo: genReceipt(), date: new Date().toISOString(), amount: 0, mode: 'Cash', status: 'Paid' }])}>
+                            <Card icon={<CreditCard className="w-4 h-4" />} title="Payments" color="emerald" total={isDateFilterActive ? rangeActiveTotPaid : totPaid} onAdd={() => setPay(p => [...p, { id: uid(), receiptNo: genReceipt(), date: new Date().toISOString(), amount: 0, mode: 'Cash', status: 'Paid' }])}>
                                 <table className="w-full text-left">
                                     <thead><tr>{['Receipt No.', 'Date / Time', 'Payment Mode', 'Status', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
-                                        {payments.map((p, i) => (
+                                        {(isDateFilterActive ? uiRangePayments : payments).map((p, i) => (
                                             <tr key={i}>
                                                 <td className="p-1"><span className="px-2 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-black font-mono tracking-tight border border-indigo-100 flex items-center justify-center">{p.receiptNo}</span></td>
                                                 <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={p.date} fallback={admission?.admissionDate} onChange={(newDate) => updP(i, 'date', newDate)} /></td>
@@ -3142,7 +3035,7 @@ export default function TransactionReportsPage() {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="p-1 text-right"><DelBtn onClick={() => setPay(p => p.filter((_, j) => j !== i))} /></td>
+                                                <td className="p-1 text-right"><DelBtn onClick={() => setPay(prev => prev.filter((x, j) => (p.id ? x.id !== p.id : j !== i)))} /></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -3162,13 +3055,13 @@ export default function TransactionReportsPage() {
                             <div className="relative space-y-3 sm:space-y-4">
                                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 sm:gap-3">
                                     {[
-                                        ['Doctors', totDoc, 'indigo', printConfig.consultations],
-                                        ['Admissions', totAdm, 'emerald', patientType !== 'OPD' && printConfig.wards],
-                                        ['Pharmacy', totMed, 'rose', printConfig.pharmacy],
-                                        ['Services', totSvc, 'slate', printConfig.services],
-                                        ['Lab & Radio', totDiagActive, 'indigo', printConfig.investigations || printConfig.radiology],
-                                        ['Discount', discount, 'rose', true],
-                                        ['Total Paid', totPaid, 'emerald', printConfig.receipts]
+                                        ['Doctors', isDateFilterActive ? rangeTotDoc : totDoc, 'indigo', printConfig.consultations],
+                                        ['Admissions', isDateFilterActive ? rangeTotAdm : totAdm, 'emerald', patientType !== 'OPD' && printConfig.wards],
+                                        ['Pharmacy', isDateFilterActive ? rangeTotMed : totMed, 'rose', printConfig.pharmacy],
+                                        ['Services', isDateFilterActive ? rangeTotSvc : totSvc, 'slate', printConfig.services],
+                                        ['Lab & Radio', isDateFilterActive ? rangeTotDiag : totDiagActive, 'indigo', printConfig.investigations || printConfig.radiology],
+                                        ['Discount', isDateFilterActive ? 0 : discount, 'rose', true],
+                                        ['Total Paid', isDateFilterActive ? rangeActiveTotPaid : totPaid, 'emerald', printConfig.receipts]
                                     ].map(([l, v, c, isIncluded]) => (
                                         <div key={l as string} className={`p-2 sm:p-3 rounded-xl border transition-all ${isIncluded ? 'bg-slate-50 border-slate-100 group hover:bg-white hover:border-indigo-100' : 'bg-slate-100/40 border-dashed border-slate-200/80 opacity-50'}`}>
                                             <div className="flex items-center justify-between mb-1">
@@ -3197,7 +3090,7 @@ export default function TransactionReportsPage() {
                                         </div>
                                         <div>
                                             <p className="text-[9px] sm:text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest leading-none">Final Balance Amount</p>
-                                            <p className={`text-2xl sm:text-4xl font-black tracking-tighter ${balance > 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(balance)}</p>
+                                            <p className={`text-2xl sm:text-4xl font-black tracking-tighter ${(isDateFilterActive ? rangeBalance : balance) > 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(isDateFilterActive ? rangeBalance : balance)}</p>
                                         </div>
                                     </div>
                                     <div className="flex flex-col sm:items-end text-left sm:text-right">
