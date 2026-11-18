@@ -805,12 +805,12 @@ function HelpdeskDashboard() {
         <div className="w-full space-y-5 animate-in fade-in duration-150 min-h-[calc(100vh-120px)] flex flex-col">
 
             {/* HEADER SECTION */}
-            <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 overflow-hidden">
+            <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 border-b border-slate-200 pb-3 sm:pb-4 overflow-hidden">
                 <div className="shrink-0">
-                    <h1 className="text-lg md:text-xl lg:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                    <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                         Front Desk Dashboard
                     </h1>
-                    <p className="text-[7px] sm:text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-1 truncate">CureChain Health / Front Desk Portal</p>
+                    <p className="text-[8px] sm:text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5 sm:mt-1 truncate">CureChain Health / Front Desk Portal</p>
                 </div>
 
                 {/* GLOWING MESSAGE - HEADER CENTER (only show on large screens to keep header in one line) */}
@@ -822,13 +822,13 @@ function HelpdeskDashboard() {
 
                 <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
                     {/* ATTENDANCE CONTROLS */}
-                    <div className="flex items-center gap-0.5 sm:gap-2 mr-0.5 sm:mr-2 bg-slate-50 p-0.5 sm:p-1 rounded-xl border border-slate-200 shadow-inner">
+                    <div className="flex items-center gap-0.5 sm:gap-2 mr-0.5 sm:mr-2 bg-slate-50 p-0.5 sm:p-1 rounded-xl border border-slate-200 shadow-inner shrink-0">
 
                         {!todayAttendance?.checkIn ? (
                             <button
                                 onClick={triggerCheckIn}
                                 disabled={checkInMutation.isPending || attendanceLoading}
-                                className="flex items-center gap-0.5 px-1.5 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 text-white rounded-lg text-[7.5px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-md active:scale-95 disabled:opacity-50 transition-all border border-emerald-500/20"
+                                className="flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 text-white rounded-lg text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider hover:bg-emerald-700 shadow-md active:scale-95 disabled:opacity-50 transition-all border border-emerald-500/20 whitespace-nowrap"
                             >
                                 {checkInMutation.isPending ? (
                                     <RefreshCw size={10} className="animate-spin" />
@@ -848,7 +848,7 @@ function HelpdeskDashboard() {
                                 <button
                                     onClick={handleCheckOut}
                                     disabled={checkOutMutation.isPending || attendanceLoading}
-                                    className="flex items-center gap-0.5 px-1.5 sm:px-4 py-1.5 sm:py-2 bg-rose-600 text-white rounded-lg text-[6.5px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 shadow-md active:scale-95 disabled:opacity-50 transition-all border border-rose-500/20"
+                                    className="flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-rose-600 text-white rounded-lg text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider hover:bg-rose-700 shadow-md active:scale-95 disabled:opacity-50 transition-all border border-rose-500/20 whitespace-nowrap"
                                 >
                                     {checkOutMutation.isPending ? (
                                         <RefreshCw size={10} className="animate-spin" />
@@ -859,7 +859,7 @@ function HelpdeskDashboard() {
                                 </button>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-0.5 px-1.5 py-1.5 sm:px-4 sm:py-2 bg-slate-200 text-slate-500 rounded-lg text-[7.5px] sm:text-[10px] font-black uppercase tracking-widest border border-slate-300/50">
+                            <div className="flex items-center gap-1 px-2 py-1.5 sm:px-4 sm:py-2 bg-slate-200 text-slate-500 rounded-lg text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider border border-slate-300/50 whitespace-nowrap">
                                 <CheckCircle2 size={10} strokeWidth={3} />
                                 <span className="inline">Shift Ended</span>
                             </div>
@@ -878,7 +878,7 @@ function HelpdeskDashboard() {
                     )}
                     
                     {/* Live IST Time & Date Indicator with Small Animation */}
-                    <div className="flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3 py-1 sm:py-2 bg-white border border-slate-200/90 rounded-lg sm:rounded-xl shadow-xs group hover:border-teal-400 transition-all">
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3 py-1 sm:py-2 bg-white border border-slate-200/90 rounded-lg sm:rounded-xl shadow-xs group hover:border-teal-400 transition-all shrink-0">
                         <div className="relative flex items-center justify-center shrink-0">
                             <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 transition-transform group-hover:scale-105">
                                 <Clock size={11} className="sm:size-[14px] text-teal-600 animate-pulse" />
@@ -890,23 +890,23 @@ function HelpdeskDashboard() {
                         </div>
                         <div className="flex flex-col justify-center leading-none">
                             <div className="flex items-center gap-1">
-                                <span className="text-[8px] sm:text-[11px] font-black text-slate-800 tracking-tight tabular-nums">
+                                <span className="text-[8.5px] sm:text-[11px] font-black text-slate-800 tracking-tight tabular-nums">
                                     {liveDateTime.time || '--:--:-- --'}
                                 </span>
-                                <span className="text-[6px] sm:text-[7.5px] font-black uppercase tracking-wider text-teal-700 bg-teal-50 px-1 py-0.2 rounded border border-teal-200/60">
+                                <span className="text-[6.5px] sm:text-[7.5px] font-black uppercase tracking-wider text-teal-700 bg-teal-50 px-1 py-0.2 rounded border border-teal-200/60 hidden xs:inline-block sm:inline-block">
                                     IST
                                 </span>
                             </div>
-                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                            <span className="text-[7.5px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 hidden xs:block sm:block">
                                 {liveDateTime.date || '------'}
                             </span>
                         </div>
                     </div>
                     <Link
                         href="/helpdesk/patient-registration"
-                        className="flex items-center gap-0.5 sm:gap-2 px-2 sm:px-5 py-1.5 sm:py-2.5 bg-teal-600 text-white rounded-lg sm:rounded-xl text-[7.5px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-teal-700 shadow-lg shadow-teal-900/20"
+                        className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-5 py-1.5 sm:py-2.5 bg-teal-600 text-white rounded-lg sm:rounded-xl text-[8.5px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-teal-700 shadow-md shadow-teal-900/10 shrink-0 whitespace-nowrap"
                     >
-                        <Plus size={10} className="sm:size-[16px]" /> 
+                        <Plus size={11} className="sm:size-[16px]" /> 
                         <span className="hidden md:inline">Register Patient</span>
                         <span className="md:hidden">Register</span>
                     </Link>
@@ -979,35 +979,35 @@ function HelpdeskDashboard() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-2 flex-1 min-h-[400px] lg:h-[calc(100vh-270px)] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-1 gap-2 flex-1 min-h-[300px] lg:h-[calc(100vh-270px)] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
                         {doctorQueues.length > 0 ? doctorQueues.map((doc, idx) => (
                             <button
                                 key={idx}
                                 onClick={() => setSelectedDoctorId(selectedDoctorId === (doc.id || doc.name) ? null : (doc.id || doc.name))}
-                                className={`w-full text-left p-3 rounded-2xl border transition-all duration-200 flex items-center justify-between group cursor-pointer ${selectedDoctorId === (doc.id || doc.name)
+                                className={`w-full text-left p-2.5 sm:p-3 rounded-2xl border transition-all duration-200 flex items-center justify-between group cursor-pointer ${selectedDoctorId === (doc.id || doc.name)
                                     ? 'border-teal-500 bg-teal-50/30 ring-1 ring-teal-500/20 shadow-md'
                                     : 'bg-white border-slate-200 shadow-sm hover:border-teal-400'
                                     }`}
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${selectedDoctorId === (doc.id || doc.name) ? 'bg-teal-600 text-white' :
+                                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 pr-2">
+                                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${selectedDoctorId === (doc.id || doc.name) ? 'bg-teal-600 text-white' :
                                         doc.count > 0 ? 'bg-teal-50 text-teal-600' : 'bg-slate-50 text-slate-300'
                                         }`}>
-                                        <Stethoscope size={16} />
+                                        <Stethoscope size={15} />
                                     </div>
-                                    <div className="min-w-0">
-                                        <h4 className="text-sm font-bold text-slate-900 uppercase max-w-[300px]">{doc.name}</h4>
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">
+                                    <div className="min-w-0 flex-1">
+                                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase truncate">{doc.name}</h4>
+                                        <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">
                                             {doc.specialty || "General Medicine"}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex flex-col items-end shrink-0">
-                                    <div className={`text-2xl font-bold tabular-nums ${doc.count > 3 ? 'text-rose-600' : doc.count > 0 ? 'text-teal-600' : 'text-slate-200'
+                                <div className="flex flex-col items-end shrink-0 pl-1">
+                                    <div className={`text-xl sm:text-2xl font-bold tabular-nums ${doc.count > 3 ? 'text-rose-600' : doc.count > 0 ? 'text-teal-600' : 'text-slate-200'
                                         }`}>
                                         {doc.count}
                                     </div>
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Waiting</span>
+                                    <span className="text-[9px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Waiting</span>
                                 </div>
                             </button>
                         )) : (
@@ -1024,19 +1024,19 @@ function HelpdeskDashboard() {
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col flex-1 min-h-[440px] lg:h-[calc(100vh-270px)]">
 
                         {/* TABS & SEARCH */}
-                        <div className="p-2.5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/50">
-                            <div className="flex items-center gap-3 flex-wrap">
+                        <div className="p-2 sm:p-2.5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 bg-slate-50/50">
+                            <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
                                 <div className="flex items-center gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm">
                                     <button
                                         onClick={() => setActiveTab('active')}
-                                        className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest ${activeTab === 'active' ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'text-slate-400 hover:text-slate-600'
+                                        className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-lg text-xs font-bold uppercase tracking-widest ${activeTab === 'active' ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'text-slate-400 hover:text-slate-600'
                                             }`}
                                     >
                                         Waiting
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('history')}
-                                        className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest ${activeTab === 'history' ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'text-slate-400 hover:text-slate-600'
+                                        className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-lg text-xs font-bold uppercase tracking-widest ${activeTab === 'history' ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'text-slate-400 hover:text-slate-600'
                                             }`}
                                     >
                                         History
@@ -1044,18 +1044,18 @@ function HelpdeskDashboard() {
                                 </div>
 
                                 {/* Online (Web) vs App vs Offline (Desk) Source Switcher */}
-                                <div className="flex items-center gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm">
+                                <div className="flex items-center gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto max-w-full no-scrollbar">
                                     <button
                                         type="button"
                                         onClick={() => setSourceFilter('all')}
-                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sourceFilter === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                                        className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${sourceFilter === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                                     >
                                         All ({sourceCounts.all})
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setSourceFilter('online')}
-                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${sourceFilter === 'online' ? 'bg-cyan-600 text-white shadow-sm' : 'text-cyan-700 bg-cyan-50/70 hover:bg-cyan-100/70'}`}
+                                        className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all whitespace-nowrap ${sourceFilter === 'online' ? 'bg-cyan-600 text-white shadow-sm' : 'text-cyan-700 bg-cyan-50/70 hover:bg-cyan-100/70'}`}
                                         title="View appointments booked via Hospital Website"
                                     >
                                         <Globe size={11} className={sourceFilter === 'online' ? 'animate-spin' : ''} />
@@ -1064,7 +1064,7 @@ function HelpdeskDashboard() {
                                     <button
                                         type="button"
                                         onClick={() => setSourceFilter('app')}
-                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${sourceFilter === 'app' ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/70'}`}
+                                        className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all whitespace-nowrap ${sourceFilter === 'app' ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/70'}`}
                                         title="View appointments booked via Mobile Patient App"
                                     >
                                         <Smartphone size={11} />
@@ -1073,7 +1073,7 @@ function HelpdeskDashboard() {
                                     <button
                                         type="button"
                                         onClick={() => setSourceFilter('offline')}
-                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sourceFilter === 'offline' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                                        className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${sourceFilter === 'offline' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                                         title="View counter walk-in appointments"
                                     >
                                         Offline ({sourceCounts.offline})
@@ -1081,26 +1081,26 @@ function HelpdeskDashboard() {
                                 </div>
 
                                 {/* Date Filter */}
-                                <div className="flex items-center bg-white px-2 py-1.5 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-teal-500/50 transition-all flex-wrap gap-y-2 gap-x-3 w-full sm:w-auto">
-                                    <div className="flex items-center gap-1.5 flex-1 sm:flex-none min-w-[130px] sm:min-w-0">
-                                        <Calendar size={14} className="text-teal-600 hidden sm:block" />
+                                <div className="flex items-center bg-white px-2 py-1 sm:py-1.5 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-teal-500/50 transition-all flex-wrap sm:flex-nowrap gap-y-1.5 gap-x-2 sm:gap-x-3 w-full sm:w-auto">
+                                    <div className="flex items-center gap-1.5 flex-1 sm:flex-none min-w-[110px] sm:min-w-0">
+                                        <Calendar size={13} className="text-teal-600" />
                                         <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase">From</span>
                                         <input
                                             type="date"
                                             value={startDateFilter || ''}
                                             onChange={(e) => handleStartDateChange(e.target.value)}
-                                            className="flex-1 bg-transparent text-[10px] sm:text-[11px] font-black text-slate-700 outline-none uppercase tracking-widest cursor-pointer select-none"
+                                            className="flex-1 bg-transparent text-[9.5px] sm:text-[11px] font-black text-slate-700 outline-none uppercase tracking-wider cursor-pointer select-none"
                                             style={{ colorScheme: 'light' }}
                                         />
                                     </div>
                                     <div className="w-[1px] h-4 bg-slate-200 hidden sm:block"></div>
-                                    <div className="flex items-center gap-1.5 flex-1 sm:flex-none min-w-[130px] sm:min-w-0 border-l sm:border-0 border-slate-100 pl-2 sm:pl-0">
+                                    <div className="flex items-center gap-1.5 flex-1 sm:flex-none min-w-[110px] sm:min-w-0 border-l sm:border-0 border-slate-100 pl-2 sm:pl-0">
                                         <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase">To</span>
                                         <input
                                             type="date"
                                             value={endDateFilter || ''}
                                             onChange={(e) => handleEndDateChange(e.target.value)}
-                                            className="flex-1 bg-transparent text-[10px] sm:text-[11px] font-black text-slate-700 outline-none uppercase tracking-widest cursor-pointer select-none"
+                                            className="flex-1 bg-transparent text-[9.5px] sm:text-[11px] font-black text-slate-700 outline-none uppercase tracking-wider cursor-pointer select-none"
                                             style={{ colorScheme: 'light' }}
                                         />
                                     </div>
@@ -1276,82 +1276,81 @@ function HelpdeskDashboard() {
                                                 </div>
 
                                                 {/* Mobile View (Card Layout) */}
-                                                <div className="sm:hidden flex flex-col p-4 mb-3 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-3">
-                                                    {/* Row 1: Index + Avatar + Name + Type */}
-                                                    <div className="flex items-start justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="flex flex-col items-center">
-                                                                <span className="text-[10px] font-black text-slate-400 mb-1">
-                                                                    #{(apt as any).token_number ? `T-${(apt as any).token_number}` : (activeTab === 'active' ? (idx + 1).toString().padStart(2, '0') : ((historyPage - 1) * itemsPerPage + idx + 1).toString().padStart(2, '0'))}
-                                                                </span>
-                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base bg-slate-900 text-white`}>
-                                                            {formatPatientDisplayName(apt.patient, apt, true).charAt(0).toUpperCase()}
+                                                <div className="sm:hidden flex flex-col p-3 mb-2.5 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-2.5 hover:border-teal-400/50 transition-all">
+                                                    {/* Row 1: Token Badge + Avatar + Patient Info + Date/Time */}
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                            {/* Compact Token & Avatar */}
+                                                            <div className="relative shrink-0">
+                                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm ${apt.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-slate-900 text-white'}`}>
+                                                                    {formatPatientDisplayName(apt.patient, apt, true).charAt(0).toUpperCase()}
                                                                 </div>
+                                                                <span className="absolute -bottom-1 -right-1 bg-slate-100 text-slate-700 border border-slate-300 text-[8px] font-black px-1 rounded-sm leading-none tabular-nums">
+                                                                    #{(apt as any).token_number ? `${(apt as any).token_number}` : (activeTab === 'active' ? (idx + 1).toString() : ((historyPage - 1) * itemsPerPage + idx + 1).toString())}
+                                                                </span>
                                                             </div>
-                                                            <div className="min-w-0">
-                                                                <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight truncate max-w-[140px]">
-                                                                {formatPatientDisplayName(apt.patient, apt, true)}
+                                                            
+                                                            {/* Name and Channel Badge */}
+                                                            <div className="min-w-0 flex-1">
+                                                                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-tight truncate leading-tight">
+                                                                    {formatPatientDisplayName(apt.patient, apt, true)}
                                                                 </h4>
-                                                                <div className="mt-1 flex items-center gap-1">
+                                                                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                                                    <span className="text-[9px] font-bold text-slate-400 font-mono">
+                                                                        {(apt as any).mrn ? `MRN: ${(apt as any).mrn}` : 'MRN: N/A'}
+                                                                    </span>
                                                                     {(apt as any).isMobile || (apt as any).bookingChannel === 'app' || (apt as any).source === 'app' ? (
-                                                                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                                        <span className="text-[8px] font-black px-1.5 py-0.2 rounded uppercase tracking-wider inline-flex items-center gap-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200">
                                                                             <Smartphone size={8} /> App
                                                                         </span>
                                                                     ) : (apt as any).type?.toLowerCase() === 'online' ? (
-                                                                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-0.5 bg-cyan-50 text-cyan-700 border border-cyan-200">
-                                                                            <Globe size={8} /> Website
+                                                                        <span className="text-[8px] font-black px-1.5 py-0.2 rounded uppercase tracking-wider inline-flex items-center gap-0.5 bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                                                            <Globe size={8} /> Web
                                                                         </span>
                                                                     ) : (apt as any).type === 'EMERGENCY' ? (
-                                                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block bg-rose-50 text-rose-600 border border-rose-100">
+                                                                        <span className="text-[8px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider inline-block bg-rose-50 text-rose-600 border border-rose-100">
                                                                             Emergency
                                                                         </span>
                                                                     ) : (
-                                                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest inline-block bg-slate-100 text-slate-600 border border-slate-200">
+                                                                        <span className="text-[8px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider inline-block bg-slate-100 text-slate-600 border border-slate-200">
                                                                             Offline
                                                                         </span>
                                                                     )}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="flex flex-col items-end gap-1">
-                                                            <span className="text-[10px] font-black uppercase text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded leading-none">
+
+                                                        {/* Date & Time pill */}
+                                                        <div className="flex flex-col items-end shrink-0 leading-tight">
+                                                            <span className="text-[9px] font-black uppercase text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200/60 tabular-nums">
                                                                 {apt.date ? new Date(apt.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : "N/A"}
                                                             </span>
-                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-0.5 tabular-nums">
                                                                 {formatTimeTo12h(apt.appointmentTime || apt.startTime || apt.time)}
                                                             </span>
                                                         </div>
                                                     </div>
 
-                                                    {/* Row 2: Secondary Info (MRN / Doctor) */}
-                                                    <div className="grid grid-cols-2 gap-3 py-2 border-y border-dashed border-slate-100">
-                                                        <div>
-                                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Patient MRN</p>
-                                                            <p className="text-[10px] font-bold text-slate-700">{(apt as any).mrn || 'N/A'}</p>
+                                                    {/* Row 2: Doctor + Actions */}
+                                                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+                                                        {/* Doctor info */}
+                                                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                            <Stethoscope size={13} className="text-teal-600 shrink-0" />
+                                                            <span className="text-[10px] font-bold text-slate-700 uppercase truncate">
+                                                                {(() => {
+                                                                    const raw = apt.doctorName || apt.doctor?.user?.name || apt.doctor?.name;
+                                                                    if (!raw || raw.toLowerCase().includes('pending')) return 'Pending Doctor';
+                                                                    return formatDoctorName(raw);
+                                                                })()}
+                                                            </span>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Assigned Doctor</p>
-                                                            <div className="flex items-center justify-end gap-1">
-                                                                <Stethoscope size={10} className="text-slate-400" />
-                                                                <span className="text-[10px] font-bold text-slate-700 uppercase truncate max-w-[100px]">
-                                                                    {(() => {
-                                                                        const raw = apt.doctorName || apt.doctor?.user?.name || apt.doctor?.name;
-                                                                        if (!raw || raw.toLowerCase().includes('pending')) return 'Pending';
-                                                                        return formatDoctorName(raw);
-                                                                    })()}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
 
-                                                    {/* Row 3: Actions / Status */}
-                                                    <div className="flex items-center justify-between pointer-events-auto">
-                                                        <span className="text-[9px] font-bold text-slate-300 italic uppercase">Curechain Portal</span>
-                                                        <div className="flex items-center gap-2">
+                                                        {/* Actions / Status */}
+                                                        <div className="flex items-center gap-1.5 shrink-0">
                                                             {!['in-progress', 'completed', 'cancelled'].includes(apt.status?.toLowerCase()) && (
                                                                 <button
                                                                     onClick={() => handleOpenEdit(apt)}
-                                                                    className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg border border-slate-200 cursor-pointer"
+                                                                    className="p-1 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg border border-slate-200 cursor-pointer transition-colors"
                                                                     title="Edit Appointment"
                                                                 >
                                                                     <Pencil size={11} />
@@ -1361,21 +1360,21 @@ function HelpdeskDashboard() {
                                                             {['booked', 'pending', 'scheduled'].includes(apt.status?.toLowerCase()) ? (
                                                                 <button
                                                                     onClick={() => handleOpenCheckIn(apt)}
-                                                                    className="px-3 py-1.5 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-700 shadow-md active:scale-95 flex items-center gap-1 cursor-pointer"
+                                                                    className="px-2.5 py-1 bg-teal-600 text-white rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-teal-700 shadow-sm active:scale-95 flex items-center gap-1 cursor-pointer"
                                                                 >
-                                                                    <UserCheck size={11} /> {(apt as any).type?.toLowerCase() === 'online' ? 'Check-In' : 'Confirm'}
+                                                                    <UserCheck size={11} /> {(apt as any).type?.toLowerCase() === 'online' ? 'Check-In' : 'Send'}
                                                                 </button>
                                                             ) : (
-                                                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${apt.status?.toLowerCase() === 'confirmed' ? 'bg-teal-50 text-teal-600 border-teal-100' :
+                                                                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border ${apt.status?.toLowerCase() === 'confirmed' ? 'bg-teal-50 text-teal-600 border-teal-100' :
                                                                     apt.status?.toLowerCase() === 'in-progress' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                                         apt.status?.toLowerCase() === 'Completed' || apt.status?.toLowerCase() === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
                                                                     }`}>
                                                                     {apt.status?.toLowerCase() === 'confirmed' ? (
-                                                                        <><CheckCircle2 size={12} /> Waiting</>
+                                                                        <><CheckCircle2 size={11} /> Waiting</>
                                                                     ) : apt.status?.toLowerCase() === 'in-progress' ? (
-                                                                        <><Activity size={12} className="animate-pulse" /> Waiting</>
+                                                                        <><Activity size={11} className="animate-pulse" /> Waiting</>
                                                                     ) : apt.status?.toLowerCase() === 'completed' ? (
-                                                                        <><CheckCircle2 size={12} /> Completed</>
+                                                                        <><CheckCircle2 size={11} /> Completed</>
                                                                     ) : apt.status.toUpperCase()}
                                                                 </div>
                                                             )}
@@ -1725,14 +1724,15 @@ const StatCard = React.memo(function StatCard({ icon, title, value, trend, color
 }) {
 
     return (
-        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm group flex flex-col gap-3 hover:border-teal-500/30 transition-all duration-200">
-            <div className="flex items-center justify-between">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${colors[color]} group-hover:scale-110 shadow-lg transition-transform`}>
-                    {React.cloneElement(icon as React.ReactElement<any>, { size: 16, strokeWidth: 3 })}
+        <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-sm group flex flex-col justify-between gap-2.5 sm:gap-3 hover:border-teal-500/30 transition-all duration-200">
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl shrink-0 aspect-square flex items-center justify-center ${colors[color]} group-hover:scale-105 shadow-md sm:shadow-lg transition-transform`}>
+                    {React.cloneElement(icon as React.ReactElement<any>, { size: 15, strokeWidth: 2.5 })}
                 </div>
+
                 {/* OPD/IPD Toggle */}
                 {onTypeChange && (
-                    <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200 shadow-inner">
+                    <div className="flex items-center p-0.5 sm:p-1 bg-slate-100 rounded-lg border border-slate-200 shadow-inner shrink-0">
                         {(['all', 'opd', 'ipd'] as const).map((type) => (
                             <button
                                 key={type}
@@ -1740,7 +1740,7 @@ const StatCard = React.memo(function StatCard({ icon, title, value, trend, color
                                     e.stopPropagation();
                                     onTypeChange(type);
                                 }}
-                                className={`px-1.5 py-0.5 text-[7px] font-black uppercase rounded-md transition-all ${typeFilter === type
+                                className={`px-1.5 py-0.5 text-[7px] sm:text-[7.5px] font-black uppercase rounded-md transition-all ${typeFilter === type
                                     ? 'bg-white text-teal-600 shadow-sm ring-1 ring-slate-200'
                                     : 'text-slate-400 hover:text-slate-600'
                                     }`}
@@ -1750,19 +1750,18 @@ const StatCard = React.memo(function StatCard({ icon, title, value, trend, color
                         ))}
                     </div>
                 )}
-                <div className="flex flex-col items-end gap-1.5">
+
+                <div className={`flex flex-col items-end shrink-0 ${onTypeChange ? 'hidden md:flex' : 'flex'}`}>
                     <div className="flex items-center gap-1 text-[7px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded uppercase border border-teal-100">
                         <Activity size={8} /> Live
                     </div>
-
-
                 </div>
             </div>
             <div>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{title}</p>
-                <div className="flex items-baseline justify-between">
-                    <h3 className="text-lg font-bold text-slate-900 tabular-nums tracking-tight">{value}</h3>
-                    <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{trend}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 truncate">{title}</p>
+                <div className="flex items-baseline justify-between gap-1">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 tabular-nums tracking-tight">{value}</h3>
+                    <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest shrink-0">{trend}</p>
                 </div>
             </div>
         </div>

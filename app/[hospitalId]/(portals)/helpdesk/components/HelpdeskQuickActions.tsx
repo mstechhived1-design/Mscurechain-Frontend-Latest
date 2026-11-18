@@ -49,7 +49,7 @@ const HelpdeskQuickActions: React.FC<HelpdeskQuickActionsProps> = ({ startTransi
     return (
         <div className="relative flex flex-col items-center">
             {/* Main Row */}
-            <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/50 backdrop-blur-sm shadow-sm">
+            <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100/80 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-slate-200/50 backdrop-blur-sm shadow-sm">
                 {actions.map((action, index) => {
                     const isActive = pathname === action.path;
                     const isSelected = activeIndex === index;
@@ -61,14 +61,14 @@ const HelpdeskQuickActions: React.FC<HelpdeskQuickActionsProps> = ({ startTransi
                                 onClick={() => handleActionClick(index, action.path)}
                                 onBlur={() => setTimeout(() => setActiveIndex(null), 200)}
                                 className={`
-                                    flex items-center gap-2 py-2 px-3.5 sm:px-5 rounded-xl transition-all duration-300 group
+                                    flex items-center gap-2 py-1.5 sm:py-2 px-2 sm:px-4 xl:px-5 rounded-lg sm:rounded-xl transition-all duration-300 group
                                     ${isActive
                                         ? 'bg-white shadow-sm text-teal-600'
                                         : 'text-slate-600 hover:bg-white hover:shadow-sm hover:text-teal-600'}
                                     ${isSelected ? 'bg-teal-50 shadow-inner' : ''}
                                 `}
                             >
-                                <Icon size={18} className={`shrink-0 transition-transform ${isSelected ? 'scale-110' : ''}`} />
+                                <Icon size={16} className={`sm:size-[18px] shrink-0 transition-transform ${isSelected ? 'scale-110' : ''}`} />
 
                                 <span className="text-[10px] font-black uppercase tracking-widest hidden xl:block">
                                     {action.label}

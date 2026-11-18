@@ -105,6 +105,37 @@ export const formatDateTimeWithBrackets = (d: any): string => {
     }
 };
 
+export const formatExpiryDisplay = (expiry?: string | Date): string => {
+    if (!expiry) return '—';
+    try {
+        const str = String(expiry).trim();
+        if (!str || str === '0' || ['null', 'undefined', 'n/a', '-', '--'].includes(str.toLowerCase())) {
+            return '—';
+        }
+        if (/^\d{1,2}[\/\-]\d{2,4}$/.test(str) || /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(str)) {
+            return str;
+        }
+        const d = new Date(expiry);
+        if (isNaN(d.getTime())) {
+            return str.replace(/T.*$/, '').trim();
+        }
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = months[d.getMonth()];
+        const year = d.getFullYear();
+        return `${day} ${month} ${year}`;
+    } catch {
+        return String(expiry);
+    }
+};
+
+export const formatBatchDisplay = (batch?: string): string => {
+    if (!batch || batch === '0' || ['null', 'undefined', 'n/a', '-', '--'].includes(batch.trim().toLowerCase())) {
+        return '—';
+    }
+    return batch.trim();
+};
+
 export const parseRowDate = (val: any, fallback?: any): Date => {
     if (val) {
         if (val instanceof Date && !isNaN(val.getTime())) return val;
@@ -715,7 +746,8 @@ export const mapBillSummaryToState = (summary: any, targetAdmission: any) => {
 
 // Professional Input Styling for Tables
 const tableInputClass = "w-full bg-slate-50 border-0 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20";
-const thClass = "text-left text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 sm:px-3 py-2 sm:py-3 border-b-2 border-slate-100";
+const tableNumberInputClass = "w-full min-w-[70px] sm:min-w-[85px] bg-slate-50 border-0 rounded-lg px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-slate-800 text-right focus:ring-2 focus:ring-indigo-500/20";
+const thClass = "text-left text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 sm:px-3 py-2 sm:py-3 border-b-2 border-slate-100 whitespace-nowrap";
 const tableSelectClass = "w-full bg-slate-50 border-0 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20";
 
 const DelBtn = ({ onClick }: { onClick(): void }) => (
@@ -2882,18 +2914,18 @@ export default function TransactionReportsPage() {
                     <div className="grid grid-cols-1 gap-4">
                         {printConfig.consultations && (
                             <Card icon={<Stethoscope className="w-4 h-4" />} title="Doctor Consultation Charges" color="indigo" total={isDateFilterActive ? rangeTotDoc : totDoc} onAdd={() => setDoctors(p => [...p, { id: uid(), code: `DOC${p.length + 1}`, date: new Date().toISOString(), doctorName: '', specialization: '', rate: 0, visits: 1 }])}>
-                                <table className="w-full text-left">
+                                <table className="w-full min-w-[700px] text-left">
                                     <thead><tr>{['Doctor Name', 'Date / Time', 'Specialization', 'Rate (₹)', 'Visits', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
                                         {(isDateFilterActive ? rangeDoctors : doctors).map((d, i) => (
                                             <tr key={i}>
-                                                <td className="p-1"><input value={d.doctorName || ''} onChange={(e) => updD(i, 'doctorName', e.target.value)} className={tableInputClass} placeholder="Doctor Name" /></td>
-                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={d.date} fallback={admission?.admissionDate} onChange={(newDate) => updD(i, 'date', newDate)} /></td>
-                                                <td className="p-1"><input value={d.specialization || ''} onChange={(e) => updD(i, 'specialization', e.target.value)} className={tableInputClass} placeholder="Specialization" /></td>
-                                                <td className="p-1"><input type="number" min={0} value={d.rate === 0 ? '' : d.rate} onChange={(e) => updD(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
-                                                <td className="p-1"><input type="number" min={0} value={d.visits === 0 ? '' : d.visits} onChange={(e) => updD(i, 'visits', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
-                                                <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(d.amount != null ? d.amount : d.rate * d.visits)}</td>
-                                                <td className="p-1 text-right"><DelBtn onClick={() => setDoctors(p => p.filter((x, j) => (d.id ? x.id !== d.id : j !== i)))} /></td>
+                                                <td className="p-1 min-w-[160px]"><input value={d.doctorName || ''} onChange={(e) => updD(i, 'doctorName', e.target.value)} className={tableInputClass} placeholder="Doctor Name" /></td>
+                                                <td className="p-1 whitespace-nowrap min-w-[170px]"><EditableDateTimeCell value={d.date} fallback={admission?.admissionDate} onChange={(newDate) => updD(i, 'date', newDate)} /></td>
+                                                <td className="p-1 min-w-[130px]"><input value={d.specialization || ''} onChange={(e) => updD(i, 'specialization', e.target.value)} className={tableInputClass} placeholder="Specialization" /></td>
+                                                <td className="p-1 min-w-[85px]"><input type="number" min={0} value={d.rate === 0 ? '' : d.rate} onChange={(e) => updD(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="0" /></td>
+                                                <td className="p-1 min-w-[65px]"><input type="number" min={0} value={d.visits === 0 ? '' : d.visits} onChange={(e) => updD(i, 'visits', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="1" /></td>
+                                                <td className="p-1 px-3 text-xs font-black text-slate-700 whitespace-nowrap min-w-[85px] text-right">{fmt(d.amount != null ? d.amount : d.rate * d.visits)}</td>
+                                                <td className="p-1 text-right w-8"><DelBtn onClick={() => setDoctors(p => p.filter((x, j) => (d.id ? x.id !== d.id : j !== i)))} /></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -2903,20 +2935,20 @@ export default function TransactionReportsPage() {
 
                         {patientType !== 'OPD' && printConfig.wards && (
                             <Card icon={<Bed className="w-4 h-4" />} title="Admission & ICU Stay" color="indigo" total={isDateFilterActive ? rangeTotAdm : totAdm} onAdd={() => setAdmis(p => [...p, { id: uid(), code: `BED${p.length + 1}`, date: new Date().toISOString(), chargeType: 'Stay', description: '', rate: 0, days: 1 }])}>
-                                <table className="w-full text-left">
+                                <table className="w-full min-w-[700px] text-left">
                                     <thead><tr>{['Charge Type', 'Date / Time', 'Description', 'Rate (₹)', 'Days', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
                                         {(isDateFilterActive ? rangeAdmissions : admissions).map((a, i) => (
                                             <tr key={i}>
-                                                <td className="p-1">
+                                                <td className="p-1 min-w-[110px]">
                                                     <select value={a.chargeType || 'Admission'} onChange={(e) => updA(i, 'chargeType', e.target.value)} className={tableSelectClass}>
                                                         {['Admission', 'ICU', 'Ward', 'Emergency', 'OT'].map(c => <option key={c} value={c}>{c}</option>)}
                                                     </select>
                                                 </td>
-                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={a.date} fallback={admission?.admissionDate} onChange={(newDate) => updA(i, 'date', newDate)} /></td>
-                                                <td className="p-1"><input value={a.description || ''} onChange={(e) => updA(i, 'description', e.target.value)} className={tableInputClass} placeholder="Description" /></td>
-                                                <td className="p-1"><input type="number" min={0} value={a.rate === 0 ? '' : a.rate} onChange={(e) => updA(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
-                                                <td className="p-1">
+                                                <td className="p-1 whitespace-nowrap min-w-[170px]"><EditableDateTimeCell value={a.date} fallback={admission?.admissionDate} onChange={(newDate) => updA(i, 'date', newDate)} /></td>
+                                                <td className="p-1 min-w-[160px]"><input value={a.description || ''} onChange={(e) => updA(i, 'description', e.target.value)} className={tableInputClass} placeholder="Description" /></td>
+                                                <td className="p-1 min-w-[85px]"><input type="number" min={0} value={a.rate === 0 ? '' : a.rate} onChange={(e) => updA(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="0" /></td>
+                                                <td className="p-1 min-w-[75px]">
                                                     <input 
                                                         type="text" 
                                                         value={a.days === 0 ? '' : (a.days ?? '')} 
@@ -2925,12 +2957,12 @@ export default function TransactionReportsPage() {
                                                             const numVal = parseFloat(val);
                                                             updA(i, 'days', (!isNaN(numVal) && String(numVal) === val.trim()) ? numVal : val);
                                                         }} 
-                                                        className={tableInputClass} 
+                                                        className={tableNumberInputClass} 
                                                         placeholder="1" 
                                                     />
                                                 </td>
-                                                <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(a.amount != null ? a.amount : (a.rate * (typeof a.days === 'number' ? a.days : 1)))}</td>
-                                                <td className="p-1 text-right"><DelBtn onClick={() => setAdmis(p => p.filter((x, j) => (a.id ? x.id !== a.id : j !== i)))} /></td>
+                                                <td className="p-1 px-3 text-xs font-black text-slate-700 whitespace-nowrap min-w-[85px] text-right">{fmt(a.amount != null ? a.amount : (a.rate * (typeof a.days === 'number' ? a.days : 1)))}</td>
+                                                <td className="p-1 text-right w-8"><DelBtn onClick={() => setAdmis(p => p.filter((x, j) => (a.id ? x.id !== a.id : j !== i)))} /></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -2962,15 +2994,15 @@ export default function TransactionReportsPage() {
                                     ) : undefined
                                 }
                             >
-                                <table className="w-full text-left">
+                                <table className="w-full min-w-[720px] text-left">
                                     <thead><tr>{['Medicine Name', 'Date / Time', 'Rate (₹)', 'Quantity', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
                                         {(isDateFilterActive ? rangeMeds : meds).map((m, i) => (
                                             <tr key={i}>
-                                                <td className="p-1">
+                                                <td className="p-1 min-w-[240px] sm:min-w-[280px]">
                                                     <div className="flex flex-col gap-1">
                                                         <div className="flex items-center gap-1.5">
-                                                            <input value={m.medicineName || ''} onChange={(e) => updM(i, 'medicineName', e.target.value)} className={tableInputClass} placeholder="Medicine Name" />
+                                                            <input value={m.medicineName || ''} onChange={(e) => updM(i, 'medicineName', e.target.value)} className={`${tableInputClass} flex-1 min-w-[120px]`} placeholder="Medicine Name" />
                                                             {m.detailedItems && m.detailedItems.length > 0 && (
                                                                 <button
                                                                     type="button"
@@ -2978,7 +3010,7 @@ export default function TransactionReportsPage() {
                                                                         setModalFilterInvoice(m.invoiceNumber || (m.medicineName.match(/\(([^)]+)\)/)?.[1]) || null);
                                                                         setShowMedicineDetailsModal(true);
                                                                     }}
-                                                                    className="shrink-0 flex items-center gap-1 px-2 py-1 text-[9px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md shadow-2xs transition-all cursor-pointer"
+                                                                    className="shrink-0 flex items-center gap-1 px-2 py-1 text-[9px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md shadow-2xs transition-all cursor-pointer whitespace-nowrap"
                                                                     title="View individual medicines in this bill"
                                                                 >
                                                                     <Eye className="w-3 h-3" />
@@ -3001,11 +3033,11 @@ export default function TransactionReportsPage() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={m.date} fallback={admission?.admissionDate} onChange={(newDate) => updM(i, 'date', newDate)} /></td>
-                                                <td className="p-1"><input type="number" step="any" min={0} value={m.rate === 0 ? '' : Math.round(Number(m.rate) * 100) / 100} onChange={(e) => updM(i, 'rate', e.target.value === '' ? 0 : Math.round(Math.max(0, Number(e.target.value)) * 100) / 100)} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
-                                                <td className="p-1"><input type="number" step="any" min={0} value={m.quantity === 0 ? '' : m.quantity} onChange={(e) => updM(i, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
-                                                <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(m.amount != null ? Math.round(Number(m.amount) * 100) / 100 : Math.round(Number(m.rate) * Number(m.quantity) * 100) / 100)}</td>
-                                                <td className="p-1 text-right"><DelBtn onClick={() => setMeds(p => p.filter((x, j) => (m.id ? x.id !== m.id : j !== i)))} /></td>
+                                                <td className="p-1 whitespace-nowrap min-w-[170px]"><EditableDateTimeCell value={m.date} fallback={admission?.admissionDate} onChange={(newDate) => updM(i, 'date', newDate)} /></td>
+                                                <td className="p-1 min-w-[85px]"><input type="number" step="any" min={0} value={m.rate === 0 ? '' : Math.round(Number(m.rate) * 100) / 100} onChange={(e) => updM(i, 'rate', e.target.value === '' ? 0 : Math.round(Math.max(0, Number(e.target.value)) * 100) / 100)} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="0" /></td>
+                                                <td className="p-1 min-w-[70px]"><input type="number" step="any" min={0} value={m.quantity === 0 ? '' : m.quantity} onChange={(e) => updM(i, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="1" /></td>
+                                                <td className="p-1 px-3 text-xs font-black text-slate-700 whitespace-nowrap min-w-[90px] text-right">{fmt(m.amount != null ? Math.round(Number(m.amount) * 100) / 100 : Math.round(Number(m.rate) * Number(m.quantity) * 100) / 100)}</td>
+                                                <td className="p-1 text-right w-8"><DelBtn onClick={() => setMeds(p => p.filter((x, j) => (m.id ? x.id !== m.id : j !== i)))} /></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -3035,12 +3067,12 @@ export default function TransactionReportsPage() {
                                     ) : null
                                 }
                             >
-                                <table className="w-full text-left">
+                                <table className="w-full min-w-[720px] text-left">
                                     <thead><tr>{['Service Name', 'Date / Time', 'Rate (₹)', 'Quantity', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
                                         {(isDateFilterActive ? rangeServices : services).map((s, i) => (
                                             <tr key={i}>
-                                                <td className="p-1">
+                                                <td className="p-1 min-w-[200px]">
                                                     <div className="flex items-center gap-1.5">
                                                         <input value={s.serviceName || ''} onChange={(e) => updS(i, 'serviceName', e.target.value)} className={tableInputClass} placeholder="Service Name" />
                                                         {s.isMerged && (
@@ -3050,11 +3082,11 @@ export default function TransactionReportsPage() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={s.date} fallback={admission?.admissionDate} onChange={(newDate) => updS(i, 'date', newDate)} /></td>
-                                                <td className="p-1"><input type="number" min={0} value={s.rate === 0 ? '' : s.rate} onChange={(e) => updS(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
-                                                <td className="p-1"><input type="number" min={0} value={s.quantity === 0 ? '' : s.quantity} onChange={(e) => updS(i, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
-                                                <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(s.amount != null ? s.amount : Number(s.rate) * Number(s.quantity))}</td>
-                                                <td className="p-1 text-right whitespace-nowrap">
+                                                <td className="p-1 whitespace-nowrap min-w-[170px]"><EditableDateTimeCell value={s.date} fallback={admission?.admissionDate} onChange={(newDate) => updS(i, 'date', newDate)} /></td>
+                                                <td className="p-1 min-w-[85px]"><input type="number" min={0} value={s.rate === 0 ? '' : s.rate} onChange={(e) => updS(i, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="0" /></td>
+                                                <td className="p-1 min-w-[80px]"><input type="number" min={0} value={s.quantity === 0 ? '' : s.quantity} onChange={(e) => updS(i, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="1" /></td>
+                                                <td className="p-1 px-3 text-xs font-black text-slate-700 whitespace-nowrap min-w-[85px] text-right">{fmt(s.amount != null ? s.amount : Number(s.rate) * Number(s.quantity))}</td>
+                                                <td className="p-1 text-right whitespace-nowrap w-8">
                                                     <div className="flex items-center justify-end gap-1">
                                                         {s.isMerged && s.rawChargeId && (
                                                             <button
@@ -3080,7 +3112,7 @@ export default function TransactionReportsPage() {
 
                         {(printConfig.investigations || printConfig.radiology) && (
                             <Card icon={<FlaskConical className="w-4 h-4" />} title={`Diagnostics ${!printConfig.investigations ? '(Radiology Only)' : !printConfig.radiology ? '(Investigations Only)' : ''}`} color="indigo" total={isDateFilterActive ? rangeTotDiag : totDiagActive} onAdd={() => setDiags(p => [...p, { id: uid(), code: printConfig.investigations ? `LAB${p.length + 1}` : `RAD${p.length + 1}`, date: new Date().toISOString(), testName: '', rate: 0, quantity: 1, category: printConfig.investigations ? 'investigation' : 'radiology' }])}>
-                                <table className="w-full text-left">
+                                <table className="w-full min-w-[720px] text-left">
                                     <thead><tr>{['Test / Scan Name', 'Date / Time', 'Type', 'Rate (₹)', 'Quantity', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
                                         {(isDateFilterActive ? rangeDiags : visibleDiags).map((d, i) => {
@@ -3088,17 +3120,17 @@ export default function TransactionReportsPage() {
                                             const idx = realIndex >= 0 ? realIndex : i;
                                             return (
                                                 <tr key={d.id || i}>
-                                                    <td className="p-1"><input value={d.testName || ''} onChange={(e) => updDiag(idx, 'testName', e.target.value)} className={tableInputClass} placeholder="Test Name" /></td>
-                                                    <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={d.date} fallback={admission?.admissionDate} onChange={(newDate) => updDiag(idx, 'date', newDate)} /></td>
-                                                    <td className="p-1">
+                                                    <td className="p-1 min-w-[180px]"><input value={d.testName || ''} onChange={(e) => updDiag(idx, 'testName', e.target.value)} className={tableInputClass} placeholder="Test Name" /></td>
+                                                    <td className="p-1 whitespace-nowrap min-w-[170px]"><EditableDateTimeCell value={d.date} fallback={admission?.admissionDate} onChange={(newDate) => updDiag(idx, 'date', newDate)} /></td>
+                                                    <td className="p-1 min-w-[110px]">
                                                         <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${d.category === 'radiology' ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
                                                             {d.category === 'radiology' ? 'Radiology' : 'Investigation'}
                                                         </span>
                                                     </td>
-                                                    <td className="p-1"><input type="number" min={0} value={d.rate === 0 ? '' : d.rate} onChange={(e) => updDiag(idx, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" /></td>
-                                                    <td className="p-1"><input type="number" min={0} value={d.quantity === 0 ? '' : d.quantity} onChange={(e) => updDiag(idx, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="1" /></td>
-                                                    <td className="p-1 px-3 text-xs font-black text-slate-700">{fmt(d.amount != null ? d.amount : d.rate * d.quantity)}</td>
-                                                    <td className="p-1 text-right"><DelBtn onClick={() => setDiags(p => p.filter(item => item.id !== d.id))} /></td>
+                                                    <td className="p-1 min-w-[85px]"><input type="number" min={0} value={d.rate === 0 ? '' : d.rate} onChange={(e) => updDiag(idx, 'rate', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="0" /></td>
+                                                    <td className="p-1 min-w-[65px]"><input type="number" min={0} value={d.quantity === 0 ? '' : d.quantity} onChange={(e) => updDiag(idx, 'quantity', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="1" /></td>
+                                                    <td className="p-1 px-3 text-xs font-black text-slate-700 whitespace-nowrap min-w-[85px] text-right">{fmt(d.amount != null ? d.amount : d.rate * d.quantity)}</td>
+                                                    <td className="p-1 text-right w-8"><DelBtn onClick={() => setDiags(p => p.filter(item => item.id !== d.id))} /></td>
                                                 </tr>
                                             );
                                         })}
@@ -3109,25 +3141,25 @@ export default function TransactionReportsPage() {
 
                         {printConfig.receipts && (
                             <Card icon={<CreditCard className="w-4 h-4" />} title="Payments" color="emerald" total={isDateFilterActive ? rangeActiveTotPaid : totPaid} onAdd={() => setPay(p => [...p, { id: uid(), receiptNo: genReceipt(), date: new Date().toISOString(), amount: 0, mode: 'Cash', status: 'Paid' }])}>
-                                <table className="w-full text-left">
+                                <table className="w-full min-w-[680px] text-left">
                                     <thead><tr>{['Receipt No.', 'Date / Time', 'Payment Mode', 'Status', 'Amount', ''].map(h => <th key={h} className={thClass}>{h}</th>)}</tr></thead>
                                     <tbody>
                                         {(isDateFilterActive ? uiRangePayments : payments).map((p, i) => (
                                             <tr key={i}>
-                                                <td className="p-1"><span className="px-2 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-black font-mono tracking-tight border border-indigo-100 flex items-center justify-center">{p.receiptNo}</span></td>
-                                                <td className="p-1 whitespace-nowrap"><EditableDateTimeCell value={p.date} fallback={admission?.admissionDate} onChange={(newDate) => updP(i, 'date', newDate)} /></td>
-                                                <td className="p-1">
+                                                <td className="p-1 min-w-[120px]"><span className="px-2 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-black font-mono tracking-tight border border-indigo-100 flex items-center justify-center">{p.receiptNo}</span></td>
+                                                <td className="p-1 whitespace-nowrap min-w-[170px]"><EditableDateTimeCell value={p.date} fallback={admission?.admissionDate} onChange={(newDate) => updP(i, 'date', newDate)} /></td>
+                                                <td className="p-1 min-w-[100px]">
                                                     <select value={p.mode} onChange={(e) => updP(i, 'mode', e.target.value)} className={tableSelectClass}>
                                                         {['Cash', 'Card', 'UPI', 'Bank', 'Mixed'].map(m => <option key={m}>{m}</option>)}
                                                     </select>
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1 min-w-[90px]">
                                                     <select value={p.status} onChange={(e) => updP(i, 'status', e.target.value)} className={tableSelectClass}>
                                                         {['Paid', 'Pending', 'Failed'].map(s => <option key={s}>{s}</option>)}
                                                     </select>
                                                 </td>
-                                                <td className="p-1 align-top">
-                                                    <input type="number" min={0} value={p.amount === 0 ? '' : p.amount} onChange={(e) => updP(i, 'amount', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableInputClass} placeholder="0" />
+                                                <td className="p-1 min-w-[95px] align-top">
+                                                    <input type="number" min={0} value={p.amount === 0 ? '' : p.amount} onChange={(e) => updP(i, 'amount', e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} className={tableNumberInputClass} placeholder="0" />
                                                     {p.mode === 'Mixed' && (
                                                         <div className="grid grid-cols-2 gap-1 mt-1 p-1 bg-slate-50 border border-slate-100 rounded-md">
                                                             <div><label className="text-[8px] text-slate-400 font-bold ml-0.5">CASH</label><input type="number" value={p.paymentDetails?.cash || ''} onChange={(e) => { const nd = { ...(p.paymentDetails || { cash: 0, upi: 0, card: 0, bankTransfer: 0 }), cash: e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)) }; setPay(prev => prev.map((x, j) => j === i ? { ...x, paymentDetails: nd, amount: (nd.cash || 0) + (nd.upi || 0) + (nd.card || 0) + (nd.bankTransfer || 0) } : x)); }} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} className="w-full text-[10px] font-bold bg-white border border-slate-200 rounded px-1.5 py-1 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="0" /></div>
@@ -3137,7 +3169,7 @@ export default function TransactionReportsPage() {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="p-1 text-right"><DelBtn onClick={() => setPay(prev => prev.filter((x, j) => (p.id ? x.id !== p.id : j !== i)))} /></td>
+                                                <td className="p-1 text-right w-8 align-top"><DelBtn onClick={() => setPay(prev => prev.filter((x, j) => (p.id ? x.id !== p.id : j !== i)))} /></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -3318,134 +3350,196 @@ export default function TransactionReportsPage() {
             )}
 
 
-            {/* Itemized Medicine Details Modal (Default OFF) */}
+            {/* Itemized Medicine Details Modal */}
             {showMedicineDetailsModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl max-w-4xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl max-w-5xl w-full shadow-2xl border border-slate-200/90 flex flex-col max-h-[88vh] overflow-hidden animate-in zoom-in-95 duration-200">
                         {/* Header */}
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                                    <Pill className="w-4 h-4" />
+                        <div className="bg-gradient-to-r from-slate-50 via-indigo-50/20 to-blue-50/30 px-3.5 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
+                                    <Pill className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </div>
-                                <div>
-                                    <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
-                                        Itemized Medicine Details
-                                        {modalFilterInvoice && (
-                                            <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-200 font-bold">
-                                                Invoice: {modalFilterInvoice}
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                        <h3 className="text-xs sm:text-base font-black text-slate-900 tracking-tight whitespace-nowrap">
+                                            Itemized Medicine Details
+                                        </h3>
+                                        {modalFilterInvoice ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200 font-extrabold shadow-2xs whitespace-nowrap">
+                                                <span>Invoice:</span>
+                                                <span className="font-mono">{modalFilterInvoice}</span>
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full border border-emerald-200 font-extrabold shadow-2xs whitespace-nowrap">
+                                                All Invoices Consolidated
                                             </span>
                                         )}
-                                    </h3>
-                                    <p className="text-[10px] sm:text-xs text-slate-500 font-medium">
-                                        Showing {filteredDetailedItems.length} of {totalDetailedMedsCount} medicines
+                                    </div>
+                                    <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold mt-0.5 truncate">
+                                        Showing <span className="font-bold text-slate-800">{filteredDetailedItems.length}</span> of <span className="font-bold text-slate-800">{totalDetailedMedsCount}</span> medicine line items
                                     </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowMedicineDetailsModal(false)}
-                                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-white border border-transparent hover:border-slate-200 transition-all cursor-pointer shadow-2xs shrink-0 ml-2"
+                                title="Close"
                             >
-                                <X className="w-5 h-5" />
+                                <X className="w-4 h-4 sm:w-5 sm:h-5" />
                             </button>
                         </div>
 
                         {/* Search and Filters Bar */}
-                        <div className="py-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100">
-                            <div className="relative flex-1 min-w-[200px]">
-                                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <div className="bg-white px-3.5 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
+                            <div className="relative flex-1 min-w-[180px] max-w-md">
+                                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                                 <input
                                     type="text"
                                     value={medicineSearchTerm}
                                     onChange={(e) => setMedicineSearchTerm(e.target.value)}
                                     placeholder="Search medicine name, batch, invoice..."
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    className="w-full bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl pl-9 pr-8 py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold text-slate-800 placeholder-slate-400 outline-none transition-all shadow-2xs"
                                 />
+                                {medicineSearchTerm && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setMedicineSearchTerm('')}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
                             </div>
-                            {modalFilterInvoice && (
-                                <button
-                                    type="button"
-                                    onClick={() => setModalFilterInvoice(null)}
-                                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline px-2 py-1 cursor-pointer"
-                                >
-                                    Show All Invoices
-                                </button>
-                            )}
+
+                            <div className="flex items-center gap-2">
+                                {modalFilterInvoice && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setModalFilterInvoice(null)}
+                                        className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+                                    >
+                                        <ArrowRightLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                        <span>Show All Invoices</span>
+                                    </button>
+                                )}
+                                <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200/60">
+                                    <span>Items: <strong className="text-slate-800">{filteredDetailedItems.length}</strong></span>
+                                    <span className="text-slate-300">•</span>
+                                    <span>Total Qty: <strong className="text-slate-800">{filteredDetailedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}</strong></span>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Table */}
-                        <div className="overflow-y-auto flex-1 min-h-0 py-2">
-                            {filteredDetailedItems.length === 0 ? (
-                                <div className="text-center py-8 text-slate-400 text-xs font-semibold">
-                                    No medicines found matching the search.
-                                </div>
-                            ) : (
-                                <table className="w-full text-left border-collapse text-xs">
-                                    <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50/40 p-2 sm:p-4">
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-x-auto">
+                                {filteredDetailedItems.length === 0 ? (
+                                    <div className="text-center py-12 px-4">
+                                        <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                                            <Search className="w-5 h-5" />
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-700">No medicines found</p>
+                                        <p className="text-[11px] text-slate-400 mt-1">
+                                            Try searching with a different medicine name, batch number, or invoice.
+                                        </p>
+                                        {modalFilterInvoice && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setModalFilterInvoice(null)}
+                                                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 cursor-pointer"
+                                            >
+                                                Show All Invoices
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <table className="w-full min-w-[680px] sm:min-w-[740px] text-left border-collapse text-[10px] sm:text-xs">
+                                    <thead className="sticky top-0 z-10 bg-slate-100 border-b border-slate-200 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600 shadow-2xs">
                                         <tr>
-                                            <th className="py-2 px-2.5">#</th>
-                                            <th className="py-2 px-2.5">Medicine Name</th>
-                                            <th className="py-2 px-2.5">Invoice</th>
-                                            <th className="py-2 px-2.5">Batch / Expiry</th>
-                                            <th className="py-2 px-2.5 text-right">Qty</th>
-                                            <th className="py-2 px-2.5 text-right">Rate (₹)</th>
-                                            <th className="py-2 px-2.5 text-right">Amount (₹)</th>
+                                            <th className="py-2 sm:py-2.5 px-2 sm:px-3 text-center w-8 sm:w-10 whitespace-nowrap">#</th>
+                                            <th className="py-2 sm:py-2.5 px-2 sm:px-3 min-w-[160px] sm:min-w-[180px]">Medicine Name</th>
+                                            <th className="py-2 sm:py-2.5 px-2 sm:px-3 whitespace-nowrap">Invoice</th>
+                                            <th className="py-2 sm:py-2.5 px-2 sm:px-3 whitespace-nowrap">Batch & Expiry</th>
+                                            <th className="py-2 sm:py-2.5 px-2 sm:px-3 text-right whitespace-nowrap">Qty</th>
+                                            <th className="py-2 sm:py-2.5 px-2 sm:px-3 text-right whitespace-nowrap">Rate (₹)</th>
+                                            <th className="py-2 sm:py-2.5 px-2 sm:px-3 text-right whitespace-nowrap">Amount (₹)</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 font-medium">
                                         {filteredDetailedItems.map((item, idx) => (
-                                            <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                                                <td className="py-1.5 px-2.5 text-slate-400 text-[10px] font-bold">{idx + 1}</td>
-                                                <td className="py-1.5 px-2.5 font-bold text-slate-800">
-                                                    {item.medicineName}
+                                            <tr key={idx} className="hover:bg-indigo-50/25 transition-colors">
+                                                <td className="py-1.5 sm:py-2 px-2 sm:px-3 text-slate-400 text-[10px] font-bold text-center whitespace-nowrap">
+                                                    {idx + 1}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-slate-500 text-[11px] font-semibold">
-                                                    {item.invoiceNumber || '—'}
+                                                <td className="py-1.5 sm:py-2 px-2 sm:px-3 min-w-[160px] sm:min-w-[180px]">
+                                                    <span className="font-bold text-slate-800 text-[11px] sm:text-xs block leading-tight">
+                                                        {item.medicineName}
+                                                    </span>
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-slate-500 text-[10px]">
-                                                    {item.batchNo ? `B: ${item.batchNo}` : ''} {item.expiryDate ? `Exp: ${item.expiryDate}` : ''}
-                                                    {!item.batchNo && !item.expiryDate && '—'}
+                                                <td className="py-1.5 sm:py-2 px-2 sm:px-3 whitespace-nowrap">
+                                                    <span className="inline-flex items-center font-mono text-[10px] sm:text-[11px] font-bold text-indigo-700 bg-indigo-50/80 px-2 py-0.5 rounded-md border border-indigo-200/80">
+                                                        {item.invoiceNumber || '—'}
+                                                    </span>
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-right font-semibold text-slate-700">
-                                                    {item.quantity}
+                                                <td className="py-1.5 sm:py-2 px-2 sm:px-3 whitespace-nowrap">
+                                                    <div className="inline-flex items-center gap-1.5 text-[10px] leading-tight">
+                                                        <span className="font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                                            B: {formatBatchDisplay(item.batchNo)}
+                                                        </span>
+                                                        {formatExpiryDisplay(item.expiryDate) !== '—' && (
+                                                            <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/80">
+                                                                Exp: {formatExpiryDisplay(item.expiryDate)}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-right text-slate-600">
-                                                    ₹{Number(item.rate || 0).toFixed(2)}
+                                                <td className="py-1.5 sm:py-2 px-2 sm:px-3 text-right whitespace-nowrap">
+                                                    <span className="inline-block bg-slate-100 px-1.5 sm:px-2 py-0.5 rounded font-bold text-slate-800 text-[10px] sm:text-xs">
+                                                        {item.quantity}
+                                                    </span>
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-right font-black text-slate-900">
-                                                    ₹{Number(item.amount || 0).toFixed(2)}
+                                                <td className="py-1.5 sm:py-2 px-2 sm:px-3 text-right text-slate-600 font-semibold whitespace-nowrap text-[10px] sm:text-xs">
+                                                    ₹{Number(item.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </td>
+                                                <td className="py-1.5 sm:py-2 px-2 sm:px-3 text-right font-black text-slate-900 whitespace-nowrap text-[11px] sm:text-xs">
+                                                    ₹{Number(item.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
-                                    <tfoot className="sticky bottom-0 bg-slate-100 font-black text-slate-800 border-t border-slate-300">
+                                    <tfoot className="sticky bottom-0 z-10 bg-slate-100 border-t-2 border-slate-300 shadow-md">
                                         <tr>
-                                            <td colSpan={4} className="py-2 px-2.5 text-right uppercase tracking-wider text-[10px]">
+                                            <td colSpan={4} className="py-2.5 sm:py-3 px-2 sm:px-3 text-right uppercase tracking-wider text-[9px] sm:text-[10px] font-black text-slate-700 whitespace-nowrap">
                                                 Subtotal ({filteredDetailedItems.length} items):
                                             </td>
-                                            <td className="py-2 px-2.5 text-right">
-                                                {filteredDetailedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}
+                                            <td className="py-2.5 sm:py-3 px-2 sm:px-3 text-right whitespace-nowrap">
+                                                <span className="inline-block bg-slate-800 text-white px-2 py-0.5 rounded font-black text-[10px] sm:text-xs">
+                                                    {filteredDetailedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}
+                                                </span>
                                             </td>
-                                            <td className="py-2 px-2.5"></td>
-                                            <td className="py-2 px-2.5 text-right text-indigo-700 font-extrabold">
-                                                ₹{filteredDetailedItems.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)}
+                                            <td className="py-2.5 sm:py-3 px-2 sm:px-3"></td>
+                                            <td className="py-2.5 sm:py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-black text-indigo-700 whitespace-nowrap">
+                                                ₹{filteredDetailedItems.reduce((sum, item) => sum + Number(item.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                         </tr>
                                     </tfoot>
                                 </table>
-                            )}
+                                )}
+                            </div>
                         </div>
 
                         {/* Footer */}
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-slate-500">
-                                Default View: Invoices Consolidate Cleanly
-                            </span>
+                        <div className="bg-white px-5 sm:px-6 py-3.5 border-t border-slate-200 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                                <span>IPD Consolidated Medicines Ledger • Verified Sync</span>
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => setShowMedicineDetailsModal(false)}
-                                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+                                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer active:scale-95"
                             >
                                 Close
                             </button>

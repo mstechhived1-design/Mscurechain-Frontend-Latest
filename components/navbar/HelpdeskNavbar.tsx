@@ -32,21 +32,21 @@ const HelpdeskNavbar: React.FC<HelpdeskNavbarProps> = ({ onMenuClick, onLogoutCl
     const prefetchDashboard = usePrefetchDashboard('helpdesk');
 
     return (
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 sticky top-0 w-full z-40 shadow-sm shrink-0">
+        <header className="h-14 sm:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-2 sm:px-4 md:px-6 sticky top-0 w-full z-40 shadow-sm shrink-0">
             <ProgressBar isPending={isPending} color="#14b8a6" />
             <button
                 onClick={onMenuClick}
-                className="lg:hidden p-2 text-slate-600"
+                className="lg:hidden p-1.5 sm:p-2 text-slate-600 hover:text-slate-900"
             >
                 <Menu size={20} />
             </button>
 
-            <div className="flex-1 flex justify-center">
+            <div className="flex-1 flex justify-center min-w-0 px-1 sm:px-2">
                 <HelpdeskQuickActions startTransition={startTransition} />
             </div>
 
-            <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2 sm:gap-6 shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-2.5">
                     {/* Desktop WhatsApp Gateway Live Status */}
                     <div className="hidden sm:block">
                         <WhatsAppStatusIndicator department="frontdesk" variant="navbar" />
@@ -54,12 +54,12 @@ const HelpdeskNavbar: React.FC<HelpdeskNavbarProps> = ({ onMenuClick, onLogoutCl
                     <NotificationCenter />
                 </div>
 
-                <div className="h-10 w-px bg-slate-100 hidden sm:block"></div>
+                <div className="h-8 sm:h-10 w-px bg-slate-100 hidden sm:block"></div>
 
                 <div className="relative">
                     <button
                         onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                        className="flex items-center gap-3 p-1 rounded-lg hover:bg-slate-50 transition-colors outline-none"
+                        className="flex items-center gap-2 sm:gap-3 p-1 rounded-lg hover:bg-slate-50 transition-colors outline-none"
                         aria-expanded={isProfileDropdownOpen}
                         aria-haspopup="true"
                     >
@@ -67,7 +67,7 @@ const HelpdeskNavbar: React.FC<HelpdeskNavbarProps> = ({ onMenuClick, onLogoutCl
                             <p className="text-[11px] font-bold text-slate-900 uppercase tracking-tight">{user?.name || "Staff Member"}</p>
                             <p className="text-[8px] font-bold text-teal-600 uppercase tracking-widest mt-0.5">Helpdesk Portal</p>
                         </div>
-                        <div className="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold text-sm transition-transform">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold text-xs sm:text-sm transition-transform">
                             {user?.name?.charAt(0)}
                         </div>
                     </button>
