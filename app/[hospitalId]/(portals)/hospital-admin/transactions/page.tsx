@@ -95,6 +95,38 @@ function TransactionContent() {
     retry: 1,
   });
 
+  // Real-time synchronization across all portals and tabs without refresh
+  React.useEffect(() => {
+    const handleSyncEvent = () => {
+      clearApiCache();
+      refetch();
+    };
+
+    window.addEventListener('billUpdated', handleSyncEvent);
+    window.addEventListener('refresh-transaction-data', handleSyncEvent);
+    window.addEventListener('refresh-hospital-transactions', handleSyncEvent);
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel('msc_billing_channel');
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'BILL_UPDATED') {
+          clearApiCache();
+          refetch();
+        }
+      };
+    } catch {
+      // Fallback
+    }
+
+    return () => {
+      window.removeEventListener('billUpdated', handleSyncEvent);
+      window.removeEventListener('refresh-transaction-data', handleSyncEvent);
+      window.removeEventListener('refresh-hospital-transactions', handleSyncEvent);
+      if (channel) channel.close();
+    };
+  }, [refetch]);
+
   const transactionsData = data as any;
   const transactionsList = transactionsData?.transactions || [];
   const totalCount = transactionsData?.total || 0;

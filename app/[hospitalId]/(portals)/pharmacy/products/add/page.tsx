@@ -22,91 +22,8 @@ import { Supplier } from '@/lib/integrations/types/supplier';
 import { toast } from 'react-hot-toast';
 import { useTenantLink } from '@/hooks/useTenantLink';
 
-// --- Predefined form factor options ---
-const FORM_OPTIONS = [
-    'TABLET', 'CAPSULE', 'SYRUP', 'INJECTION', 'CREAM', 'OINTMENT',
-    'DROPS', 'POWDER', 'SUSPENSION', 'GEL', 'LOTION', 'INHALER',
-    'SPRAY', 'PATCH', 'SACHET', 'SUPPOSITORY', 'SOLUTION',
-    'SR TAB', 'SR CAP', 'GRANULES', 'RESPULES', 'CHEWABLE',
-];
-
-// --- Custom Combobox for Form Factor ---
-const FormCombobox = ({ value, onChange }: { value: string; onChange: (val: string) => void }) => {
-    const [open, setOpen] = useState(false);
-    const [search, setSearch] = useState('');
-    const inputRef = useRef<HTMLInputElement>(null);
-    const wrapperRef = useRef<HTMLDivElement>(null);
-
-    const filtered = FORM_OPTIONS.filter(opt =>
-        opt.toLowerCase().includes((search || value).toLowerCase())
-    );
-
-    // Show all options when dropdown opens with empty search
-    const displayOptions = search === '' && open ? FORM_OPTIONS : filtered;
-
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-                setOpen(false);
-                setSearch('');
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <div className="relative" ref={wrapperRef}>
-            <div className="relative">
-                <input
-                    ref={inputRef}
-                    type="text"
-                    value={open ? search : value}
-                    placeholder="Type or select form…"
-                    className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none pr-10"
-                    onFocus={() => { setOpen(true); setSearch(''); }}
-                    onChange={(e) => {
-                        setSearch(e.target.value);
-                        setOpen(true);
-                        // If user types a brand-new custom value, update immediately
-                        onChange(e.target.value.toUpperCase());
-                    }}
-                />
-                <button
-                    type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setOpen(!open); inputRef.current?.focus(); }}
-                    tabIndex={-1}
-                >
-                    <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-                </button>
-            </div>
-            {open && displayOptions.length > 0 && (
-                <div className="absolute z-50 mt-1 w-full max-h-52 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl">
-                    {displayOptions.map(opt => (
-                        <button
-                            key={opt}
-                            type="button"
-                            className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors ${opt === value ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}
-                            onClick={() => {
-                                onChange(opt);
-                                setSearch('');
-                                setOpen(false);
-                            }}
-                        >
-                            {opt}
-                        </button>
-                    ))}
-                </div>
-            )}
-            {open && search && !FORM_OPTIONS.some(o => o === search.toUpperCase()) && (
-                <p className="text-[10px] font-semibold text-teal-600 mt-1 pl-1">
-                    ✨ Custom form factor: <span className="font-bold">{search.toUpperCase()}</span>
-                </p>
-            )}
-        </div>
-    );
-};
+import { FormCombobox, ScheduleCombobox } from '@/components/pharmacy/products/CustomComboboxes';
+import { MedicineImageUploader } from '@/components/pharmacy/products/MedicineImageUploader';
 
 // --- Main Page ---
 const AddProductPage = () => {
@@ -123,6 +40,8 @@ const AddProductPage = () => {
         strength: '',
         form: 'TABLET',
         schedule: 'OTC',
+        images: [],
+        image: '',
         mrp: 0,
         unitCost: 0,
         gst: 12,
@@ -256,14 +175,25 @@ const AddProductPage = () => {
                         {/* Schedule */}
                         <div>
                             <label className={labelClasses}>Schedule</label>
-                            <select name="schedule" value={formData.schedule} onChange={handleChange} className={inputClasses}>
-                                <option value="OTC">OTC (Over the Counter)</option>
-                                <option value="H">H (Schedule H)</option>
-                                <option value="H1">H1 (Schedule H1)</option>
-                                <option value="X">X (Schedule X)</option>
-                            </select>
+                            <ScheduleCombobox
+                                value={formData.schedule || ''}
+                                onChange={(val) => setFormData(prev => ({ ...prev, schedule: val }))}
+                            />
                         </div>
                     </div>
+                </div>
+
+                {/* ============ SECTION: Product Media & Visuals ============ */}
+                <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <MedicineImageUploader
+                        images={formData.images || []}
+                        onChange={(imgs) => setFormData(prev => ({
+                            ...prev,
+                            images: imgs,
+                            image: imgs[0] || '',
+                        }))}
+                        maxImages={6}
+                    />
                 </div>
 
                 {/* ============ SECTION 2: Pricing & Taxation ============ */}

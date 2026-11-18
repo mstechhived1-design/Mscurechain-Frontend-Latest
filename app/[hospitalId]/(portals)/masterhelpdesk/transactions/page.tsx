@@ -26,6 +26,7 @@ import { saveAs } from "file-saver";
 import { useMasterTransactions, useMasterDashboard, useMasterDoctors } from "@/lib/integrations/hooks";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getDateRangeForPreset } from "@/lib/utils/date-utils";
+import { clearApiCache } from "@/lib/integrations/api/apiClient";
 
 export default function TransactionsPage() {
     const router = useRouter();
@@ -97,6 +98,36 @@ export default function TransactionsPage() {
         console.log("[Transactions] Type Filter:", typeFilter);
         console.log("[Transactions] Backend Filter Query:", getBackendTypeFilter(typeFilter));
     }, [typeFilter]);
+
+    // Real-time synchronization across all portals without reload
+    React.useEffect(() => {
+        const handleSyncEvent = () => {
+            clearApiCache();
+            refetch();
+        };
+
+        window.addEventListener('billUpdated', handleSyncEvent);
+        window.addEventListener('refresh-transaction-data', handleSyncEvent);
+
+        let channel: BroadcastChannel | null = null;
+        try {
+            channel = new BroadcastChannel('msc_billing_channel');
+            channel.onmessage = (event) => {
+                if (event.data?.type === 'BILL_UPDATED') {
+                    clearApiCache();
+                    refetch();
+                }
+            };
+        } catch {
+            // Fallback
+        }
+
+        return () => {
+            window.removeEventListener('billUpdated', handleSyncEvent);
+            window.removeEventListener('refresh-transaction-data', handleSyncEvent);
+            if (channel) channel.close();
+        };
+    }, [refetch]);
 
     const { transactions, total, totalRevenue, backendStats } = useMemo(() => {
         const raw: any = txRaw;

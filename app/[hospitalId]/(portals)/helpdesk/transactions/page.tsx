@@ -38,6 +38,7 @@ import ClinicalReceipt from '@/components/helpdesk/ClinicalReceipt';
 import { formatTime12Hr } from '@/lib/print-utils';
 import { getDateRangeForPreset } from '@/lib/utils/date-utils';
 import { formatPatientNameWithPrefix, cleanPatientName } from '@/lib/utils/name-utils';
+import { clearApiCache } from '@/lib/integrations/api/apiClient';
 
 export const formatPaymentMode = (tx: any) => {
     const mode = (tx.paymentMethod || tx.paymentMode || 'CASH').toUpperCase();
@@ -266,10 +267,39 @@ export default function TransactionsPage() {
         debouncedSearch
     );
 
-    // 🔄 LIVE UPDATE: Auto-refresh every 30 seconds
+    // 🔄 LIVE UPDATE: Auto-refresh every 30 seconds + immediate event sync across portals without reload
     useEffect(() => {
         const interval = setInterval(() => { refetch(); }, 30000);
-        return () => clearInterval(interval);
+
+        const handleSyncEvent = () => {
+            clearApiCache();
+            refetch();
+        };
+
+        window.addEventListener('billUpdated', handleSyncEvent);
+        window.addEventListener('refresh-transaction-data', handleSyncEvent);
+        window.addEventListener('refresh-helpdesk-transactions', handleSyncEvent);
+
+        let channel: BroadcastChannel | null = null;
+        try {
+            channel = new BroadcastChannel('msc_billing_channel');
+            channel.onmessage = (event) => {
+                if (event.data?.type === 'BILL_UPDATED') {
+                    clearApiCache();
+                    refetch();
+                }
+            };
+        } catch {
+            // Fallback
+        }
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('billUpdated', handleSyncEvent);
+            window.removeEventListener('refresh-transaction-data', handleSyncEvent);
+            window.removeEventListener('refresh-helpdesk-transactions', handleSyncEvent);
+            if (channel) channel.close();
+        };
     }, [refetch]);
 
     // ✅ DEBUG LOGGING: Track filtering and data retrieval

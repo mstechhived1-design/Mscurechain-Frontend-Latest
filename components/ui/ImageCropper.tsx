@@ -63,6 +63,10 @@ const ImageCropper = ({ src, onCrop, onCancel, aspectRatio, circular = false, is
                             movable: true,
                             resizable: true,
                         }}
+                        defaultSize={({ imageSize, visibleArea }) => ({
+                            width: visibleArea ? visibleArea.width : imageSize.width,
+                            height: visibleArea ? visibleArea.height : imageSize.height,
+                        })}
                         imageRestriction={ImageRestriction.fitArea}
                         transitions={true}
                         backgroundWrapperProps={{

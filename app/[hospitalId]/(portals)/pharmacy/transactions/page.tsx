@@ -264,6 +264,60 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
         fetchBills(1);
     }, [fetchBills]);
 
+    // Real-time synchronization across all portals and tabs without page refresh
+    useEffect(() => {
+        const handleSyncEvent = (e: any) => {
+            clearApiCache();
+            if (e?.detail?.bill) {
+                const updated = e.detail.bill;
+                setBills(prev => prev.map(b => (b._id === updated._id || b.invoiceId === updated.invoiceId || (b as any).invoiceNo === updated.invoiceNo) ? { ...b, ...updated } : b));
+                setSelectedBill(prev => {
+                    if (!prev) return prev;
+                    if (prev._id === updated._id || prev.invoiceId === updated.invoiceId || (prev as any).invoiceNo === updated.invoiceNo) {
+                        return { ...prev, ...updated };
+                    }
+                    return prev;
+                });
+            }
+            fetchBills(currentPage);
+        };
+
+        window.addEventListener('billUpdated', handleSyncEvent);
+        window.addEventListener('refresh-transaction-data', handleSyncEvent);
+        window.addEventListener('refresh-pharmacy-bills', handleSyncEvent);
+
+        let channel: BroadcastChannel | null = null;
+        try {
+            channel = new BroadcastChannel('msc_billing_channel');
+            channel.onmessage = (event) => {
+                if (event.data?.type === 'BILL_UPDATED') {
+                    clearApiCache();
+                    if (event.data.bill) {
+                        const updated = event.data.bill;
+                        setBills(prev => prev.map(b => (b._id === updated._id || b.invoiceId === updated.invoiceId || (b as any).invoiceNo === updated.invoiceNo) ? { ...b, ...updated } : b));
+                        setSelectedBill(prev => {
+                            if (!prev) return prev;
+                            if (prev._id === updated._id || prev.invoiceId === updated.invoiceId || (prev as any).invoiceNo === updated.invoiceNo) {
+                                return { ...prev, ...updated };
+                            }
+                            return prev;
+                        });
+                    }
+                    fetchBills(currentPage);
+                }
+            };
+        } catch {
+            // BroadcastChannel fallback
+        }
+
+        return () => {
+            window.removeEventListener('billUpdated', handleSyncEvent);
+            window.removeEventListener('refresh-transaction-data', handleSyncEvent);
+            window.removeEventListener('refresh-pharmacy-bills', handleSyncEvent);
+            if (channel) channel.close();
+        };
+    }, [currentPage, fetchBills]);
+
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
             setCurrentPage(newPage);
@@ -1650,11 +1704,11 @@ Thank you for choosing ${hospName}. Stay Healthy.`;
                 }}
                 bill={billToEdit}
                 hospitalId={hospitalId}
-                onSuccess={() => {
+                onSuccess={(updatedBill?: any) => {
                     clearApiCache();
                     fetchBills(currentPage);
-                    if (selectedBill && billToEdit && (selectedBill._id === billToEdit._id || selectedBill.invoiceId === billToEdit.invoiceId)) {
-                        setSelectedBill(null);
+                    if (updatedBill) {
+                        setSelectedBill(updatedBill);
                     }
                 }}
             />

@@ -9,6 +9,8 @@ import {
 import { PharmacyProduct, PharmacyProductPayload } from '@/lib/integrations/types/product';
 import { SupplierService } from '@/lib/integrations/services/supplier.service';
 import { Supplier } from '@/lib/integrations/types/supplier';
+import { FormCombobox, ScheduleCombobox } from '@/components/pharmacy/products/CustomComboboxes';
+import { MedicineImageUploader } from '@/components/pharmacy/products/MedicineImageUploader';
 import { toast } from 'react-hot-toast';
 
 interface AddProductModalProps {
@@ -27,6 +29,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
         strength: '',
         form: 'TABLET',
         schedule: 'OTC',
+        images: [],
+        image: '',
         mrp: 0,
         unitCost: 0,
         gst: 12,
@@ -53,6 +57,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
                 strength: initialData.strength || '',
                 form: initialData.form || 'Tablet',
                 schedule: initialData.schedule || 'OTC - Over the Counter',
+                images: initialData.images || (initialData.image ? [initialData.image] : []),
+                image: initialData.image || (initialData.images && initialData.images[0]) || '',
                 mrp: initialData.mrp || 0,
                 unitCost: initialData.unitCost || 0,
                 gst: initialData.gst !== undefined ? initialData.gst : 12,
@@ -137,7 +143,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
         <div className="fixed inset-0 z-100 flex items-center justify-center p-3 md:p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-            <div className="relative bg-white dark:bg-gray-900 w-full max-w-xl rounded-xl md:rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col max-h-[85vh] sm:max-h-[90vh]">
+            <div className="relative bg-white dark:bg-gray-900 w-full max-w-2xl rounded-xl md:rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col max-h-[85vh] sm:max-h-[90vh]">
                 {/* Fixed Header */}
                 <div className="px-5 md:px-6 py-3 md:py-4 border-b border-gray-50 dark:border-gray-800 flex items-center justify-between">
                     <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
@@ -149,6 +155,19 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 md:space-y-6">
+                    {/* Medicine Images (Front, Back, etc.) */}
+                    <div className="p-3 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                        <MedicineImageUploader
+                            images={formData.images || []}
+                            onChange={(imgs) => setFormData(prev => ({
+                                ...prev,
+                                images: imgs,
+                                image: imgs[0] || '',
+                            }))}
+                            maxImages={6}
+                        />
+                    </div>
+
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
@@ -173,25 +192,17 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
                         </div>
                         <div>
                             <label className={labelClasses}>Form</label>
-                            <select name="form" value={formData.form} onChange={handleChange} required className={inputClasses}>
-                                <option value="TABLET">Tablet</option>
-                                <option value="CAPSULE">Capsule</option>
-                                <option value="SYRUP">Syrup</option>
-                                <option value="INJECTION">Injection</option>
-                                <option value="DROPS">Drops</option>
-                                <option value="OINTMENT">Ointment</option>
-                                <option value="LOTION">Lotion</option>
-                            </select>
+                            <FormCombobox
+                                value={formData.form || ''}
+                                onChange={(val) => setFormData(prev => ({ ...prev, form: val }))}
+                            />
                         </div>
                         <div>
                             <label className={labelClasses}>Schedule</label>
-                            <select name="schedule" value={formData.schedule} onChange={handleChange} className={inputClasses}>
-                                <option value="OTC">OTC - Over the Counter</option>
-                                <option value="H">Schedule H</option>
-                                <option value="H1">Schedule H1</option>
-                                <option value="X">Schedule X</option>
-                                <option value="G">Schedule G</option>
-                            </select>
+                            <ScheduleCombobox
+                                value={formData.schedule || ''}
+                                onChange={(val) => setFormData(prev => ({ ...prev, schedule: val }))}
+                            />
                         </div>
                     </div>
 

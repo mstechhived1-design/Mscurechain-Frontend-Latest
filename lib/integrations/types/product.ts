@@ -1,4 +1,4 @@
-﻿export interface PharmacyProduct {
+export interface PharmacyProduct {
   _id: string;
   pharmacyId: string;
   sku: string;
@@ -8,6 +8,8 @@
   strength?: string;
   form?: string;
   schedule?: string;
+  images?: string[];
+  image?: string;
   mrp: number;
   unitCost?: number;
   gst?: number;
@@ -31,6 +33,8 @@ export interface PharmacyProductPayload {
   strength?: string;
   form?: string;
   schedule?: string;
+  images?: string[];
+  image?: string;
   mrp: number;
   unitCost?: number;
   gst?: number;

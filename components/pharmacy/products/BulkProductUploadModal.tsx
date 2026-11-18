@@ -176,6 +176,9 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
                 return;
             }
 
+            const rawImages = row.getCell(18).text?.trim();
+            const images = rawImages ? rawImages.split(',').map((u: string) => u.trim()).filter(Boolean) : [];
+
             products.push({
                 sku,
                 brandName,
@@ -193,6 +196,8 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
                 currentStock: Number(row.getCell(14).value) || 0,
                 minStockLevel: Number(row.getCell(15).value) || 10,
                 unitsPerPack: Number(row.getCell(16).value) || 1,
+                images: images.length > 0 ? images : undefined,
+                image: images[0] || undefined,
                 supplier: selectedSupplierId,
             });
         });
@@ -230,7 +235,10 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
 
             // Columns: sku, brand, generic, name, form, strength, schedule,
             //          mrp, unitCost, gstPercent, hsnCode, batchNumber, expiryDate,
-            //          stock, minStock, unitsPerPack, supplier(ignored)
+            //          stock, minStock, unitsPerPack, supplier(ignored), images
+            const rawImages = cols[17]?.trim();
+            const images = rawImages ? rawImages.split(';').join(',').split(',').map((u: string) => u.trim()).filter(Boolean) : [];
+
             products.push({
                 sku: sku,
                 brandName: brandName,
@@ -248,6 +256,8 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
                 currentStock: Number(cols[13]) || 0,
                 minStockLevel: Number(cols[14]) || 10,
                 unitsPerPack: Number(cols[15]) || 1,
+                images: images.length > 0 ? images : undefined,
+                image: images[0] || undefined,
                 supplier: selectedSupplierId,
             });
         }
@@ -298,6 +308,7 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
             { header: 'Min Stock', key: 'minStock', width: 12 },
             { header: 'U/Pack', key: 'unitsPerPack', width: 12 },
             { header: 'Assigned Supplier', key: 'supplier', width: 20 },
+            { header: 'Image URLs (comma-separated)', key: 'images', width: 32 },
         ];
 
         // Style header row
@@ -322,7 +333,8 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
             20, 15, 12,
             '3004', 'BATCH001', '2026-12-31',
             100, 10, 10,
-            'Use supplier dropdown in app'
+            'Use supplier dropdown in app',
+            'https://example.com/front.jpg, https://example.com/back.jpg'
         ]);
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -337,62 +349,64 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
 
     return (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden zoom-in border border-gray-100 dark:border-gray-800 flex flex-col max-h-[90vh]">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden zoom-in border border-gray-100 dark:border-gray-800 flex flex-col max-h-[88vh]">
                 {/* Header */}
-                <div className="flex items-center justify-between px-8 py-6 border-b dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
+                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
                     <div>
-                        <h2 className="text-lg md:text-xl lg:text-2xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
-                            <Upload className="w-6 h-6 text-indigo-600" />
+                        <h2 className="text-base md:text-lg font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-2.5">
+                            <Upload className="w-5 h-5 text-blue-600" />
                             Bulk Product Upload
                         </h2>
-                        <p className="text-xs font-bold text-teal-600 mt-1 uppercase tracking-widest">Import inventory via Excel or CSV</p>
+                        <p className="text-[10px] font-bold text-teal-600 mt-0.5 uppercase tracking-widest">Import inventory via Excel or CSV with image links</p>
                     </div>
-                    <button onClick={handleClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-2xl group">
-                        <X className="w-6 h-6 text-gray-400 group-hover:text-red-500 group-hover:rotate-90" />
+                    <button onClick={handleClose} className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl group">
+                        <X className="w-5 h-5 text-gray-400 group-hover:text-red-500 group-hover:rotate-90 transition-transform" />
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="p-8 space-y-8 flex-1 overflow-y-auto">
+                <div className="p-5 space-y-4 flex-1 overflow-y-auto">
                     {!file && (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
-                            <div className="flex items-center gap-3 mb-2">
-                                <Building2 className="w-5 h-5 text-indigo-600" />
-                                <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Assign Supplier</h3>
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-2">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Building2 className="w-4 h-4 text-blue-600" />
+                                <h3 className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-wider">Assign Supplier</h3>
                             </div>
                             <div className="relative">
                                 <select
                                     value={selectedSupplierId}
                                     onChange={(e) => setSelectedSupplierId(e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-xl md:rounded-2xl px-3 py-3 md:px-5 md:py-4 text-xs md:text-sm font-bold text-gray-900 dark:text-white appearance-none focus:border-indigo-500 outline-none transition-all cursor-pointer truncate pr-10"
+                                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-900 dark:text-white appearance-none focus:border-blue-500 outline-none transition-all cursor-pointer truncate pr-10"
                                 >
                                     <option value="">Select Supplier to assign all products...</option>
                                     {suppliers.map(s => (
                                         <option key={s._id} value={s._id}>{s.name}</option>
                                     ))}
                                 </select>
-                                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                    <ChevronDown size={20} />
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                    <ChevronDown size={18} />
                                 </div>
                             </div>
                             {isLoadingSuppliers && (
-                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest animate-pulse">Synchronizing supplier node...</p>
+                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest animate-pulse">Synchronizing supplier node...</p>
                             )}
                         </div>
                     )}
 
                     {!file ? (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl border-2 border-dashed border-indigo-200 dark:border-indigo-800/50 flex flex-col items-center justify-center text-center space-y-4">
-                                    <div className="p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm">
-                                        <FileSpreadsheet className="w-10 h-10 text-indigo-600" />
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border-2 border-dashed border-blue-200 dark:border-blue-800/40 flex flex-col items-center justify-center text-center space-y-3">
+                                    <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-xs">
+                                        <FileSpreadsheet className="w-8 h-8 text-blue-600" />
                                     </div>
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Select File</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[200px]">Upload your .xlsx or .csv product list</p>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-900 dark:text-white">Select File</h3>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 max-w-[200px] mt-0.5">Upload .xlsx or .csv product list</p>
+                                    </div>
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none"
+                                        className="px-5 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 active:scale-95 transition-all"
                                     >
                                         Browse Files
                                     </button>
@@ -404,26 +418,26 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
                                         className="hidden"
                                     />
                                 </div>
-                                <div className="p-6 bg-teal-50 dark:bg-teal-900/20 rounded-3xl border-2 border-teal-100 dark:border-teal-800/30 flex flex-col justify-center space-y-4">
-                                    <h3 className="text-lg font-bold text-teal-800 dark:text-teal-400 flex items-center gap-2">
-                                        <Download className="w-5 h-5" />
+                                <div className="p-4 bg-teal-50/50 dark:bg-teal-900/10 rounded-2xl border border-teal-100 dark:border-teal-800/30 flex flex-col justify-center space-y-3">
+                                    <h3 className="text-sm font-bold text-teal-800 dark:text-teal-400 flex items-center gap-1.5">
+                                        <Download className="w-4 h-4 text-teal-600" />
                                         Need a template?
                                     </h3>
-                                    <p className="text-sm text-teal-700/70 dark:text-teal-400/70">Download our sample Excel file to ensure your data is formatted correctly for a smooth import.</p>
+                                    <p className="text-xs text-teal-700/80 dark:text-teal-400/80">Download our sample Excel file with image columns to ensure smooth formatting.</p>
                                     <button
                                         onClick={downloadTemplate}
-                                        className="flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 text-teal-600 rounded-xl text-sm font-bold border border-teal-100 dark:border-teal-800 hover:bg-teal-50 shadow-sm"
+                                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-white dark:bg-gray-800 text-teal-700 dark:text-teal-300 rounded-xl text-xs font-bold border border-teal-200 dark:border-teal-700 hover:bg-teal-50 shadow-xs active:scale-95 transition-all"
                                     >
-                                        <FileSpreadsheet className="w-5 h-5" />
+                                        <FileSpreadsheet className="w-4 h-4 text-teal-600" />
                                         Download Template
                                     </button>
                                 </div>
                             </div>
 
                             {/* Template Column Reference */}
-                            <div className="bg-white dark:bg-gray-800/60 rounded-3xl border border-gray-100 dark:border-gray-700 p-5 space-y-4">
-                                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Template Columns (17 fields)</p>
-                                <div className="flex flex-wrap gap-2">
+                            <div className="bg-white dark:bg-gray-800/60 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 space-y-3">
+                                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Template Columns (18 fields with images)</p>
+                                <div className="flex flex-wrap gap-1.5">
                                     {[
                                         { label: 'SKU', req: true },
                                         { label: 'Brand Name', req: true },
@@ -433,21 +447,21 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
                                         { label: 'Strength' },
                                         { label: 'Schedule' },
                                     ].map(f => (
-                                        <span key={f.label} className={`px-3 py-1 rounded-lg text-xs font-bold ${f.req ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>
+                                        <span key={f.label} className={`px-2 py-0.5 rounded-lg text-[11px] font-bold ${f.req ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>
                                             {f.label}{f.req && <span className="text-red-500 ml-0.5">*</span>}
                                         </span>
                                     ))}
 
-                                    {/* MRP — highlighted as Selling Price */}
-                                    <span className="px-3 py-1 rounded-lg text-xs font-black bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 flex items-center gap-1">
-                                        MRP<span className="text-red-500">*</span>
-                                        <span className="text-[9px] font-bold bg-green-700 text-white px-1.5 py-0.5 rounded-md ml-1 uppercase tracking-wide">Selling Price</span>
+                                    {/* MRP */}
+                                    <span className="px-2 py-0.5 rounded-lg text-[11px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 flex items-center gap-1">
+                                        MRP*
+                                        <span className="text-[8px] font-bold bg-emerald-700 text-white px-1 py-0.2 rounded ml-0.5 uppercase">Price</span>
                                     </span>
 
-                                    {/* Unit Cost — highlighted as Purchase Price */}
-                                    <span className="px-3 py-1 rounded-lg text-xs font-black bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 flex items-center gap-1">
+                                    {/* Unit Cost */}
+                                    <span className="px-2 py-0.5 rounded-lg text-[11px] font-black bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 flex items-center gap-1">
                                         Unit Cost
-                                        <span className="text-[9px] font-bold bg-orange-600 text-white px-1.5 py-0.5 rounded-md ml-1 uppercase tracking-wide">Purchase Price</span>
+                                        <span className="text-[8px] font-bold bg-amber-600 text-white px-1 py-0.2 rounded ml-0.5 uppercase">Cost</span>
                                     </span>
 
                                     {[
@@ -460,110 +474,91 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
                                         'U/Pack',
                                         'Assigned Supplier',
                                     ].map(f => (
-                                        <span key={f} className="px-3 py-1 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                        <span key={f} className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
                                             {f}
                                         </span>
                                     ))}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold text-gray-400 pt-1">
-                                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-indigo-200 inline-block"></span> Required</span>
-                                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-green-200 inline-block"></span> MRP = Selling Price</span>
-                                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-orange-200 inline-block"></span> Unit Cost = Purchase Price</span>
-                                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-gray-200 inline-block"></span> Optional</span>
+
+                                    {/* Image URLs */}
+                                    <span className="px-2 py-0.5 rounded-lg text-[11px] font-black bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                                        Image URLs
+                                    </span>
                                 </div>
                             </div>
 
-                            <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl border border-amber-100 dark:border-amber-800/30 flex gap-4">
-                                <AlertCircle className="w-6 h-6 text-amber-600 shrink-0" />
-                                <div className="text-xs text-amber-800 dark:text-amber-400 font-bold space-y-1">
-                                    <p className="uppercase tracking-widest text-[10px]">Important Note</p>
-                                    <p className="text-[13px] font-medium leading-relaxed">Ensure SKU, Brand Name, and Generic Name are present for every row. Duplicates by SKU within your pharmacy will be skipped during upload.</p>
-                                </div>
+                            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-100 dark:border-amber-800/30 flex gap-3 items-center">
+                                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                                <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                                    Ensure SKU, Brand Name, and Generic Name are present for every row. Separate multiple image URLs with commas.
+                                </p>
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                             {/* Stats */}
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-2xl">
-                                        <FileSpreadsheet className="w-5 h-5 text-gray-600" />
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-gray-100 dark:bg-gray-800 p-2.5 rounded-xl">
+                                        <FileSpreadsheet className="w-5 h-5 text-blue-600" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-gray-900 dark:text-white">{file.name}</p>
-                                        <p className="text-xs text-gray-500 font-bold">{(file.size / 1024).toFixed(1)} KB • {previewData.length} records found</p>
+                                        <p className="text-xs font-bold text-gray-900 dark:text-white">{file.name}</p>
+                                        <p className="text-[10px] text-gray-500 font-bold">{(file.size / 1024).toFixed(1)} KB • {previewData.length} records found</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => { setFile(null); setPreviewData([]); setUploadResults(null); }}
-                                    className="text-xs font-bold text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl"
+                                    className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors"
                                 >
                                     Change File
                                 </button>
                             </div>
 
                             {/* Preview Table */}
-                            <div className="border dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm">
-                                <div className="max-h-[300px] overflow-y-auto overflow-x-auto">
-                                    <table className="w-full text-left text-sm">
-                                        <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
+                            <div className="border dark:border-gray-800 rounded-xl overflow-hidden shadow-xs">
+                                <div className="max-h-[260px] overflow-y-auto overflow-x-auto">
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700 text-[10px] uppercase font-black text-gray-500">
                                             <tr>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">SKU</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">Brand Name</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">Generic Name</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">Name (Display)</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">Form</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">Strength</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">Schedule</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 text-right whitespace-nowrap">MRP</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 text-right whitespace-nowrap">Unit Cost</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 text-right whitespace-nowrap">GST %</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">HSN</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">Batch</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">Expiry</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 text-right whitespace-nowrap">Stock</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 text-right whitespace-nowrap">Min Stock</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 text-right whitespace-nowrap">U/Pack</th>
-                                                <th className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap">Assigned Supplier</th>
+                                                <th className="px-3 py-2 text-center whitespace-nowrap">Image</th>
+                                                <th className="px-3 py-2 whitespace-nowrap">SKU</th>
+                                                <th className="px-3 py-2 whitespace-nowrap">Brand Name</th>
+                                                <th className="px-3 py-2 whitespace-nowrap">Generic Name</th>
+                                                <th className="px-3 py-2 whitespace-nowrap">Form</th>
+                                                <th className="px-3 py-2 whitespace-nowrap">Strength</th>
+                                                <th className="px-3 py-2 whitespace-nowrap">Schedule</th>
+                                                <th className="px-3 py-2 text-right whitespace-nowrap">MRP</th>
+                                                <th className="px-3 py-2 text-right whitespace-nowrap">Stock</th>
+                                                <th className="px-3 py-2 whitespace-nowrap">Supplier</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y dark:divide-gray-800">
                                             {previewData.slice(0, visibleRows).map((p, i) => {
-                                                const expiry = p.expiryDate ? new Date(p.expiryDate) : null;
-                                                const expiryLabel = expiry && !isNaN(expiry.getTime())
-                                                    ? expiry.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                                                    : null;
+                                                const hasImg = Boolean(p.image || (p.images && p.images[0]));
                                                 return (
                                                     <tr key={`${p.sku}-${i}`} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
-                                                        <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">{p.sku}</td>
-                                                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">{p.brandName}</td>
-                                                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{p.genericName}</td>
-                                                        <td className="px-4 py-3 text-gray-400 italic text-xs whitespace-nowrap">{p.name || '-'}</td>
-                                                        <td className="px-4 py-3 whitespace-nowrap"><span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-md text-[10px] uppercase font-bold text-gray-600">{p.form}</span></td>
-                                                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{p.strength || '-'}</td>
-                                                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{p.schedule}</td>
-                                                        <td className="px-4 py-3 font-bold text-indigo-600 text-right whitespace-nowrap">₹{p.mrp}</td>
-                                                        <td className="px-4 py-3 text-orange-600 font-bold text-right whitespace-nowrap">₹{p.unitCost || 0}</td>
-                                                        <td className="px-4 py-3 text-gray-600 text-right whitespace-nowrap">{p.gst}%</td>
-                                                        <td className="px-4 py-3 text-gray-500 text-xs font-mono whitespace-nowrap">{p.hsnCode || '-'}</td>
-                                                        <td className="px-4 py-3 text-gray-500 text-xs font-mono whitespace-nowrap">{p.batchNumber || '-'}</td>
-                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
-                                                            {expiryLabel ? (
-                                                                <span className="px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-[10px] font-bold">
-                                                                    {expiryLabel}
-                                                                </span>
+                                                        <td className="px-3 py-1.5 text-center">
+                                                            {hasImg ? (
+                                                                <img
+                                                                    src={p.image || (p.images && p.images[0])}
+                                                                    alt="med"
+                                                                    className="w-7 h-7 rounded-lg object-cover mx-auto border border-gray-200"
+                                                                />
                                                             ) : (
-                                                                <span className="px-2.5 py-1 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-lg text-[10px] font-black uppercase tracking-wide">
-                                                                    Missing
-                                                                </span>
+                                                                <span className="text-[10px] text-gray-300">-</span>
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3 font-black text-teal-600 text-right whitespace-nowrap">{p.currentStock}</td>
-                                                        <td className="px-4 py-3 text-gray-400 text-right whitespace-nowrap">{p.minStockLevel}</td>
-                                                        <td className="px-4 py-3 text-gray-400 text-right whitespace-nowrap">{p.unitsPerPack}</td>
-                                                        <td className="px-4 py-3 whitespace-nowrap">
-                                                            <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-tight whitespace-nowrap">
-                                                                {suppliers.find(s => s._id === selectedSupplierId)?.name || 'N/A'}
+                                                        <td className="px-3 py-2 font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">{p.sku}</td>
+                                                        <td className="px-3 py-2 font-medium text-gray-900 dark:text-white whitespace-nowrap">{p.brandName}</td>
+                                                        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{p.genericName}</td>
+                                                        <td className="px-3 py-2 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[9px] uppercase font-bold text-gray-600">{p.form}</span></td>
+                                                        <td className="px-3 py-2 text-gray-500 text-[11px] whitespace-nowrap">{p.strength || '-'}</td>
+                                                        <td className="px-3 py-2 text-gray-500 text-[11px] whitespace-nowrap">{p.schedule}</td>
+                                                        <td className="px-3 py-2 font-bold text-emerald-600 text-right whitespace-nowrap">₹{p.mrp}</td>
+                                                        <td className="px-3 py-2 font-black text-blue-600 text-right whitespace-nowrap">{p.currentStock}</td>
+                                                        <td className="px-3 py-2 whitespace-nowrap">
+                                                            <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded text-[9px] font-black uppercase whitespace-nowrap">
+                                                                {suppliers.find(s => s._id === selectedSupplierId)?.name || 'Default'}
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -645,10 +640,10 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
                 </div>
 
                 {/* Footer */}
-                <div className="px-8 py-6 border-t dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-end gap-3">
+                <div className="px-6 py-4 border-t dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-end gap-3">
                     <button
                         onClick={handleClose}
-                        className="px-8 py-3 rounded-2xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold border-2 border-gray-100 dark:border-gray-700 hover:bg-gray-50"
+                        className="px-5 py-2.5 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold border border-gray-200 dark:border-gray-700 hover:bg-gray-50 transition-colors"
                     >
                         {uploadResults ? 'Close' : 'Cancel'}
                     </button>
@@ -656,16 +651,16 @@ const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ isOpen,
                         <button
                             onClick={handleUpload}
                             disabled={isUploading || isParsing || previewData.length === 0}
-                            className="px-10 py-3 bg-indigo-600 text-white rounded-2xl font-black hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none disabled:opacity-50 flex items-center gap-2 group"
+                            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 shadow-md shadow-blue-500/20 disabled:opacity-50 flex items-center gap-2 group transition-all active:scale-95"
                         >
                             {isUploading ? (
                                 <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <Loader2 className="w-4 h-4 animate-spin" />
                                     Uploading...
                                 </>
                             ) : (
                                 <>
-                                    <Upload className="w-5 h-5 group-hover:-translate-y-1" />
+                                    <Upload className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" />
                                     Import {previewData.length} Products
                                 </>
                             )}

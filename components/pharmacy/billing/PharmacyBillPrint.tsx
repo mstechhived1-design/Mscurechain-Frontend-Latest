@@ -400,11 +400,11 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
                         </div>
                         <div style={styles.metaRow}>
                             <span style={styles.metaLabel}>Invoice Date:</span>
-                            <span style={styles.metaValue}>{new Date(billData.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            <span style={styles.metaValue}>{new Date(billData.createdAt || (billData as any).date || (billData as any).invoiceDate || new Date()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                         </div>
                         <div style={styles.metaRow}>
                             <span style={styles.metaLabel}>Invoice Time:</span>
-                            <span style={styles.metaValue}>{new Date(billData.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                            <span style={styles.metaValue}>{new Date(billData.createdAt || (billData as any).date || (billData as any).invoiceDate || new Date()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                         </div>
 
                         <div style={styles.metaRow}>
@@ -471,7 +471,15 @@ const PharmacyBillPrint: React.FC<PharmacyBillPrintProps> = ({ billData, shopDet
                         const hsn = item.hsn || item.hsnCode || '-';
                         const qty = item.qty || 0;
                         const rate = item.rate || item.unitRate || 0;
-                        const mrp = item.mrp || rate;
+                        // Guarantee per-tablet/unit MRP: if mrp is total pack MRP, calculate per-tablet price
+                        const unitsPerPack = Number(item.unitsPerPack || item.product?.unitsPerPack || 1);
+                        let rawMrp = Number(item.mrp || rate);
+                        if (unitsPerPack > 1 && rawMrp > rate * 1.5) {
+                            rawMrp = Math.round((rawMrp / unitsPerPack) * 100) / 100;
+                        } else if (rate > 0 && rawMrp > rate * 2) {
+                            rawMrp = rate;
+                        }
+                        const mrp = rawMrp || rate;
                         const disc = item.discountPct || item.discount || 0;
                         const gst = item.gstPct || item.gst || 12;
                         const amount = item.amount || item.total || (qty * rate);

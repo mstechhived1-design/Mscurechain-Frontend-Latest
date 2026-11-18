@@ -16,6 +16,8 @@ export const ProductService = {
       gstPercent: data.gst,
       unitCost: data.unitCost,
       name: data.name,
+      images: data.images || (data.image ? [data.image] : []),
+      image: data.image || (data.images && data.images[0]) || "",
     };
     const res = await apiClient<PharmacyProduct>(
       PHARMACY_ENDPOINTS.PRODUCTS.BASE,
@@ -63,6 +65,8 @@ export const ProductService = {
       gst: p.gstPercent,
       hsnCode: p.hsnCode,
       batchNumber: p.batchNumber,
+      images: Array.isArray(p.images) ? p.images : (p.image ? [p.image] : []),
+      image: p.image || (Array.isArray(p.images) && p.images[0]) || "",
       status:
         p.stock === 0
           ? "Out of Stock"
@@ -109,6 +113,8 @@ export const ProductService = {
       gst: p.gstPercent,
       hsnCode: p.hsnCode,
       batchNumber: p.batchNumber,
+      images: Array.isArray(p.images) ? p.images : (p.image ? [p.image] : []),
+      image: p.image || (Array.isArray(p.images) && p.images[0]) || "",
       status:
         p.stock === 0
           ? "Out of Stock"
@@ -144,6 +150,8 @@ export const ProductService = {
       gstPercent: data.gst,
       unitCost: data.unitCost,
       name: data.name,
+      images: data.images || (data.image ? [data.image] : []),
+      image: data.image || (data.images && data.images[0]) || "",
     };
     const res = await apiClient<PharmacyProduct>(
       PHARMACY_ENDPOINTS.PRODUCTS.BY_ID(id),

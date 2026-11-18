@@ -219,6 +219,9 @@ export const PharmacyBillingService = {
       taxTotal?: number;
       netPayable?: number;
       paymentDetails?: any;
+      date?: string;
+      createdAt?: string;
+      invoiceDate?: string;
     }
   ): Promise<{ success: boolean; message: string; data: any }> => {
     return apiClient<any>(`/pharmacy/invoices/${id}`, {
