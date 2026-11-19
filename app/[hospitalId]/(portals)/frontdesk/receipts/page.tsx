@@ -8,8 +8,10 @@ import {
     Activity,
     RefreshCw,
     Printer,
-    Receipt as ReceiptIcon
+    Receipt as ReceiptIcon,
+    ArrowLeft
 } from "lucide-react";
+import Link from "next/link";
 import { helpdeskService, useHelpdeskPatients } from "@/lib/integrations";
 import toast from "react-hot-toast";
 import { useRouter, useParams } from "next/navigation";
@@ -306,72 +308,83 @@ export default function FrontdeskReceiptsPage() {
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4 max-w-full mx-auto">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-teal-50 rounded-xl text-teal-600 shadow-sm border border-teal-100">
-                            <ReceiptIcon size={24} />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                                OPD Registration & Receipt Desk
+        <div className="space-y-0 sm:space-y-4 animate-in fade-in duration-300">
+            {/* CONSOLIDATED HEADER & CONTROLS */}
+            <div className="bg-white p-2.5 sm:p-3.5 rounded-t-2xl sm:rounded-2xl border border-slate-200 border-b-0 sm:border-b shadow-xs space-y-2.5 max-w-full mx-auto">
+                {/* Row 1: Back + Title + Subtitle + Pagination & Refresh */}
+                <div className="flex items-center justify-between gap-2 px-1 pt-1">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                        <Link href="/helpdesk" className="p-1.5 sm:p-2 bg-slate-100 rounded-xl text-slate-400 hover:text-teal-600 transition-all shadow-sm shrink-0">
+                            <ArrowLeft size={18} className="sm:size-[20px]" />
+                        </Link>
+                        <div className="min-w-0">
+                            <h1 className="text-sm sm:text-lg md:text-xl font-bold text-slate-900 tracking-tight whitespace-nowrap flex items-center gap-1.5">
+                                <span>OPD Receipts</span>
+                                <span className="hidden sm:inline">& Registration Desk</span>
                             </h1>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Print Prescription Slips • Encounter Bills</p>
+                            <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">
+                                Encounter Bills <span className="hidden sm:inline">• Prescription Slips</span>
+                            </p>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                        <div className="relative flex-1 sm:w-80">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search Patient Name, MRN, Mobile..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-tight outline-none focus:bg-white focus:border-teal-500 shadow-inner transition-all"
-                            />
-                        </div>
-
+                    <div className="flex items-center gap-1.5 shrink-0">
                         {totalPages > 1 && patients.length > 0 && (
-                            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-1 h-[42px]">
+                            <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shadow-inner shrink-0">
                                 <button
                                     onClick={() => setPage(p => Math.max(1, p - 1))}
                                     disabled={page === 1}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:bg-white hover:text-slate-700 hover:shadow-sm disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                    className="p-1 rounded-md hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
+                                    title="Previous page"
                                 >
-                                    <ChevronLeft size={16} />
+                                    <ChevronLeft size={12} className="sm:size-[13px]" />
                                 </button>
-                                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 min-w-[50px] text-center">
+                                <div className="px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-slate-900 bg-white rounded shadow-xs border border-slate-100 min-w-[38px] sm:min-w-[45px] text-center whitespace-nowrap">
                                     {page} / {totalPages}
                                 </div>
                                 <button
                                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                     disabled={page === totalPages}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:bg-white hover:text-slate-700 hover:shadow-sm disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                    className="p-1 rounded-md hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
+                                    title="Next page"
                                 >
-                                    <ChevronRight size={16} />
+                                    <ChevronRight size={12} className="sm:size-[13px]" />
                                 </button>
                             </div>
                         )}
 
                         <button
                             onClick={() => {
-                    toast.loading('Refreshing page...', { duration: 1000 });
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 800);
-                  }}
+                                toast.loading('Refreshing page...', { duration: 1000 });
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 800);
+                            }}
                             disabled={isFetching}
-                            className="p-2.5 h-[42px] bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-teal-600 shadow-sm active:scale-95 disabled:opacity-50 flex items-center justify-center"
+                            className="p-1.5 sm:p-2 bg-white border border-slate-200 text-slate-500 hover:text-teal-600 rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center shrink-0"
+                            aria-label="Refresh Patients"
+                            title="Refresh Patients"
                         >
-                            <RefreshCw size={18} className={showRefreshing ? 'animate-spin' : ''} />
+                            <RefreshCw size={15} className={`${showRefreshing ? 'animate-spin' : ''} sm:size-[16px]`} />
                         </button>
                     </div>
                 </div>
+
+                {/* Row 2: Search Bar - Dedicated Full-Width Row */}
+                <div className="relative w-full group">
+                    <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400 size-[14px] sm:size-[16px]" />
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search Patient Name, MRN, Mobile..."
+                        className="w-full pl-9 sm:pl-11 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-tight outline-none focus:bg-white focus:border-teal-500 shadow-inner transition-all"
+                    />
+                </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
+            {/* LISTING PANEL - Zero vertical gap from header on mobile */}
+            <div className="bg-white rounded-b-2xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
                 <div className="overflow-x-auto w-full no-scrollbar">
                     {(isLoading && patients.length === 0) ? (
                         <div className="py-40 flex flex-col items-center justify-center gap-4">
@@ -379,15 +392,15 @@ export default function FrontdeskReceiptsPage() {
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading Patients...</p>
                         </div>
                     ) : patients.length > 0 ? (
-                        <table className="w-full min-w-[700px] table-auto">
+                        <table className="w-full min-w-[620px] table-auto">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">
-                                    <th className="w-16 px-4 py-4 text-center">#</th>
-                                    <th className="px-6 py-4 text-left">MRN Number</th>
-                                    <th className="px-6 py-4 text-left">Patient Name</th>
-                                    <th className="px-6 py-4 text-center">Age / Gender</th>
-                                    <th className="px-6 py-4 text-left">Mobile</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
+                                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">
+                                    <th className="w-12 px-3 py-3 text-center whitespace-nowrap">#</th>
+                                    <th className="px-4 py-3 text-left w-40 whitespace-nowrap">MRN Number</th>
+                                    <th className="px-4 py-3 text-left min-w-[160px] whitespace-nowrap">Patient Name</th>
+                                    <th className="px-3 py-3 text-center w-24 whitespace-nowrap">Age / Gender</th>
+                                    <th className="px-4 py-3 text-left w-32 whitespace-nowrap">Mobile</th>
+                                    <th className="px-4 py-3 text-right w-32 whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -395,25 +408,33 @@ export default function FrontdeskReceiptsPage() {
                                     const serialNo = ((page - 1) * limit) + idx + 1;
                                     return (
                                         <tr key={patient._id || idx} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-4 py-4 text-center text-xs font-black text-slate-400">{serialNo.toString().padStart(2, '0')}</td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-xs font-black text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                                            <td className="px-3 py-3 sm:py-3.5 text-center text-xs font-black text-slate-400 whitespace-nowrap">
+                                                {serialNo.toString().padStart(2, '0')}
+                                            </td>
+                                            <td className="px-4 py-3 sm:py-3.5 whitespace-nowrap">
+                                                <span className="text-[11px] sm:text-xs font-black text-slate-700 bg-slate-100 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border border-slate-200">
                                                     {patient.profile?.mrn || patient.mrn || 'N/A'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-900 text-sm">{sanitizePatientName(patient.name || patient.user?.name)}</div>
+                                            <td className="px-4 py-3 sm:py-3.5 whitespace-nowrap">
+                                                <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                                                    {sanitizePatientName(patient.name || patient.user?.name)}
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center text-xs font-bold text-slate-600">
+                                            <td className="px-3 py-3 sm:py-3.5 text-center text-[11px] sm:text-xs font-bold text-slate-600 whitespace-nowrap">
                                                 {patient.profile?.age || patient.age || calculateAge(patient.profile?.dob || patient.dob)} Y / {patient.profile?.gender || patient.gender}
                                             </td>
-                                            <td className="px-6 py-4 font-mono text-xs font-bold text-slate-600">{patient.mobile || patient.user?.mobile}</td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="px-4 py-3 sm:py-3.5 font-mono text-[11px] sm:text-xs font-bold text-slate-600 whitespace-nowrap">
+                                                {patient.mobile || patient.user?.mobile}
+                                            </td>
+                                            <td className="px-4 py-3 sm:py-3.5 text-right whitespace-nowrap">
                                                 <button
                                                     onClick={() => handleFetchHistory(patient)}
-                                                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 ml-auto shadow-md shadow-teal-900/10 active:scale-95 transition-all"
+                                                    className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ml-auto shadow-sm active:scale-95 transition-all whitespace-nowrap"
+                                                    title="Print Slip / Receipt"
                                                 >
-                                                    <Printer size={15} /> Print Slip / Receipt
+                                                    <Printer size={13} className="sm:size-[15px]" />
+                                                    <span>Receipt</span>
                                                 </button>
                                             </td>
                                         </tr>
@@ -428,6 +449,34 @@ export default function FrontdeskReceiptsPage() {
                         </div>
                     )}
                 </div>
+
+                {/* BOTTOM PAGINATION */}
+                {totalPages > 1 && patients.length > 0 && (
+                    <div className="bg-white p-2.5 sm:p-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            Showing {((page - 1) * limit) + 1}-{Math.min(page * limit, total)} of {total} patients
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all"
+                            >
+                                <ChevronLeft size={12} /> Prev
+                            </button>
+                            <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-teal-50 border border-teal-100 text-teal-700 rounded-lg text-[10px] font-black">
+                                {page} / {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                                className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all"
+                            >
+                                Next <ChevronRight size={12} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
 

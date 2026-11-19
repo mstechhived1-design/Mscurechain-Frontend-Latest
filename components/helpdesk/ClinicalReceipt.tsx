@@ -574,158 +574,31 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-[210mm] sm:max-w-4xl h-[92vh] flex flex-col overflow-hidden relative border border-slate-200">
 
         {/* Header Actions */}
-        <div className="flex flex-col gap-3 p-2.5 sm:p-4 border-b border-slate-100 bg-white z-10 shrink-0">
-          <div className="flex justify-between items-center w-full">
-            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Printer size={18} className="text-teal-600 shrink-0" />
-                <span className="hidden sm:inline text-sm font-bold text-slate-500 uppercase tracking-widest">Print Manager</span>
-              </div>
-              <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-                {isLab ? (
-                  <>
-                    <button
-                      onClick={() => setReceiptFormat('lab_receipt')}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'lab_receipt' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                      🔬 Lab Receipt
-                    </button>
-                    <button
-                      onClick={() => setReceiptFormat('detailed_bill')}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'detailed_bill' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                      📑 Detailed Bill
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setReceiptFormat('opd_slip')}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'opd_slip' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                      📜 Old Receipt
-                    </button>
-                    <button
-                      onClick={() => setReceiptFormat('detailed_bill')}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${receiptFormat === 'detailed_bill' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                      📑 Detailed Bill
-                    </button>
-                  </>
-                )}
-              </div>
-              <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 transition-all select-none">
-                <input
-                  type="checkbox"
-                  checked={printWithHeader}
-                  onChange={(e) => setPrintWithHeader(e.target.checked)}
-                  className="cursor-pointer w-3.5 h-3.5 accent-teal-600"
-                />
-                <span>Header & Footer</span>
-              </label>
-
-              {/* Auto WhatsApp Toggle in Toolbar - strictly only visible during appointment booking */}
-              {isBookingMode && (
-                <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 transition-all select-none">
-                  <input
-                    type="checkbox"
-                    checked={autoWhatsApp}
-                    onChange={(e) => handleToggleAutoWhatsApp(e.target.checked)}
-                    className="cursor-pointer w-3.5 h-3.5 accent-[#25D366]"
-                  />
-                  <span className={autoWhatsApp ? 'text-teal-700 font-black' : ''}>Auto WhatsApp</span>
-                </label>
-              )}
-
-              {hasGuardianData && (
-                <button
-                  onClick={() => setShowGuardianDetails(prev => !prev)}
-                  title={showGuardianDetails ? 'Hide Guardian / Reference Details from receipt' : 'Show Guardian / Reference Details on receipt'}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all select-none ${
-                    showGuardianDetails
-                      ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
-                      : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className={`w-6 h-3.5 rounded-full relative inline-flex items-center transition-colors ${
-                    showGuardianDetails ? 'bg-blue-500' : 'bg-slate-300'
-                  }`}>
-                    <span className={`absolute w-2.5 h-2.5 bg-white rounded-full shadow transition-transform ${
-                      showGuardianDetails ? 'translate-x-3' : 'translate-x-0.5'
-                    }`} />
-                  </span>
-                  <span>Guardian Info</span>
-                </button>
-              )}
-
-              {/* Discount / Balance Waiver Controls */}
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/80 rounded-lg text-[10px] font-bold">
-                <Tag size={13} className="text-amber-600" />
-                <span className="text-amber-800 uppercase tracking-wider font-extrabold hidden sm:inline">Discount:</span>
-                <div className="relative flex items-center">
-                  <span className="absolute left-1.5 text-slate-500 font-bold text-[10px]">₹</span>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={customDiscount === 0 ? '' : customDiscount}
-                    onChange={(e) => {
-                      const val = Math.max(0, Number(e.target.value) || 0);
-                      setCustomDiscount(val);
-                    }}
-                    className="w-20 pl-4 pr-1 py-0.5 text-xs font-black text-slate-800 bg-white border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-inner"
-                  />
-                </div>
-                {/* Quick Waive Balance Button */}
-                {(() => {
-                  const billTot = Number(payment.totalBillAmount || payment.grandTotal || (Number(payment.amount || 0) + Number(payment.advanceAmount || 0)));
-                  const adv = Number(payment.advanceAmount || 0);
-                  const rem = Number(payment.remainingPaid || payment.settlementAmount || payment.amount || 0);
-                  const paid = Number(payment.totalPaidAmount || (adv + rem));
-                  const outstanding = Math.max(0, billTot - paid);
-                  if (outstanding > 0 && customDiscount < outstanding) {
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => setCustomDiscount(outstanding)}
-                        title={`Waive remaining ₹${outstanding.toLocaleString('en-IN')} as discount`}
-                        className="px-2 py-0.5 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-bold rounded text-[9px] uppercase tracking-wider transition-all shadow-sm"
-                      >
-                        Waive Balance (₹{outstanding.toLocaleString('en-IN')})
-                      </button>
-                    );
-                  }
-                  if (customDiscount > 0) {
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => setCustomDiscount(0)}
-                        title="Reset discount to 0"
-                        className="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded text-[9px] uppercase tracking-wider transition-all"
-                      >
-                        Clear
-                      </button>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
+        <div className="flex flex-col gap-2 p-2 sm:p-3.5 border-b border-slate-100 bg-white z-10 shrink-0">
+          {/* Top Row: Title & Primary Actions */}
+          <div className="flex justify-between items-center w-full gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <Printer size={16} className="text-teal-600 shrink-0" />
+              <span className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest truncate">
+                Print Manager
+              </span>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                {(() => {
-                  const testsSummary = ((propLabTests && propLabTests.length > 0)
-                    ? propLabTests.map((t: any) => t.name || t.testName || t.investigationName).filter(Boolean).join(', ')
-                    : (appointment.notes || (appointment.specialization?.toLowerCase() !== 'lab' && appointment.specialization?.toLowerCase() !== 'lab_test' ? appointment.specialization : '') || 'Lab Diagnostics')) || 'Lab Diagnostics';
 
-                  const fullPatientName = formatPatientNameWithPrefix(
-                    patient.name,
-                    appointment.appointmentHonorific || appointment.honorific || (appointment as any).patientDetails?.honorific || patient.honorific || (patient as any).profile?.honorific,
-                    false
-                  );
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {(() => {
+                const testsSummary = ((propLabTests && propLabTests.length > 0)
+                  ? propLabTests.map((t: any) => t.name || t.testName || t.investigationName).filter(Boolean).join(', ')
+                  : (appointment.notes || (appointment.specialization?.toLowerCase() !== 'lab' && appointment.specialization?.toLowerCase() !== 'lab_test' ? appointment.specialization : '') || 'Lab Diagnostics')) || 'Lab Diagnostics';
 
-                  const currentHospitalName = hospital?.name || propHospital?.name || defaultHospitalInfo.name;
-                  const labWhatsAppCaption = formatDynamicWhatsAppCaption(
-                    `*${currentHospitalName.toUpperCase()}*
+                const fullPatientName = formatPatientNameWithPrefix(
+                  patient.name,
+                  appointment.appointmentHonorific || appointment.honorific || (appointment as any).patientDetails?.honorific || patient.honorific || (patient as any).profile?.honorific,
+                  false
+                );
+
+                const currentHospitalName = hospital?.name || propHospital?.name || defaultHospitalInfo.name;
+                const labWhatsAppCaption = formatDynamicWhatsAppCaption(
+                  `*${currentHospitalName.toUpperCase()}*
 ━━━━━━━━━━━━━━━━━━
 🔬 *LAB BILL & RECEIPT*
 *Patient:* ${fullPatientName}
@@ -734,61 +607,195 @@ function ClinicalReceipt({ hospital: propHospital, patient, appointment, payment
 *Service:* Lab Diagnostic (${testsSummary})
 *Paid:* ₹${Math.round(payment.amount || 0).toLocaleString('en-IN')} (${(payment.status || 'PAID').toUpperCase()} - ${formatReceiptPaymentMode(payment, appointment)})
 ━━━━━━━━━━━━━━━━━━`,
-                    `📌 *Important Instructions:*
+                  `📌 *Important Instructions:*
 • Present this receipt at laboratory to collect reports.
 • Reports verified by pathologist before release.
 • Contact ${currentHospitalName} helpdesk for assistance.
 
 Thank you for choosing ${currentHospitalName}. Stay Healthy.`
-                  );
+                );
 
-                  return (
-                    <WhatsAppSendButton
-                      ref={whatsAppButtonRef}
-                      hospitalId={hospitalId}
-                      department={isLab ? 'lab' : 'frontdesk'}
-                      targetRef={iframeRef}
-                      phoneNumber={patient.mobile}
-                      documentName={isLab ? `Lab_Receipt_${fullPatientName.replace(/\s+/g, '_')}.pdf` : `Appointment_Receipt_${fullPatientName.replace(/\s+/g, '_')}.pdf`}
-                      showCheckbox={false}
-                      autoSend={isBookingMode && autoWhatsApp}
-                      onAutoSendChange={handleToggleAutoWhatsApp}
-                      triggerSend={triggerWhatsApp}
-                      onSendingChange={setIsWhatsAppSending}
-                      caption={isLab ? labWhatsAppCaption : undefined}
-                      appointmentDetails={isLab ? undefined : {
-                        patientName: fullPatientName,
-                        tokenNo: (appointment as any).token_number || (appointment as any).tokenNo || (appointment as any).tokenNumber || (appointment as any).token || (appointment as any).dailyTokenNumber || (appointment as any).queueNumber,
-                        mrn: patient.mrn,
-                        appointmentId: appointment.appointmentId,
-                        doctorName: appointment.doctorName,
-                        specialty: appointment.specialization,
-                        date: appointment.date,
-                        timeSlot: appointment.time,
-                        hospitalName: currentHospitalName,
-                        fee: payment.amount,
-                        paymentStatus: payment.status || 'PAID',
-                        paymentMode: formatReceiptPaymentMode(payment, appointment),
-                      }}
-                      className="px-4 sm:px-5 py-2 sm:py-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-all text-[11px] sm:text-xs uppercase tracking-wider disabled:opacity-50 h-full"
-                    />
-                  );
-                })()}
+                return (
+                  <WhatsAppSendButton
+                    ref={whatsAppButtonRef}
+                    hospitalId={hospitalId}
+                    department={isLab ? 'lab' : 'frontdesk'}
+                    targetRef={iframeRef}
+                    phoneNumber={patient.mobile}
+                    documentName={isLab ? `Lab_Receipt_${fullPatientName.replace(/\s+/g, '_')}.pdf` : `Appointment_Receipt_${fullPatientName.replace(/\s+/g, '_')}.pdf`}
+                    showCheckbox={false}
+                    autoSend={isBookingMode && autoWhatsApp}
+                    onAutoSendChange={handleToggleAutoWhatsApp}
+                    triggerSend={triggerWhatsApp}
+                    onSendingChange={setIsWhatsAppSending}
+                    caption={isLab ? labWhatsAppCaption : undefined}
+                    appointmentDetails={isLab ? undefined : {
+                      patientName: fullPatientName,
+                      tokenNo: (appointment as any).token_number || (appointment as any).tokenNo || (appointment as any).tokenNumber || (appointment as any).token || (appointment as any).dailyTokenNumber || (appointment as any).queueNumber,
+                      mrn: patient.mrn,
+                      appointmentId: appointment.appointmentId,
+                      doctorName: appointment.doctorName,
+                      specialty: appointment.specialization,
+                      date: appointment.date,
+                      timeSlot: appointment.time,
+                      hospitalName: currentHospitalName,
+                      fee: payment.amount,
+                      paymentStatus: payment.status || 'PAID',
+                      paymentMode: formatReceiptPaymentMode(payment, appointment),
+                    }}
+                    className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-wider disabled:opacity-50 shrink-0"
+                  />
+                );
+              })()}
+
               <button
                 onClick={handlePrint}
                 disabled={isConfirming || isWhatsAppSending}
-                className="px-4 sm:px-5 py-2 sm:py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-all text-[11px] sm:text-xs uppercase tracking-wider disabled:opacity-50"
+                className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-wider disabled:opacity-50 shrink-0"
               >
                 <Printer size={14} className="sm:size-[16px]" />
                 <span>{isConfirming ? '...' : onConfirm ? 'Confirm' : 'Print'}</span>
               </button>
+
               <button
                 onClick={onClose}
                 disabled={isConfirming || isWhatsAppSending}
-                className="p-2 sm:p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg active:scale-95 transition-all disabled:opacity-50"
+                className="p-1.5 sm:p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg active:scale-95 transition-all disabled:opacity-50 shrink-0"
+                title="Close"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
+            </div>
+          </div>
+
+          {/* Options Row - Horizontally Scrollable on Mobile */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 w-full">
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
+              {isLab ? (
+                <>
+                  <button
+                    onClick={() => setReceiptFormat('lab_receipt')}
+                    className={`px-2 py-1 rounded-md text-[9px] sm:text-[10px] font-bold uppercase transition-all whitespace-nowrap ${receiptFormat === 'lab_receipt' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    🔬 Lab Receipt
+                  </button>
+                  <button
+                    onClick={() => setReceiptFormat('detailed_bill')}
+                    className={`px-2 py-1 rounded-md text-[9px] sm:text-[10px] font-bold uppercase transition-all whitespace-nowrap ${receiptFormat === 'detailed_bill' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    📑 Detailed Bill
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setReceiptFormat('opd_slip')}
+                    className={`px-2 py-1 rounded-md text-[9px] sm:text-[10px] font-bold uppercase transition-all whitespace-nowrap ${receiptFormat === 'opd_slip' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    📜 Old Receipt
+                  </button>
+                  <button
+                    onClick={() => setReceiptFormat('detailed_bill')}
+                    className={`px-2 py-1 rounded-md text-[9px] sm:text-[10px] font-bold uppercase transition-all whitespace-nowrap ${receiptFormat === 'detailed_bill' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    📑 Detailed Bill
+                  </button>
+                </>
+              )}
+            </div>
+
+            <label className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-600 transition-all select-none shrink-0 whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={printWithHeader}
+                onChange={(e) => setPrintWithHeader(e.target.checked)}
+                className="cursor-pointer w-3.5 h-3.5 accent-teal-600"
+              />
+              <span>Header & Footer</span>
+            </label>
+
+            {isBookingMode && (
+              <label className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-600 transition-all select-none shrink-0 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={autoWhatsApp}
+                  onChange={(e) => handleToggleAutoWhatsApp(e.target.checked)}
+                  className="cursor-pointer w-3.5 h-3.5 accent-[#25D366]"
+                />
+                <span className={autoWhatsApp ? 'text-teal-700 font-black' : ''}>Auto WhatsApp</span>
+              </label>
+            )}
+
+            {hasGuardianData && (
+              <button
+                onClick={() => setShowGuardianDetails(prev => !prev)}
+                title={showGuardianDetails ? 'Hide Guardian / Reference Details from receipt' : 'Show Guardian / Reference Details on receipt'}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all select-none shrink-0 whitespace-nowrap ${
+                  showGuardianDetails
+                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+                    : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100'
+                }`}
+              >
+                <span className={`w-5 h-3 rounded-full relative inline-flex items-center transition-colors ${
+                  showGuardianDetails ? 'bg-blue-500' : 'bg-slate-300'
+                }`}>
+                  <span className={`absolute w-2 h-2 bg-white rounded-full shadow transition-transform ${
+                    showGuardianDetails ? 'translate-x-2.5' : 'translate-x-0.5'
+                  }`} />
+                </span>
+                <span>Guardian Info</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50/80 border border-amber-200/80 rounded-lg text-[9px] sm:text-[10px] font-bold shrink-0 whitespace-nowrap">
+              <Tag size={12} className="text-amber-600" />
+              <span className="text-amber-800 uppercase tracking-wider font-extrabold hidden sm:inline">Discount:</span>
+              <div className="relative flex items-center">
+                <span className="absolute left-1.5 text-slate-500 font-bold text-[9px]">₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={customDiscount === 0 ? '' : customDiscount}
+                  onChange={(e) => {
+                    const val = Math.max(0, Number(e.target.value) || 0);
+                    setCustomDiscount(val);
+                  }}
+                  className="w-16 pl-3.5 pr-1 py-0.5 text-xs font-black text-slate-800 bg-white border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-inner"
+                />
+              </div>
+              {(() => {
+                const billTot = Number(payment.totalBillAmount || payment.grandTotal || (Number(payment.amount || 0) + Number(payment.advanceAmount || 0)));
+                const adv = Number(payment.advanceAmount || 0);
+                const rem = Number(payment.remainingPaid || payment.settlementAmount || payment.amount || 0);
+                const paid = Number(payment.totalPaidAmount || (adv + rem));
+                const outstanding = Math.max(0, billTot - paid);
+                if (outstanding > 0 && customDiscount < outstanding) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setCustomDiscount(outstanding)}
+                      title={`Waive remaining ₹${outstanding.toLocaleString('en-IN')} as discount`}
+                      className="px-1.5 py-0.5 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-bold rounded text-[8px] sm:text-[9px] uppercase tracking-wider transition-all shadow-sm"
+                    >
+                      Waive (₹{outstanding.toLocaleString('en-IN')})
+                    </button>
+                  );
+                }
+                if (customDiscount > 0) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setCustomDiscount(0)}
+                      title="Reset discount to 0"
+                      className="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded text-[8px] sm:text-[9px] uppercase tracking-wider transition-all"
+                    >
+                      Clear
+                    </button>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
           

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Trash2, FileText, Stethoscope, Bed, Pill, Wrench, FlaskConical, CreditCard, Printer, Calendar, Search, Activity, RefreshCw, UserCheck, Save, UserCog, ArrowRightLeft, Clock, Check, CheckCircle, Eye, X } from 'lucide-react';
+import { Plus, Trash2, FileText, Stethoscope, Bed, Pill, Wrench, FlaskConical, CreditCard, Printer, Calendar, Search, Activity, RefreshCw, UserCheck, Save, UserCog, ArrowRightLeft, Clock, Check, CheckCircle, Eye, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { hospitalAdminService } from '@/lib/integrations/services/hospitalAdmin.service';
 import { helpdeskService } from '@/lib/integrations/services/helpdesk.service';
 import { ipdService } from '@/lib/integrations/services/ipd.service';
@@ -848,6 +848,7 @@ export default function TransactionReportsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showPatientSearch, setShowPatientSearch] = useState(false);
+    const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
     const [totalAdmissionsCount, setTotalAdmissionsCount] = useState<number>(0);
     const [hasActiveAdmission, setHasActiveAdmission] = useState<boolean>(true);
     const [isLoadingActive, setIsLoadingActive] = useState<boolean>(false);
@@ -2549,21 +2550,27 @@ export default function TransactionReportsPage() {
         <div className="w-full max-w-[98%] mx-auto space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
             <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-2">
-                {/* Row 1: Title & Patient Status Chips */}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    {/* Left: Title + Patient Status Chips */}
-                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs">
-                            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                {/* Header Title & Status Row */}
+                <div className="flex flex-col gap-1.5">
+                    {/* Line 1: Title + Patient Name */}
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs">
+                                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            </div>
+                            <h1 className="text-xs sm:text-base font-black text-slate-900 tracking-tight leading-none whitespace-nowrap">
+                                {templateFormat === 'discharge' ? 'Discharge Summary' : 'Financial Statement'}
+                            </h1>
+                            {patient && (
+                                <span className="bg-indigo-50 text-indigo-700 px-1.5 sm:px-2 py-0.5 rounded-md text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider border border-indigo-100/80 truncate max-w-[160px] sm:max-w-none">
+                                    {formatPatientDisplayName(patient)}
+                                </span>
+                            )}
                         </div>
-                        <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight leading-none">
-                            {templateFormat === 'discharge' ? 'Discharge Summary' : 'Financial Statement'}
-                        </h1>
-                        {patient && (
-                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-indigo-100/80 truncate max-w-[200px] sm:max-w-none">
-                                {formatPatientDisplayName(patient)}
-                            </span>
-                        )}
+                    </div>
+
+                    {/* Line 2: OPD, Active, Visits: 2 AND Mode: Detailed Bill in the EXACT SAME ROW */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                         {patientType && (
                             <span className={`px-1.5 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider border ${patientType === 'IPD' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
                                 {patientType}
@@ -2576,12 +2583,12 @@ export default function TransactionReportsPage() {
                             availableEncounters.ipd?.dischargeDate ||
                             dischargeData?.dischargeDate
                         ) ? (
-                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3 text-emerald-600" />
+                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                                <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
                                 <span>Discharged</span>
                             </span>
                         ) : (
-                            <span className="bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                            <span className="bg-teal-50 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
                                 <span>Active</span>
                             </span>
@@ -2591,17 +2598,305 @@ export default function TransactionReportsPage() {
                                 <span>Visits: <strong className="font-black text-slate-800">{totalAdmissionsCount}</strong></span>
                             </span>
                         )}
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] sm:text-xs font-bold text-slate-400">
+                        {/* Mode: Detailed Bill right-aligned on the EXACT SAME ROW */}
+                        <span className="text-[9px] sm:text-xs font-bold text-slate-400 ml-auto whitespace-nowrap">
                             Mode: <strong className="text-indigo-600">{templateFormat === 'discharge' ? 'Discharge Summary' : 'Detailed Bill'}</strong>
                         </span>
                     </div>
                 </div>
 
-                {/* Row 2: Action Buttons - Left actions on left, Right actions on right utilizing the empty space */}
-                <div className="w-full flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100/80">
+                {/* Mobile Default Actions Bar (sm:hidden): ONLY Select/Change Patient, Clear, and Filters toggle */}
+                <div className="sm:hidden w-full flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-100/80">
+                    <div className="flex items-center gap-1.5">
+                        <div className="relative shrink-0">
+                            <button
+                                onClick={() => setShowPatientSearch(!showPatientSearch)}
+                                className="h-7 px-2.5 bg-indigo-600 text-white font-bold text-[10px] rounded-lg hover:bg-indigo-700 transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                            >
+                                <UserCheck className="w-3.5 h-3.5" />
+                                <span>{patient ? "Change" : "Select"} Patient</span>
+                            </button>
+                            {showPatientSearch && (
+                                <PatientSearchDropdown
+                                    onSelect={(p: any) => {
+                                        setShowPatientSearch(false);
+                                        router.push(`/${params.hospitalId}/frontdesk/transaction-reports?patientId=${p._id}`);
+                                    }}
+                                    onCancel={() => setShowPatientSearch(false)}
+                                />
+                            )}
+                        </div>
+
+                        {patientId && (
+                            <button
+                                onClick={() => {
+                                    if (patientId) {
+                                        try {
+                                            localStorage.removeItem(`txn_report_${patientId}`);
+                                            localStorage.removeItem(`txn_report_${patientId}_OPD`);
+                                            localStorage.removeItem(`discharge_draft_${patientId}`);
+                                            localStorage.removeItem(`discharge_data_${patientId}`);
+                                        } catch (e) {}
+                                    }
+                                    try {
+                                        localStorage.removeItem('txn_report_draft');
+                                        localStorage.removeItem('txn_report_draft_OPD');
+                                    } catch (e) {}
+                                    setPatient(null);
+                                    setAdmission(null);
+                                    setDoctors([]);
+                                    setAdmis([]);
+                                    setMeds([]);
+                                    setServices([]);
+                                    setDiags([]);
+                                    setPay([]);
+                                    setDiscount(0);
+                                    setTotalAdmissionsCount(0);
+                                    setPatientType(null);
+                                    setLoadReportId(null);
+                                    router.push(`/${params.hospitalId}/frontdesk/transaction-reports`);
+                                }}
+                                className="h-7 px-2.5 bg-white text-rose-600 font-bold text-[10px] rounded-lg border border-rose-200 hover:bg-rose-50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-xs"
+                            >
+                                <RefreshCw className="w-3 h-3" />
+                                <span>Clear</span>
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Filter Toggle Button for Mobile */}
+                    <button
+                        onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
+                        className={`h-7 px-2.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 ${
+                            isMobileFiltersOpen || isDateFilterActive
+                                ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                        title="Toggle Filters & Report Options"
+                    >
+                        <SlidersHorizontal className="w-3 h-3" />
+                        <span>Filters</span>
+                        {isDateFilterActive && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse" />
+                        )}
+                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isMobileFiltersOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                </div>
+
+                {/* Mobile Filter Pop-up Dropdown Modal (Overlay, NOT in-page extension) */}
+                {isMobileFiltersOpen && (
+                    <>
+                        {/* Backdrop */}
+                        <div
+                            className="fixed inset-0 bg-slate-900/40 backdrop-blur-2xs z-[9998] animate-in fade-in duration-150"
+                            onClick={() => setIsMobileFiltersOpen(false)}
+                        />
+
+                        {/* Modal Pop-up Card */}
+                        <div className="fixed inset-x-3.5 top-20 max-h-[82vh] z-[9999] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100 bg-slate-50/70">
+                                <div className="flex items-center gap-1.5">
+                                    <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600" />
+                                    <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Report Options & Filters</span>
+                                </div>
+                                <button
+                                    onClick={() => setIsMobileFiltersOpen(false)}
+                                    className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-all"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="overflow-y-auto p-3.5 space-y-3 max-h-[calc(82vh-45px)]">
+                                {/* Format Switcher */}
+                                <div className="w-full">
+                                    <ReportFormatToggle
+                                        format={templateFormat}
+                                        onChange={handleFormatChange}
+                                    />
+                                </div>
+
+                                {/* SAME ROW for Edit Details, History, Save, and Print! */}
+                                <div className="grid grid-cols-4 gap-1.5 w-full">
+                                    {patientId ? (
+                                        <button
+                                            onClick={() => { setIsMobileFiltersOpen(false); openEditDetailsModal(); }}
+                                            className="h-8 px-1 bg-white text-emerald-700 font-bold text-[9px] rounded-lg border border-emerald-200 hover:bg-emerald-50 transition-all flex items-center justify-center gap-1 shadow-2xs"
+                                            title="Edit Doctor, Guardian Name, Phone"
+                                        >
+                                            <UserCog className="w-3 h-3 shrink-0 text-emerald-600" />
+                                            <span className="truncate">Edit</span>
+                                        </button>
+                                    ) : (
+                                        <div />
+                                    )}
+
+                                    <button
+                                        onClick={() => { setIsMobileFiltersOpen(false); router.push(`/${params.hospitalId}/frontdesk/transaction-history`); }}
+                                        className="h-8 px-1 bg-white text-slate-700 font-bold text-[9px] rounded-lg border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-1 shadow-2xs"
+                                        title="Transaction History"
+                                    >
+                                        <Search className="w-3 h-3 shrink-0 text-slate-500" />
+                                        <span className="truncate">History</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { handleSaveReport(); setIsMobileFiltersOpen(false); }}
+                                        disabled={isSaving}
+                                        className="h-8 px-1 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-[9px] rounded-lg transition-all flex items-center justify-center gap-1 shadow-2xs disabled:opacity-50"
+                                    >
+                                        {isSaving ? <RefreshCw className="w-3 h-3 animate-spin shrink-0" /> : <Save className="w-3 h-3 shrink-0" />}
+                                        <span className="truncate">{isManualReport ? "Update" : "Save"}</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { handlePrint(); setIsMobileFiltersOpen(false); }}
+                                        className="h-8 px-1 bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-[9px] rounded-lg shadow-2xs transition-all flex items-center justify-center gap-1"
+                                    >
+                                        <Printer className="w-3 h-3 shrink-0" />
+                                        <span className="truncate">Print</span>
+                                    </button>
+                                </div>
+
+                                {isManualReport && (
+                                    <button
+                                        onClick={handleDeleteReport}
+                                        disabled={isDeleting}
+                                        className="w-full h-7 bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 font-bold text-[9.5px] rounded-lg transition-all flex items-center justify-center gap-1"
+                                    >
+                                        {isDeleting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                        <span>Delete Saved Report</span>
+                                    </button>
+                                )}
+
+                                {/* Encounter Switcher ONLY if BOTH IPD and OPD exist (No redundant OPD Visit display) */}
+                                {patientId && availableEncounters.ipd && availableEncounters.opd && (
+                                    <div className="space-y-1 pt-1.5 border-t border-slate-100">
+                                        <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest block">Switch Stay:</span>
+                                        <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-lg border border-slate-200 shadow-xs w-full">
+                                            <button
+                                                type="button"
+                                                onClick={() => loadEncounterData('IPD', availableEncounters.ipd)}
+                                                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${activeEncounterType === 'IPD' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:bg-white'}`}
+                                            >
+                                                <span className={`w-1.5 h-1.5 rounded-full ${activeEncounterType === 'IPD' ? 'bg-white animate-pulse' : 'bg-rose-500'}`} />
+                                                <span>IPD Stay</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => loadEncounterData('OPD')}
+                                                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${activeEncounterType === 'OPD' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:bg-white'}`}
+                                            >
+                                                <span className={`w-1.5 h-1.5 rounded-full ${activeEncounterType === 'OPD' ? 'bg-white animate-pulse' : 'bg-orange-500'}`} />
+                                                <span>OPD Visit</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Date Range Filter & Balances */}
+                                {patientId && (
+                                    <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                                        <div className="flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                            <span>Date Filter</span>
+                                            {isDateFilterActive && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearDateRange}
+                                                    className="text-rose-600 hover:underline flex items-center gap-0.5 text-[8.5px] font-bold"
+                                                >
+                                                    <X className="w-2.5 h-2.5" /> Reset
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="flex-1 flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                                                <Calendar className="w-3 h-3 text-indigo-600 shrink-0" />
+                                                <span className="text-[8px] font-bold text-slate-400 shrink-0">From</span>
+                                                <input
+                                                    type="date"
+                                                    value={filterStartDate}
+                                                    onChange={(e) => handleStartDateChange(e.target.value)}
+                                                    className="bg-transparent text-[9px] font-bold text-slate-800 outline-none w-full cursor-pointer"
+                                                />
+                                            </div>
+                                            <div className="flex-1 flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                                                <span className="text-[8px] font-bold text-slate-400 shrink-0">To</span>
+                                                <input
+                                                    type="date"
+                                                    value={filterEndDate}
+                                                    onChange={(e) => handleEndDateChange(e.target.value)}
+                                                    className="bg-transparent text-[9px] font-bold text-slate-800 outline-none w-full cursor-pointer"
+                                                />
+                                            </div>
+                                        </div>
+                                        {dateValidationError && (
+                                            <span className="text-[8px] font-extrabold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                ⚠️ {dateValidationError}
+                                            </span>
+                                        )}
+                                        <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                                            <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+                                                <span className="text-[8px] font-bold uppercase text-emerald-800">{isDateFilterActive ? "Paid (Range):" : "Paid:"}</span>
+                                                <span className="text-[10px] font-black text-emerald-700">
+                                                    ₹{(isDateFilterActive ? rangeActiveTotPaid : activeTotPaid).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">
+                                                <span className="text-[8px] font-bold uppercase text-rose-800">{isDateFilterActive ? "Rem (Range):" : "Remaining:"}</span>
+                                                <span className="text-[10px] font-black text-rose-700">
+                                                    ₹{(isDateFilterActive ? rangeBalance : balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Visible Sections Config */}
+                                <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Visible Sections</span>
+                                    <div className="flex flex-wrap gap-1">
+                                        {[
+                                            { key: 'consultations', label: 'Consultations' },
+                                            { key: 'investigations', label: 'Investigations' },
+                                            { key: 'wards', label: 'Wards' },
+                                            { key: 'radiology', label: 'Radiology' },
+                                            { key: 'services', label: 'Services' },
+                                            { key: 'pharmacy', label: 'Pharmacy' },
+                                            { key: 'receipts', label: 'Receipts' },
+                                        ].map(opt => {
+                                            const isChecked = printConfig[opt.key as keyof typeof printConfig];
+                                            return (
+                                                <label
+                                                    key={opt.key}
+                                                    className={`flex items-center gap-1 cursor-pointer px-2 py-1 rounded-md border text-[9px] select-none transition-all ${
+                                                        isChecked
+                                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-900 font-bold shadow-2xs'
+                                                            : 'bg-white border-slate-200 text-slate-400 font-medium'
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={(e) => setPrintConfig(prev => ({ ...prev, [opt.key]: e.target.checked }))}
+                                                        className="w-2.5 h-2.5 rounded text-indigo-600 border-slate-300"
+                                                    />
+                                                    <span>{opt.label}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {/* Desktop Row 2: Action Buttons (hidden on mobile, shown on sm+) */}
+                <div className="hidden sm:flex w-full flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100/80">
                     {/* Left: Patient Management Actions */}
                     <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                         {patientId && (
@@ -2723,9 +3018,9 @@ export default function TransactionReportsPage() {
                     </div>
                 </div>
 
-                {/* Row 3: Encounter Switcher + Date Range Filter + Live Paid/Remaining */}
+                {/* Row 3: Encounter Switcher + Date Range Filter + Live Paid/Remaining (hidden on mobile, shown on sm+) */}
                 {patientId && (
-                    <div className="w-full pt-1.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                    <div className="hidden sm:flex w-full pt-1.5 border-t border-slate-100 flex-wrap items-center justify-between gap-2">
                         {/* Left: Encounter Switcher */}
                         <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                             <span className="text-[8px] sm:text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Encounter:</span>
@@ -2828,9 +3123,9 @@ export default function TransactionReportsPage() {
                 )}
             </div>
 
-            {/* Compact Notice Strip */}
+            {/* Compact Notice Strip (hidden on mobile, shown on sm+) */}
             {patient && !isLoadingActive && (
-                <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-lg px-2.5 py-1 shadow-2xs flex items-center justify-between gap-2 text-xs">
+                <div className="hidden sm:flex bg-emerald-50/80 border border-emerald-200/90 rounded-lg px-2.5 py-1 shadow-2xs items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-1.5 text-emerald-900 font-semibold truncate text-[10px] sm:text-[11px]">
                         <Save className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span><strong>Save Report:</strong> Remember to click <strong className="underline decoration-emerald-500 font-bold">Save</strong> to permanently record finalized charges under <strong>History</strong>.</span>
@@ -2878,8 +3173,8 @@ export default function TransactionReportsPage() {
                     />
                 ) : (
                     <div className="space-y-3 sm:space-y-4">
-                    {/* Print Configuration Panel */}
-                    <div className="bg-white p-2 sm:p-3 rounded-xl border border-slate-200/60 shadow-2xs flex flex-wrap gap-1.5 sm:gap-3 items-center">
+                    {/* Print Configuration Panel (hidden on mobile, available in mobile filters dropdown) */}
+                    <div className="hidden sm:flex bg-white p-2 sm:p-3 rounded-xl border border-slate-200/60 shadow-2xs flex-wrap gap-1.5 sm:gap-3 items-center">
                         <div className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest">Config:</div>
                         {[
                             { key: 'consultations', label: 'Consultations' },

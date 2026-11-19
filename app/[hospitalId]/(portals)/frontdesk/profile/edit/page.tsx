@@ -413,7 +413,7 @@ export default function EditFrontdeskProfilePage() {
     ];
 
     return (
-        <div className="max-w-7xl mx-auto py-2 sm:py-8 px-[5px] sm:px-4">
+        <div className="max-w-7xl mx-auto py-2 sm:py-6 px-2 sm:px-4">
             <DocumentViewerModal
                 isOpen={viewer.isOpen}
                 onClose={() => setViewer({ ...viewer, isOpen: false })}
@@ -421,51 +421,51 @@ export default function EditFrontdeskProfilePage() {
                 title={viewer.title}
             />
             {/* Header */}
-            <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between mb-3 sm:mb-6 pb-3 sm:pb-5 border-b border-gray-100 dark:border-gray-800 gap-2">
+                <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
                     <button
                         onClick={() => router.back()}
-                        className="p-1 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 transition-colors"
+                        className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 transition-colors shrink-0"
                     >
-                        <ArrowLeft size={20} className="sm:size-6" />
+                        <ArrowLeft size={18} className="sm:size-5" />
                     </button>
-                    <div>
-                        <h1 className="md:text-xl text-xm font-black text-gray-900 dark:text-white tracking-tighter">Frontdesk Profile</h1>
-                        <p className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Healthcare Administration Registry</p>
+                    <div className="min-w-0">
+                        <h1 className="text-base sm:text-xl font-black text-gray-900 dark:text-white tracking-tight truncate">Frontdesk Profile</h1>
+                        <p className="text-[9px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider truncate mt-0.5">Healthcare Admin Registry</p>
                     </div>
                 </div>
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex items-center gap-2 px-4 sm:px-8 py-2.5 sm:py-3 bg-teal-600 hover:bg-teal-700 text-white text-[10px] sm:text-sm font-black uppercase tracking-widest rounded-xl sm:rounded-2xl shadow-xl shadow-teal-500/20 active:scale-95 transition-all disabled:opacity-50"
+                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-teal-500/20 active:scale-95 transition-all disabled:opacity-50 shrink-0"
                 >
-                    {isSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Save size={16} className="sm:size-4" />}
-                    Save Changes
+                    {isSaving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Save size={13} className="sm:size-4" />}
+                    <span>Save<span className="hidden sm:inline"> Changes</span></span>
                 </button>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-8">
+            <div className="flex flex-col lg:flex-row gap-3 sm:gap-8">
                 <div className="lg:w-64 shrink-0">
-                    {/* Mobile Tab Selector */}
-                    <div className="lg:hidden mb-6">
-                        <label className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-3 block px-1">Navigation Registry</label>
-                        <div className="relative">
-                            <select 
-                                value={activeTab}
-                                onChange={(e) => setActiveTab(e.target.value)}
-                                className="w-full bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-teal-500 shadow-sm appearance-none"
-                            >
-                                {tabs.map(tab => (
-                                    <option key={tab.id} value={tab.id}>{tab.label}</option>
-                                ))}
-                            </select>
-                            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                <Plus size={16} />
-                            </div>
+                    {/* Mobile Segmented Tab Strip */}
+                    <div className="lg:hidden mb-3 space-y-2">
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${
+                                        activeTab === tab.id
+                                            ? 'bg-teal-600 text-white shadow-md shadow-teal-500/20'
+                                            : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-800'
+                                    }`}
+                                >
+                                    <span className="shrink-0">{React.cloneElement(tab.icon, { size: 13 })}</span>
+                                    <span>{tab.label}</span>
+                                </button>
+                            ))}
                         </div>
-                        <div className="mt-4">
-                            <SupportBadgeToggle />
-                        </div>
+                        <SupportBadgeToggle />
                     </div>
 
                     {/* Desktop Sidebar Navigation */}
@@ -489,52 +489,52 @@ export default function EditFrontdeskProfilePage() {
                     </div>
                 </div>
 
-                <div className="flex-1 bg-white dark:bg-[#111] rounded-3xl border border-gray-100 dark:border-gray-800 p-3 sm:p-8 shadow-sm">
+                <div className="flex-1 bg-white dark:bg-[#111] rounded-2xl sm:rounded-3xl border border-gray-100 dark:border-gray-800 p-3.5 sm:p-8 shadow-sm">
                     {activeTab === 'personal' && (
-                        <div className="space-y-8 animate-in fade-in duration-300">
+                        <div className="space-y-4 sm:space-y-8 animate-in fade-in duration-300">
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Account Information</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Full Name <span className="text-rose-500">*</span></label>
+                                <h3 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">Account Information</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Full Name <span className="text-rose-500">*</span></label>
                                         <div className="relative">
-                                            <input type="text" name="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.name ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all`} />
-                                            <User className="absolute right-4 top-3.5 text-gray-300" size={16} />
+                                            <input type="text" name="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.name ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all`} />
+                                            <User className="absolute right-3.5 top-3 sm:right-4 sm:top-3.5 text-gray-300" size={15} />
                                         </div>
-                                        {errors.name && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.name}</p>}
+                                        {errors.name && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.name}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Email Address <span className="text-rose-500">*</span></label>
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Email Address <span className="text-rose-500">*</span></label>
                                         <div className="relative">
-                                            <input type="email" name="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.email ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all`} />
-                                            <Mail className="absolute right-4 top-3.5 text-gray-300" size={16} />
+                                            <input type="email" name="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.email ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all`} />
+                                            <Mail className="absolute right-3.5 top-3 sm:right-4 sm:top-3.5 text-gray-300" size={15} />
                                         </div>
-                                        {errors.email && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.email}</p>}
+                                        {errors.email && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.email}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Mobile Number</label>
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Mobile Number</label>
                                         <div className="relative">
-                                            <input type="text" name="mobile" value={formData.mobile} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.mobile ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all`} />
-                                            <Phone className="absolute right-4 top-3.5 text-gray-300" size={16} />
+                                            <input type="text" name="mobile" value={formData.mobile} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.mobile ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all`} />
+                                            <Phone className="absolute right-3.5 top-3 sm:right-4 sm:top-3.5 text-gray-300" size={15} />
                                         </div>
-                                        {errors.mobile && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.mobile}</p>}
+                                        {errors.mobile && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.mobile}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Gender</label>
-                                        <select name="gender" value={formData.gender} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all">
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Gender</label>
+                                        <select name="gender" value={formData.gender} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all">
                                             <option value="">Select Gender</option>
                                             <option value="male">Male</option>
                                             <option value="female">Female</option>
                                             <option value="other">Other</option>
                                         </select>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Date of Birth</label>
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Date of Birth</label>
                                         <div className="relative">
-                                            <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.dateOfBirth ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all`} />
-                                            <Calendar className="absolute right-4 top-3.5 text-gray-300" size={16} />
+                                            <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.dateOfBirth ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all`} />
+                                            <Calendar className="absolute right-3.5 top-3 sm:right-4 sm:top-3.5 text-gray-300 pointer-events-none" size={15} />
                                         </div>
-                                        {errors.dateOfBirth && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.dateOfBirth}</p>}
+                                        {errors.dateOfBirth && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.dateOfBirth}</p>}
                                     </div>
                                 </div>
                             </div>
@@ -544,36 +544,36 @@ export default function EditFrontdeskProfilePage() {
                     )}
 
                     {activeTab === 'professional' && (
-                        <div className="space-y-8 animate-in fade-in duration-300">
+                        <div className="space-y-4 sm:space-y-8 animate-in fade-in duration-300">
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Work & Institutional Presence</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Designation</label>
+                                <h3 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-6">Work & Institutional Presence</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Designation</label>
                                         <div className="relative">
-                                            <input type="text" name="designation" value={formData.designation} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-                                            <Award className="absolute right-4 top-3.5 text-gray-300" size={16} />
+                                            <input type="text" name="designation" value={formData.designation} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                            <Award className="absolute right-3.5 top-3 sm:right-4 sm:top-3.5 text-gray-300" size={15} />
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Department(s)</label>
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Department(s)</label>
                                         <div className="relative">
-                                            <input type="text" name="department" value={formData.department} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="e.g. Frontdesk, Helpdesk" />
-                                            <Building className="absolute right-4 top-3.5 text-gray-300" size={16} />
+                                            <input type="text" name="department" value={formData.department} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="e.g. Frontdesk, Helpdesk" />
+                                            <Building className="absolute right-3.5 top-3 sm:right-4 sm:top-3.5 text-gray-300" size={15} />
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Employee ID</label>
-                                        <input type="text" name="employeeId" value={formData.employeeId} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Employee ID</label>
+                                        <input type="text" name="employeeId" value={formData.employeeId} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Joining Date</label>
-                                            <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                        <div className="space-y-1.5 sm:space-y-2">
+                                            <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Joining Date</label>
+                                            <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Exp. (Years)</label>
-                                            <input type="text" name="experienceYears" value={formData.experienceYears} onChange={handleChange} placeholder="e.g. 3" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                        <div className="space-y-1.5 sm:space-y-2">
+                                            <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Exp. (Years)</label>
+                                            <input type="text" name="experienceYears" value={formData.experienceYears} onChange={handleChange} placeholder="e.g. 3" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                                         </div>
                                     </div>
                                 </div>
@@ -582,40 +582,40 @@ export default function EditFrontdeskProfilePage() {
                     )}
 
                     {activeTab === 'qualifications' && (
-                        <div className="space-y-8 animate-in fade-in duration-300">
+                        <div className="space-y-4 sm:space-y-8 animate-in fade-in duration-300">
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Qualifications &amp; Credentials</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Registration / License Number</label>
+                                <h3 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-6">Qualifications &amp; Credentials</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 mb-4 sm:mb-8">
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Registration / License Number</label>
                                         <input
                                             type="text"
                                             name="registrationNumber"
                                             value={formData.registrationNumber}
                                             onChange={handleChange}
                                             placeholder="e.g. REG-2024-001"
-                                            className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                            className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">License Validity Date</label>
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">License Validity Date</label>
                                         <input
                                             type="date"
                                             name="licenseValidityDate"
                                             value={formData.licenseValidityDate}
                                             onChange={handleChange}
-                                            className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                            className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
+                                <div className="space-y-3 sm:space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Qualifications / Degrees</label>
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Qualifications / Degrees</label>
                                         <button
                                             type="button"
                                             onClick={addQualification}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95"
+                                            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95"
                                         >
                                             <Plus size={12} /> Add
                                         </button>
@@ -628,20 +628,20 @@ export default function EditFrontdeskProfilePage() {
                                     )}
 
                                     {formData.qualifications.map((q: string, i: number) => (
-                                        <div key={i} className="flex items-center gap-3">
+                                        <div key={i} className="flex items-center gap-2 sm:gap-3">
                                             <input
                                                 type="text"
                                                 value={q}
                                                 onChange={(e) => handleQualificationChange(i, e.target.value)}
                                                 placeholder={`e.g. B.Sc in Healthcare Administration`}
-                                                className="flex-1 bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                                className="flex-1 bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl px-3.5 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={() => removeQualification(i)}
-                                                className="p-2.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                                className="p-2 sm:p-2.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all shrink-0"
                                             >
-                                                <X size={16} />
+                                                <X size={15} />
                                             </button>
                                         </div>
                                     ))}
@@ -651,29 +651,29 @@ export default function EditFrontdeskProfilePage() {
                     )}
 
                     {activeTab === 'bank' && (
-                        <div className="space-y-8 animate-in fade-in duration-300">
+                        <div className="space-y-4 sm:space-y-8 animate-in fade-in duration-300">
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2 transition-all">
-                                    <Wallet className="text-teal-500" /> Settlement Bank Details
+                                <h3 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-6 flex items-center gap-2 transition-all">
+                                    <Wallet className="text-teal-500" size={18} /> Settlement Bank Details
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Account Holder Name</label>
-                                        <input type="text" name="bankDetails.accountName" value={formData.bankDetails.accountName} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors['bankDetails.accountName'] ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
-                                        {errors['bankDetails.accountName'] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors['bankDetails.accountName']}</p>}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Account Holder Name</label>
+                                        <input type="text" name="bankDetails.accountName" value={formData.bankDetails.accountName} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors['bankDetails.accountName'] ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
+                                        {errors['bankDetails.accountName'] && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors['bankDetails.accountName']}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Bank Name</label>
-                                        <input type="text" name="bankDetails.bankName" value={formData.bankDetails.bankName} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors['bankDetails.bankName'] ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
-                                        {errors['bankDetails.bankName'] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors['bankDetails.bankName']}</p>}
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Bank Name</label>
+                                        <input type="text" name="bankDetails.bankName" value={formData.bankDetails.bankName} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors['bankDetails.bankName'] ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
+                                        {errors['bankDetails.bankName'] && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors['bankDetails.bankName']}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Account Number</label>
-                                        <input type="text" name="bankDetails.accountNumber" value={formData.bankDetails.accountNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors['bankDetails.accountNumber'] ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
-                                        {errors['bankDetails.accountNumber'] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors['bankDetails.accountNumber']}</p>}
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Account Number</label>
+                                        <input type="text" name="bankDetails.accountNumber" value={formData.bankDetails.accountNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors['bankDetails.accountNumber'] ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
+                                        {errors['bankDetails.accountNumber'] && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors['bankDetails.accountNumber']}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">IFSC Code</label>
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">IFSC Code</label>
                                         <div className="relative">
                                             <input
                                                 type="text"
@@ -681,46 +681,46 @@ export default function EditFrontdeskProfilePage() {
                                                 value={formData.bankDetails.ifscCode}
                                                 onChange={handleChange}
                                                 placeholder="e.g. HDFC0001234"
-                                                className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors['bankDetails.ifscCode'] ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm font-bold uppercase tracking-widest focus:ring-2 focus:ring-teal-500 outline-none`}
+                                                className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors['bankDetails.ifscCode'] ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold uppercase tracking-widest focus:ring-2 focus:ring-teal-500 outline-none`}
                                             />
-                                            {isIFSCValidating && <div className="absolute right-4 top-3.5 w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>}
+                                            {isIFSCValidating && <div className="absolute right-3.5 top-3 sm:right-4 sm:top-3.5 w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>}
                                         </div>
-                                        {errors['bankDetails.ifscCode'] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors['bankDetails.ifscCode']}</p>}
+                                        {errors['bankDetails.ifscCode'] && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors['bankDetails.ifscCode']}</p>}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="pt-8 border-t border-gray-50 dark:border-gray-800">
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Payroll & Tax Identifiers</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Base Salary</label>
-                                        <input type="number" min={0} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} name="baseSalary" value={formData.baseSalary} readOnly className="w-full bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 text-sm outline-none cursor-not-allowed text-gray-500" />
+                            <div className="pt-4 sm:pt-8 border-t border-gray-100 dark:border-gray-800">
+                                <h3 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-6">Payroll & Tax Identifiers</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Base Salary</label>
+                                        <input type="number" min={0} onWheel={(e) => e.currentTarget.blur()} onKeyDown={(e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); }} onFocus={(e) => e.target.select()} name="baseSalary" value={formData.baseSalary} readOnly className="w-full bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm outline-none cursor-not-allowed text-gray-500" />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">PAN Card Number</label>
-                                        <input type="text" name="panNumber" value={formData.panNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.panNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none uppercase`} />
-                                        {errors.panNumber && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.panNumber}</p>}
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">PAN Card Number</label>
+                                        <input type="text" name="panNumber" value={formData.panNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.panNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none uppercase`} />
+                                        {errors.panNumber && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.panNumber}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">Aadhar Number</label>
-                                        <input type="text" name="aadharNumber" value={formData.aadharNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.aadharNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
-                                        {errors.aadharNumber && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.aadharNumber}</p>}
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">Aadhar Number</label>
+                                        <input type="text" name="aadharNumber" value={formData.aadharNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.aadharNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
+                                        {errors.aadharNumber && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.aadharNumber}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">ESI Number</label>
-                                        <input type="text" name="esiNumber" value={formData.esiNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.esiNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
-                                        {errors.esiNumber && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.esiNumber}</p>}
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">ESI Number</label>
+                                        <input type="text" name="esiNumber" value={formData.esiNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.esiNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
+                                        {errors.esiNumber && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.esiNumber}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">PF Number</label>
-                                        <input type="text" name="pfNumber" value={formData.pfNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.pfNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
-                                        {errors.pfNumber && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.pfNumber}</p>}
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">PF Number</label>
+                                        <input type="text" name="pfNumber" value={formData.pfNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.pfNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
+                                        {errors.pfNumber && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.pfNumber}</p>}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase text-gray-400 tracking-wider">UAN Number</label>
-                                        <input type="text" name="uanNumber" value={formData.uanNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.uanNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
-                                        {errors.uanNumber && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.uanNumber}</p>}
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-[10px] sm:text-xs font-black uppercase text-gray-400 tracking-wider">UAN Number</label>
+                                        <input type="text" name="uanNumber" value={formData.uanNumber} onChange={handleChange} className={`w-full bg-gray-50 dark:bg-gray-900/50 border ${errors.uanNumber ? 'border-rose-500' : 'border-gray-100 dark:border-gray-800'} rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 outline-none`} />
+                                        {errors.uanNumber && <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-tight">{errors.uanNumber}</p>}
                                     </div>
                                 </div>
                             </div>

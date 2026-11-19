@@ -76,12 +76,12 @@ export default function ProfileHeroCard({
   };
 
   return (
-    <div className={`bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden ${className}`}>
+    <div className={`bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden ${className}`}>
       {/* ── Main row: pic (left) · info (center) · edit btn (right) ── */}
-      <div className="flex items-center gap-3 sm:gap-5 p-4 sm:p-5">
+      <div className="flex items-center gap-3 sm:gap-5 p-3.5 sm:p-5">
         {/* Profile Picture */}
         <div className="relative shrink-0">
-          <div className="w-[72px] h-[72px] sm:w-24 sm:h-24 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border-2 border-white dark:border-gray-800 shadow-md overflow-hidden flex items-center justify-center">
+          <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-xl sm:rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border-2 border-white dark:border-gray-800 shadow-md overflow-hidden flex items-center justify-center">
             {imageUrl ? (
               <img
                 src={
@@ -93,23 +93,23 @@ export default function ProfileHeroCard({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-2xl sm:text-3xl font-black text-indigo-600 dark:text-indigo-400 uppercase">
+              <span className="text-xl sm:text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 uppercase">
                 {name?.charAt(0) || '?'}
               </span>
             )}
 
             {/* Uploading overlay */}
             {isPhotoUploading && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-2xl">
-                <Loader2 size={20} className="text-white animate-spin" />
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-xl sm:rounded-2xl">
+                <Loader2 size={18} className="text-white animate-spin" />
               </div>
             )}
           </div>
 
           {/* Camera button */}
           {onPhotoUpload && (
-            <label className="absolute -bottom-1 -right-1 w-7 h-7 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:scale-110 active:scale-95 transition-all cursor-pointer">
-              <Camera size={13} />
+            <label className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:scale-110 active:scale-95 transition-all cursor-pointer">
+              <Camera size={11} className="sm:size-[13px]" />
               <input
                 ref={fileInputRef}
                 type="file"
@@ -124,18 +124,18 @@ export default function ProfileHeroCard({
 
         {/* Name + Role badges */}
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm sm:text-base font-black text-gray-900 dark:text-white uppercase tracking-tight truncate leading-tight">
+          <h2 className="text-xs sm:text-base font-black text-gray-900 dark:text-white uppercase tracking-tight truncate leading-tight">
             {name}
           </h2>
           {(role || roleBadge) && (
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
+            <div className="flex flex-wrap gap-1 sm:gap-1.5 mt-1 sm:mt-1.5">
               {role && (
-                <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-full ${roleColor}`}>
+                <span className={`px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-widest rounded-full ${roleColor}`}>
                   {role}
                 </span>
               )}
               {roleBadge && (
-                <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[9px] font-black uppercase tracking-widest rounded-full">
+                <span className="px-1.5 sm:px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[8px] sm:text-[9px] font-black uppercase tracking-widest rounded-full">
                   {roleBadge}
                 </span>
               )}
@@ -147,17 +147,17 @@ export default function ProfileHeroCard({
         {onEditClick && (
           <button
             onClick={onEditClick}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-gray-900 dark:bg-white hover:bg-indigo-600 dark:hover:bg-indigo-600 text-white dark:text-black dark:hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow active:scale-95 whitespace-nowrap"
+            className="shrink-0 flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-gray-900 dark:bg-white hover:bg-indigo-600 dark:hover:bg-indigo-600 text-white dark:text-black dark:hover:text-white text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow active:scale-95 whitespace-nowrap"
           >
             <Edit2 size={11} />
-            <span className="hidden xs:inline">{editLabel}</span>
+            <span>Edit<span className="hidden sm:inline"> Profile</span></span>
           </button>
         )}
       </div>
 
       {/* ── Bio row ── */}
-      <div className="px-4 sm:px-5 pb-4 sm:pb-5">
-        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700/50 p-3">
+      <div className="px-3.5 sm:px-5 pb-3.5 sm:pb-5">
+        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700/50 p-2.5 sm:p-3">
           {!isEditingBio ? (
             /* View mode */
             <button

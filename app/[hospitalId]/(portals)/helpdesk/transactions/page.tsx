@@ -19,6 +19,9 @@ import {
     Package,
     Calendar,
     Trash2,
+    Filter,
+    SlidersHorizontal,
+    X,
 } from "lucide-react";
 import { helpdeskService, ipdService } from "@/lib/integrations";
 import { hospitalAdminService } from "@/lib/integrations/services/hospitalAdmin.service";
@@ -168,6 +171,7 @@ export default function TransactionsPage() {
         logo: "/assets/logo.png"
     });
     const [showEditedOnly, setShowEditedOnly] = useState(false);
+    const [showMobileFilters, setShowMobileFilters] = useState(false);
     const [editingTx, setEditingTx] = useState<any>(null);
     const [deletingTx, setDeletingTx] = useState<any>(null);
     const [deletedTxIds, setDeletedTxIds] = useState<Set<string>>(new Set());
@@ -1241,254 +1245,351 @@ export default function TransactionsPage() {
 
     const showInitialLoading = isLoading && !txRaw;
 
+    const activeFiltersCount = (typeFilter !== 'all' ? 1 : 0) +
+        (datePreset !== 'all' || startDate || endDate ? 1 : 0) +
+        (showEditedOnly ? 1 : 0) +
+        (typeFilter === 'ipd' && ipdPaymentType !== 'all' ? 1 : 0);
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+        <div className="space-y-2 sm:space-y-5 animate-in fade-in duration-500 pb-12">
             {/* CONSOLIDATED HEADER & COMPACT CONTROLS */}
-            <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-sm space-y-2.5 max-w-full mx-auto">
-                {/* ROW 1: TOP BAR (Title, Live Badge, Compact Stats, Quick Actions) */}
-                <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
-                    {/* Left: Back & Title */}
-                    <div className="flex items-center gap-2.5">
-                        <Link href="/helpdesk" className="p-1.5 bg-slate-100/80 rounded-lg text-slate-400 hover:text-teal-600 transition-all shadow-sm shrink-0">
-                            <ArrowLeft size={16} />
-                        </Link>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-none">
+            <div className="bg-white p-2 sm:p-3 rounded-2xl border border-slate-200/90 shadow-sm space-y-2 max-w-full mx-auto">
+                {/* MOBILE VIEW (sm:hidden): Only Header, Compact Pagination, Filters Button, and Search Bar */}
+                <div className="sm:hidden space-y-2">
+                    {/* Top Row: Back, Title, Live, Pagination, Filters Button, Reload */}
+                    <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <Link href="/helpdesk" className="p-1.5 bg-slate-100/80 rounded-lg text-slate-400 hover:text-teal-600 transition-all shrink-0">
+                                <ArrowLeft size={15} />
+                            </Link>
+                            <h1 className="text-sm font-black text-slate-900 tracking-tight truncate leading-none">
                                 Transactions
                             </h1>
-                            <span className="flex items-center gap-1 px-1.5 py-0.5 bg-teal-50 border border-teal-100 rounded-full text-[8px] font-black text-teal-600 uppercase tracking-wider">
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 bg-teal-50 border border-teal-100 rounded-full text-[7.5px] font-black text-teal-600 uppercase tracking-wider shrink-0">
                                 <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span>
                                 Live
                             </span>
                         </div>
+
+                        {/* Top Controls: Pagination + Filter + Refresh */}
+                        <div className="flex items-center gap-1 shrink-0">
+                            {/* Compact pagination pill */}
+                            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                <button
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="p-1 rounded text-slate-500 disabled:opacity-20"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft size={11} />
+                                </button>
+                                <span className="px-1 text-[8.5px] font-black text-slate-800 tabular-nums">
+                                    {page}/{Math.max(1, totalPages)}
+                                </span>
+                                <button
+                                    onClick={() => setPage(p => Math.min(Math.max(1, totalPages), p + 1))}
+                                    disabled={page >= totalPages}
+                                    className="p-1 rounded text-slate-500 disabled:opacity-20"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight size={11} />
+                                </button>
+                            </div>
+
+                            {/* Filters button */}
+                            <button
+                                onClick={() => setShowMobileFilters(true)}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
+                                    activeFiltersCount > 0
+                                        ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                                        : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                                }`}
+                            >
+                                <Filter size={10} />
+                                <span>Filters{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}</span>
+                            </button>
+
+                            {/* Reload */}
+                            <button 
+                                onClick={() => {
+                                    refetch();
+                                    toast.success('Records refreshed', { duration: 1500 });
+                                }} 
+                                className="p-1 bg-slate-100 border border-slate-200 text-slate-500 rounded-lg hover:text-teal-600 shadow-xs active:scale-95 transition-all"
+                                title="Refresh Ledger"
+                            >
+                                <RefreshCw size={12} className={`${isFetching ? 'animate-spin text-teal-600' : ''}`} />
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Center: Sleek Compact Stats Badges */}
-                    <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200/60 shadow-inner">
-                        <div className="flex items-center gap-1.5 px-1.5">
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Revenue:</span>
-                            <span className="text-[11px] font-black text-blue-600">₹{Math.round(totalRevenue || 0).toLocaleString('en-IN')}</span>
-                        </div>
-                        <span className="text-slate-300 text-[10px]">•</span>
-                        <div className="flex items-center gap-1.5 px-1.5">
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Count:</span>
-                            <span className="text-[11px] font-black text-teal-600">{total.toLocaleString('en-IN')}</span>
-                        </div>
-                        <span className="text-slate-300 text-[10px]">•</span>
-                        <div className="flex items-center gap-1.5 px-1.5">
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Avg:</span>
-                            <span className="text-[11px] font-black text-indigo-600">₹{total > 0 ? Math.round((totalRevenue || 0) / total).toLocaleString('en-IN') : 0}</span>
-                        </div>
-                    </div>
-
-                    {/* Right: Compact Actions */}
-                    <div className="flex items-center gap-1.5">
-                        <button
-                            onClick={() => handleExport("all")}
-                            disabled={exporting}
-                            className="px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-600 rounded-lg hover:text-green-600 hover:border-green-200 shadow-sm active:scale-95 transition-all flex items-center gap-1 text-[9px] font-black uppercase tracking-wider"
-                            title="Export All to Excel"
-                        >
-                            {exporting ? <RefreshCw size={12} className="animate-spin text-green-600" /> : <Download size={12} />}
-                            <span>Export</span>
-                        </button>
-                        <button
-                            onClick={() => handleExport("all")}
-                            disabled={exporting}
-                            className="px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-600 rounded-lg hover:text-blue-600 hover:border-blue-200 shadow-sm active:scale-95 transition-all flex items-center gap-1 text-[9px] font-black uppercase tracking-wider"
-                            title="Categorized Export by Service"
-                        >
-                            {exporting ? <RefreshCw size={12} className="animate-spin text-blue-600" /> : <Download size={12} />}
-                            <span>Categorized</span>
-                        </button>
-                        <button 
-                            onClick={() => {
-                                refetch();
-                                toast.success('Records refreshed', { duration: 1500 });
-                            }} 
-                            className="p-1 bg-slate-50 border border-slate-200 text-slate-400 rounded-lg hover:text-teal-600 hover:border-teal-200 shadow-sm active:scale-95 transition-all"
-                            title="Refresh Ledger"
-                        >
-                            <RefreshCw size={14} className={`${isFetching ? 'animate-spin text-teal-600' : ''}`} />
-                        </button>
+                    {/* Search bar row (full width) */}
+                    <div className="relative w-full">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 size-3" />
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="SEARCH NAME OR ID..."
+                            className="w-full pl-7 pr-6 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold uppercase tracking-tight outline-none focus:bg-white focus:border-teal-500 shadow-inner transition-all placeholder:text-slate-300"
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            >
+                                <X size={11} />
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* ROW 2: UNIFIED COMPACT CONTROL STRIP */}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    {/* Left Side: Category Tabs + Search + Date Filters */}
-                    <div className="flex flex-wrap items-center gap-2 flex-1">
-                        {/* Category Segment Tabs */}
-                        <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 shadow-inner shrink-0">
-                            <button
-                                onClick={() => switchTab('all')}
-                                className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${typeFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                All
-                            </button>
-                            <button
-                                onClick={() => switchTab('opd')}
-                                className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${typeFilter === 'opd' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                OPD
-                            </button>
-                            <button
-                                onClick={() => switchTab('ipd')}
-                                className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${typeFilter === 'ipd' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                IPD
-                            </button>
-                            <button
-                                onClick={() => switchTab('lab')}
-                                className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${typeFilter === 'lab' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                Lab
-                            </button>
+                {/* DESKTOP VIEW (hidden sm:block) */}
+                <div className="hidden sm:block space-y-2.5">
+                    {/* ROW 1: TOP BAR (Title, Live Badge, Compact Stats, Quick Actions) */}
+                    <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+                        {/* Left: Back & Title */}
+                        <div className="flex items-center gap-2.5">
+                            <Link href="/helpdesk" className="p-1.5 bg-slate-100/80 rounded-lg text-slate-400 hover:text-teal-600 transition-all shadow-sm shrink-0">
+                                <ArrowLeft size={16} />
+                            </Link>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-none">
+                                    Transactions
+                                </h1>
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-teal-50 border border-teal-100 rounded-full text-[8px] font-black text-teal-600 uppercase tracking-wider">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span>
+                                    Live
+                                </span>
+                            </div>
                         </div>
 
-                        {/* IPD Sub-filters */}
-                        {typeFilter === 'ipd' && (
-                            <div className="flex bg-rose-50 p-0.5 rounded-lg border border-rose-100 shadow-inner animate-in fade-in duration-200 shrink-0">
+                        {/* Center: Sleek Compact Stats Badges */}
+                        <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200/60 shadow-inner">
+                            <div className="flex items-center gap-1.5 px-1.5">
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Revenue:</span>
+                                <span className="text-[11px] font-black text-blue-600">₹{Math.round(totalRevenue || 0).toLocaleString('en-IN')}</span>
+                            </div>
+                            <span className="text-slate-300 text-[10px]">•</span>
+                            <div className="flex items-center gap-1.5 px-1.5">
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Count:</span>
+                                <span className="text-[11px] font-black text-teal-600">{total.toLocaleString('en-IN')}</span>
+                            </div>
+                            <span className="text-slate-300 text-[10px]">•</span>
+                            <div className="flex items-center gap-1.5 px-1.5">
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Avg:</span>
+                                <span className="text-[11px] font-black text-indigo-600">₹{total > 0 ? Math.round((totalRevenue || 0) / total).toLocaleString('en-IN') : 0}</span>
+                            </div>
+                        </div>
+
+                        {/* Right: Compact Actions */}
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => handleExport("all")}
+                                disabled={exporting}
+                                className="px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-600 rounded-lg hover:text-green-600 hover:border-green-200 shadow-sm active:scale-95 transition-all flex items-center gap-1 text-[9px] font-black uppercase tracking-wider"
+                                title="Export All to Excel"
+                            >
+                                {exporting ? <RefreshCw size={12} className="animate-spin text-green-600" /> : <Download size={12} />}
+                                <span>Export</span>
+                            </button>
+                            <button
+                                onClick={() => handleExport("all")}
+                                disabled={exporting}
+                                className="px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-600 rounded-lg hover:text-blue-600 hover:border-blue-200 shadow-sm active:scale-95 transition-all flex items-center gap-1 text-[9px] font-black uppercase tracking-wider"
+                                title="Categorized Export by Service"
+                            >
+                                {exporting ? <RefreshCw size={12} className="animate-spin text-blue-600" /> : <Download size={12} />}
+                                <span>Categorized</span>
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    refetch();
+                                    toast.success('Records refreshed', { duration: 1500 });
+                                }} 
+                                className="p-1 bg-slate-50 border border-slate-200 text-slate-400 rounded-lg hover:text-teal-600 hover:border-teal-200 shadow-sm active:scale-95 transition-all"
+                                title="Refresh Ledger"
+                            >
+                                <RefreshCw size={14} className={`${isFetching ? 'animate-spin text-teal-600' : ''}`} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ROW 2: UNIFIED COMPACT CONTROL STRIP */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        {/* Left Side: Category Tabs + Search + Date Filters */}
+                        <div className="flex flex-wrap items-center gap-2 flex-1">
+                            {/* Category Segment Tabs */}
+                            <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 shadow-inner shrink-0">
                                 <button
-                                    onClick={() => setIpdPaymentType('all')}
-                                    className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ipdPaymentType === 'all' ? 'bg-white text-rose-600 shadow-sm' : 'text-rose-300 hover:text-rose-500'}`}
+                                    onClick={() => switchTab('all')}
+                                    className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${typeFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     All
                                 </button>
                                 <button
-                                    onClick={() => setIpdPaymentType('advance')}
-                                    className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ipdPaymentType === 'advance' ? 'bg-white text-rose-600 shadow-sm' : 'text-rose-300 hover:text-rose-500'}`}
+                                    onClick={() => switchTab('opd')}
+                                    className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${typeFilter === 'opd' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
-                                    Advance
+                                    OPD
                                 </button>
                                 <button
-                                    onClick={() => setIpdPaymentType('discharge')}
-                                    className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ipdPaymentType === 'discharge' ? 'bg-white text-rose-600 shadow-sm' : 'text-rose-300 hover:text-rose-500'}`}
+                                    onClick={() => switchTab('ipd')}
+                                    className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${typeFilter === 'ipd' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
-                                    Discharge
+                                    IPD
+                                </button>
+                                <button
+                                    onClick={() => switchTab('lab')}
+                                    className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${typeFilter === 'lab' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    Lab
                                 </button>
                             </div>
-                        )}
 
-                        {/* Search Input */}
-                        <div className="relative group w-40 sm:w-48 shrink-0">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 size-3" />
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="SEARCH NAME OR ID..."
-                                className="w-full pl-7 pr-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold uppercase tracking-tight outline-none focus:bg-white focus:border-teal-500 shadow-inner transition-all placeholder:text-slate-300"
-                            />
-                        </div>
+                            {/* IPD Sub-filters */}
+                            {typeFilter === 'ipd' && (
+                                <div className="flex bg-rose-50 p-0.5 rounded-lg border border-rose-100 shadow-inner animate-in fade-in duration-200 shrink-0">
+                                    <button
+                                        onClick={() => setIpdPaymentType('all')}
+                                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ipdPaymentType === 'all' ? 'bg-white text-rose-600 shadow-sm' : 'text-rose-300 hover:text-rose-500'}`}
+                                    >
+                                        All
+                                    </button>
+                                    <button
+                                        onClick={() => setIpdPaymentType('advance')}
+                                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ipdPaymentType === 'advance' ? 'bg-white text-rose-600 shadow-sm' : 'text-rose-300 hover:text-rose-500'}`}
+                                    >
+                                        Advance
+                                    </button>
+                                    <button
+                                        onClick={() => setIpdPaymentType('discharge')}
+                                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ipdPaymentType === 'discharge' ? 'bg-white text-rose-600 shadow-sm' : 'text-rose-300 hover:text-rose-500'}`}
+                                    >
+                                        Discharge
+                                    </button>
+                                </div>
+                            )}
 
-                        {/* Date Preset Dropdown */}
-                        <select
-                            value={datePreset}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setDatePreset(val);
-                                if (val !== 'custom') {
-                                    const range = getDateRangeForPreset(val);
-                                    setStartDate(range.start);
-                                    setEndDate(range.end);
-                                    setPage(1);
-                                }
-                            }}
-                            className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-black text-slate-700 uppercase tracking-wider outline-none focus:border-teal-500 shadow-sm cursor-pointer shrink-0"
-                        >
-                            <option value="all">📅 All Time</option>
-                            <option value="today">📅 Today</option>
-                            <option value="yesterday">📅 Yesterday</option>
-                            <option value="last_week">📅 Last Week</option>
-                            <option value="this_month">📅 This Month</option>
-                            <option value="last_month">📅 Last Month</option>
-                            <option value="2_months_back">📅 2M Back</option>
-                            <option value="3_months_back">📅 3M Back</option>
-                            <option value="6_months_back">📅 6M Back</option>
-                            <option value="1_year_back">📅 1Y Back</option>
-                            <option value="custom">📅 Custom</option>
-                        </select>
+                            {/* Search Input */}
+                            <div className="relative group w-40 sm:w-48 shrink-0">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 size-3" />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="SEARCH NAME OR ID..."
+                                    className="w-full pl-7 pr-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold uppercase tracking-tight outline-none focus:bg-white focus:border-teal-500 shadow-inner transition-all placeholder:text-slate-300"
+                                />
+                            </div>
 
-                        {/* Start & End Dates */}
-                        <div className="flex items-center gap-1 shrink-0">
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => { 
-                                    setStartDate(e.target.value); 
-                                    setDatePreset('custom');
-                                    setPage(1); 
+                            {/* Date Preset Dropdown */}
+                            <select
+                                value={datePreset}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setDatePreset(val);
+                                    if (val !== 'custom') {
+                                        const range = getDateRangeForPreset(val);
+                                        setStartDate(range.start);
+                                        setEndDate(range.end);
+                                        setPage(1);
+                                    }
                                 }}
-                                className="w-28 sm:w-32 px-1.5 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-bold text-slate-600 uppercase tracking-widest outline-none focus:border-teal-500 shadow-sm"
-                            />
-                            <span className="text-slate-300 font-bold text-[10px]">-</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => { 
-                                    setEndDate(e.target.value); 
-                                    setDatePreset('custom');
-                                    setPage(1); 
-                                }}
-                                className="w-28 sm:w-32 px-1.5 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-bold text-slate-600 uppercase tracking-widest outline-none focus:border-teal-500 shadow-sm"
-                            />
-                            {(startDate || endDate || datePreset !== 'all') && (
-                                <button
-                                    onClick={() => { 
-                                        setStartDate(""); 
-                                        setEndDate(""); 
-                                        setDatePreset("all");
+                                className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-black text-slate-700 uppercase tracking-wider outline-none focus:border-teal-500 shadow-sm cursor-pointer shrink-0"
+                            >
+                                <option value="all">📅 All Time</option>
+                                <option value="today">📅 Today</option>
+                                <option value="yesterday">📅 Yesterday</option>
+                                <option value="last_week">📅 Last Week</option>
+                                <option value="this_month">📅 This Month</option>
+                                <option value="last_month">📅 Last Month</option>
+                                <option value="2_months_back">📅 2M Back</option>
+                                <option value="3_months_back">📅 3M Back</option>
+                                <option value="6_months_back">📅 6M Back</option>
+                                <option value="1_year_back">📅 1Y Back</option>
+                                <option value="custom">📅 Custom</option>
+                            </select>
+
+                            {/* Start & End Dates */}
+                            <div className="flex items-center gap-1 shrink-0">
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => { 
+                                        setStartDate(e.target.value); 
+                                        setDatePreset('custom');
                                         setPage(1); 
                                     }}
-                                    title="Clear date filter"
-                                    className="px-1.5 py-1 bg-rose-50 border border-rose-200 text-rose-500 rounded-lg text-[8px] font-black hover:bg-rose-100 active:scale-95 transition-all whitespace-nowrap"
-                                >✕</button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Right Side: Show Edited + Pagination + Pool Count */}
-                    <div className="flex items-center gap-2 shrink-0 ml-auto">
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[9px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 shadow-sm hover:bg-slate-100 transition-colors">
-                            <input 
-                                type="checkbox" 
-                                checked={showEditedOnly}
-                                onChange={(e) => {
-                                    setShowEditedOnly(e.target.checked);
-                                    setPage(1);
-                                }}
-                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 size-3"
-                            />
-                            Edited Only
-                        </label>
-
-                        {totalPages > 1 && (
-                            <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shadow-inner">
-                                <button
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                                    disabled={page === 1}
-                                    className="p-1 rounded hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
-                                >
-                                    <ChevronLeft size={12} />
-                                </button>
-                                <div className="px-1.5 py-0.5 text-[9px] font-black text-slate-900 bg-white rounded shadow-sm border border-slate-100 min-w-[38px] text-center">
-                                    {page}/{totalPages}
-                                </div>
-                                <button
-                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={page === totalPages}
-                                    className="p-1 rounded hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
-                                >
-                                    <ChevronRight size={12} />
-                                </button>
+                                    className="w-28 sm:w-32 px-1.5 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-bold text-slate-600 uppercase tracking-widest outline-none focus:border-teal-500 shadow-sm"
+                                />
+                                <span className="text-slate-300 font-bold text-[10px]">-</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => { 
+                                        setEndDate(e.target.value); 
+                                        setDatePreset('custom');
+                                        setPage(1); 
+                                    }}
+                                    className="w-28 sm:w-32 px-1.5 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-bold text-slate-600 uppercase tracking-widest outline-none focus:border-teal-500 shadow-sm"
+                                />
+                                {(startDate || endDate || datePreset !== 'all') && (
+                                    <button
+                                        onClick={() => { 
+                                            setStartDate(""); 
+                                            setEndDate(""); 
+                                            setDatePreset("all");
+                                            setPage(1); 
+                                        }}
+                                        title="Clear date filter"
+                                        className="px-1.5 py-1 bg-rose-50 border border-rose-200 text-rose-500 rounded-lg text-[8px] font-black hover:bg-rose-100 active:scale-95 transition-all whitespace-nowrap"
+                                    >✕</button>
+                                )}
                             </div>
-                        )}
+                        </div>
 
-                        <div className="flex flex-col border-l border-slate-200 pl-2">
-                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none">Pool</span>
-                            <span className="text-[9px] font-black text-teal-600 uppercase tracking-tight mt-0.5">{filteredTransactions.length}</span>
+                        {/* Right Side: Show Edited + Pagination + Pool Count */}
+                        <div className="flex items-center gap-2 shrink-0 ml-auto">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-[9px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 shadow-sm hover:bg-slate-100 transition-colors">
+                                <input 
+                                    type="checkbox" 
+                                    checked={showEditedOnly}
+                                    onChange={(e) => {
+                                        setShowEditedOnly(e.target.checked);
+                                        setPage(1);
+                                    }}
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 size-3"
+                                />
+                                Edited Only
+                            </label>
+
+                            {totalPages > 1 && (
+                                <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shadow-inner">
+                                    <button
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                        className="p-1 rounded hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
+                                    >
+                                        <ChevronLeft size={12} />
+                                    </button>
+                                    <div className="px-1.5 py-0.5 text-[9px] font-black text-slate-900 bg-white rounded shadow-sm border border-slate-100 min-w-[38px] text-center">
+                                        {page}/{totalPages}
+                                    </div>
+                                    <button
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={page === totalPages}
+                                        className="p-1 rounded hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
+                                    >
+                                        <ChevronRight size={12} />
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col border-l border-slate-200 pl-2">
+                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none">Pool</span>
+                                <span className="text-[9px] font-black text-teal-600 uppercase tracking-tight mt-0.5">{filteredTransactions.length}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1754,6 +1855,263 @@ export default function TransactionsPage() {
                     )}
                 </div>
             </div>
+
+            {/* Mobile Bottom Pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between px-3 py-2 bg-white rounded-xl border border-slate-200 shadow-xs sm:hidden">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                        Page <strong className="text-slate-900">{page}</strong> of <strong className="text-slate-900">{totalPages}</strong> ({total} records)
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-lg text-[10px] font-bold text-slate-700 transition-all"
+                        >
+                            ‹ Prev
+                        </button>
+                        <button
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={page >= totalPages}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-lg text-[10px] font-bold text-slate-700 transition-all"
+                        >
+                            Next ›
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Mobile Filters Pop-up Dropdown Modal */}
+            {showMobileFilters && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3.5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+                    <div 
+                        className="fixed inset-0" 
+                        onClick={() => setShowMobileFilters(false)} 
+                    />
+                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-200 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col z-10 animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
+                            <div className="flex items-center gap-2">
+                                <SlidersHorizontal size={15} className="text-teal-600" />
+                                <h3 className="font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">Filter Transactions</h3>
+                                {activeFiltersCount > 0 && (
+                                    <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded-full text-[9px] font-black">
+                                        {activeFiltersCount} active
+                                    </span>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setShowMobileFilters(false)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-4 space-y-4 overflow-y-auto">
+                            {/* Revenue Summary Stats */}
+                            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/60 space-y-1.5">
+                                <div className="flex items-center justify-between text-[10px]">
+                                    <span className="font-bold text-slate-500 uppercase">Total Revenue:</span>
+                                    <span className="font-black text-blue-600 text-xs">₹{Math.round(totalRevenue || 0).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px]">
+                                    <span className="font-bold text-slate-500 uppercase">Transactions Count:</span>
+                                    <span className="font-black text-teal-600 text-xs">{total.toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px]">
+                                    <span className="font-bold text-slate-500 uppercase">Average Amount:</span>
+                                    <span className="font-black text-indigo-600 text-xs">₹{total > 0 ? Math.round((totalRevenue || 0) / total).toLocaleString('en-IN') : 0}</span>
+                                </div>
+                            </div>
+
+                            {/* Service Category */}
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Service Category</label>
+                                <div className="grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl">
+                                    {(['all', 'opd', 'ipd', 'lab'] as const).map(tab => (
+                                        <button
+                                            key={tab}
+                                            type="button"
+                                            onClick={() => switchTab(tab)}
+                                            className={`py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                                                typeFilter === tab
+                                                    ? 'bg-white text-teal-600 shadow-sm'
+                                                    : 'text-slate-500 hover:text-slate-800'
+                                            }`}
+                                        >
+                                            {tab.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                                {typeFilter === 'ipd' && (
+                                    <div className="grid grid-cols-3 gap-1 bg-rose-50 p-1 rounded-xl border border-rose-100 mt-2">
+                                        {(['all', 'advance', 'discharge'] as const).map(sub => (
+                                            <button
+                                                key={sub}
+                                                type="button"
+                                                onClick={() => setIpdPaymentType(sub)}
+                                                className={`py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                                                    ipdPaymentType === sub
+                                                        ? 'bg-white text-rose-600 shadow-sm'
+                                                        : 'text-rose-400 hover:text-rose-600'
+                                                }`}
+                                            >
+                                                {sub}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Date Filter */}
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Date Scope</label>
+                                <select
+                                    value={datePreset}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setDatePreset(val);
+                                        if (val !== 'custom') {
+                                            const range = getDateRangeForPreset(val);
+                                            setStartDate(range.start);
+                                            setEndDate(range.end);
+                                            setPage(1);
+                                        }
+                                    }}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-teal-500"
+                                >
+                                    <option value="all">📅 All Time</option>
+                                    <option value="today">📅 Today</option>
+                                    <option value="yesterday">📅 Yesterday</option>
+                                    <option value="last_week">📅 Last Week</option>
+                                    <option value="this_month">📅 This Month</option>
+                                    <option value="last_month">📅 Last Month</option>
+                                    <option value="2_months_back">📅 2M Back</option>
+                                    <option value="3_months_back">📅 3M Back</option>
+                                    <option value="6_months_back">📅 6M Back</option>
+                                    <option value="1_year_back">📅 1Y Back</option>
+                                    <option value="custom">📅 Custom Range</option>
+                                </select>
+
+                                <div className="grid grid-cols-2 gap-2 pt-1">
+                                    <div>
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase">From</span>
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => { 
+                                                setStartDate(e.target.value); 
+                                                setDatePreset('custom');
+                                                setPage(1); 
+                                            }}
+                                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-700 outline-none focus:border-teal-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase">To</span>
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => { 
+                                                setEndDate(e.target.value); 
+                                                setDatePreset('custom');
+                                                setPage(1); 
+                                            }}
+                                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-700 outline-none focus:border-teal-500"
+                                        />
+                                    </div>
+                                </div>
+                                {(startDate || endDate || datePreset !== 'all') && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { 
+                                            setStartDate(""); 
+                                            setEndDate(""); 
+                                            setDatePreset("all");
+                                            setPage(1); 
+                                        }}
+                                        className="text-[10px] font-bold text-rose-500 hover:underline pt-0.5"
+                                    >
+                                        Clear Date Filters
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Edited Only toggle & Pool */}
+                            <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200/70">
+                                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={showEditedOnly}
+                                        onChange={(e) => {
+                                            setShowEditedOnly(e.target.checked);
+                                            setPage(1);
+                                        }}
+                                        className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 size-4"
+                                    />
+                                    <span>Show Edited Only</span>
+                                </label>
+                                <span className="text-[10px] font-black text-teal-600 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                                    {filteredTransactions.length} in Pool
+                                </span>
+                            </div>
+
+                            {/* Exports */}
+                            <div className="space-y-1.5 pt-1">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reports & Exports</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExport("all")}
+                                        disabled={exporting}
+                                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                    >
+                                        {exporting ? <RefreshCw size={12} className="animate-spin text-green-600" /> : <Download size={12} />}
+                                        Export All
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExportCategorized("all")}
+                                        disabled={exporting}
+                                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                    >
+                                        {exporting ? <RefreshCw size={12} className="animate-spin text-blue-600" /> : <Download size={12} />}
+                                        Categorized
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-3 bg-slate-50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setTypeFilter('all');
+                                    setIpdPaymentType('all');
+                                    setDatePreset('all');
+                                    setStartDate('');
+                                    setEndDate('');
+                                    setShowEditedOnly(false);
+                                    setPage(1);
+                                }}
+                                className="px-3 py-2 text-[10px] font-bold text-slate-500 hover:text-slate-800"
+                            >
+                                Reset All
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowMobileFilters(false)}
+                                className="px-5 py-2 bg-teal-600 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm active:scale-95"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {editingTx && (
                 <EditTransactionModal 

@@ -12,7 +12,10 @@ import {
     ExternalLink,
     RefreshCw,
     Printer,
-    CreditCard
+    CreditCard,
+    SlidersHorizontal,
+    ChevronDown,
+    Filter
 } from "lucide-react";
 import { helpdeskService, useHelpdeskPatients } from "@/lib/integrations";
 import toast from "react-hot-toast";
@@ -41,6 +44,7 @@ export default function PatientsPage() {
     const [page, setPage] = useState(1);
     const limit = 10; // Changed from 20 to 5 to show pagination with fewer patients
     const [activeFilter, setActiveFilter] = useState<'all' | 'ipd' | 'opd'>('all');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     // Receipt State
     const [showReceipt, setShowReceipt] = useState(false);
@@ -375,113 +379,230 @@ export default function PatientsPage() {
     // to prevent losing focus on the search input.
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="space-y-8">
+        <div className="space-y-0 sm:space-y-4 animate-in fade-in duration-300">
+            <div className="space-y-0 sm:space-y-4">
 
                 {/* CONSOLIDATED HEADER & CONTROLS */}
-                <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm space-y-4 max-w-full mx-auto">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2 pt-2">
-                        <div className="flex items-center gap-3">
-                            <Link href="/helpdesk" className="p-2 bg-slate-100 rounded-xl text-slate-400 hover:text-teal-600 transition-all shadow-sm">
-                                <ArrowLeft size={20} />
+                <div className="bg-white p-2.5 sm:p-3.5 rounded-t-2xl sm:rounded-2xl border border-slate-200 border-b-0 sm:border-b shadow-xs space-y-2.5 max-w-full mx-auto">
+                    {/* Top Row: Title + Back + Top Mini Pagination + Mobile Filter Dropdown Button */}
+                    <div className="flex items-center justify-between gap-2 px-1 pt-1">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <Link href="/helpdesk" className="p-1.5 sm:p-2 bg-slate-100 rounded-xl text-slate-400 hover:text-teal-600 transition-all shadow-sm shrink-0">
+                                <ArrowLeft size={18} className="sm:size-[20px]" />
                             </Link>
-                            <div>
-                                <h1 className="text-lg md:text-xl lg:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                            <div className="min-w-0">
+                                <h1 className="text-sm sm:text-lg md:text-xl font-bold text-slate-900 tracking-tight whitespace-nowrap flex items-center gap-2">
                                     Patient Registry
                                 </h1>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Medical Records • Document Manifest</p>
+                                <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">
+                                    Medical Records <span className="hidden sm:inline">• Document Manifest</span>
+                                </p>
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                            <div className="relative flex-1 sm:w-80 group">
-                                <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400 size-[14px] sm:size-[16px]" />
-                                <input
-                                    type="text"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Search Name, MRN, Mobile..."
-                                    className="w-full pl-9 sm:pl-11 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-tight outline-none focus:bg-white focus:border-teal-500 shadow-inner transition-all"
-                                />
-                            </div>
+                        {/* Right: Top Pagination + Mobile Filter Toggle / Desktop Actions */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Desktop-only top mini pagination */}
+                            {totalPages > 1 && (
+                                <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shadow-inner shrink-0">
+                                    <button
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                        className="p-1 rounded-md hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
+                                        title="Previous page"
+                                    >
+                                        <ChevronLeft size={13} />
+                                    </button>
+                                    <div className="px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-slate-900 bg-white rounded shadow-xs border border-slate-100 min-w-[45px] text-center whitespace-nowrap">
+                                        {page} / {totalPages}
+                                    </div>
+                                    <button
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={page === totalPages}
+                                        className="p-1 rounded-md hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
+                                        title="Next page"
+                                    >
+                                        <ChevronRight size={13} />
+                                    </button>
+                                </div>
+                            )}
 
+                            {/* Single Dropdown Filter Toggle for Mobile */}
                             <button
-                                onClick={() => {
-                                    toast.loading('Refreshing page...', { duration: 1000 });
-                                    setTimeout(() => {
-                                        window.location.reload();
-                                    }, 800);
-                                }}
-                                disabled={isFetching}
-                                className="p-2 sm:p-2.5 bg-white border border-slate-200 text-slate-400 rounded-lg sm:rounded-xl hover:text-teal-600 shadow-sm active:scale-95 disabled:opacity-50"
-                                aria-label="Refresh Patients"
+                                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                className={`sm:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all shrink-0 ${
+                                    isFilterOpen || activeFilter !== 'all'
+                                        ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs'
+                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                                title="Toggle Filters & Actions"
                             >
-                                <RefreshCw size={16} className={`${showRefreshing ? 'animate-spin' : ''} sm:size-[18px]`} />
+                                <SlidersHorizontal size={12} />
+                                <span>Filters</span>
+                                {totalPages > 1 && (
+                                    <span className="px-1.5 py-0.5 text-[8px] font-black bg-slate-100 text-slate-600 rounded">
+                                        {page}/{totalPages}
+                                    </span>
+                                )}
+                                <ChevronDown size={11} className={`transition-transform duration-200 ${isFilterOpen ? 'rotate-180' : ''}`} />
                             </button>
-                            <Link
-                                href="/helpdesk/patient-registration"
-                                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-teal-600  text-white rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest hover:bg-slate-800 shadow-lg shadow-slate-900/10 transition-all active:scale-95"
-                            >
-                                <Plus size={14} className="sm:size-[16px]" /> <span className="hidden sm:inline">Register</span><span className="sm:hidden">Reg</span>
-                            </Link>
+
+                            {/* Desktop-only action buttons */}
+                            <div className="hidden sm:flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        toast.loading('Refreshing page...', { duration: 1000 });
+                                        setTimeout(() => { window.location.reload(); }, 800);
+                                    }}
+                                    disabled={isFetching}
+                                    className="p-2 sm:p-2.5 bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-teal-600 shadow-sm active:scale-95 disabled:opacity-50"
+                                    aria-label="Refresh Patients"
+                                >
+                                    <RefreshCw size={16} className={`${showRefreshing ? 'animate-spin' : ''}`} />
+                                </button>
+                                <Link
+                                    href="/helpdesk/patient-registration"
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 shadow-md shadow-teal-900/10 transition-all active:scale-95 whitespace-nowrap"
+                                >
+                                    <Plus size={16} />
+                                    <span>Register</span>
+                                </Link>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-slate-100 pt-3 px-2">
-                        {/* FILTER TOGGLE & COUNT - HORIZONTAL ON MOBILE */}
-                        <div className="flex flex-row items-center justify-between sm:justify-start gap-2 sm:gap-4 w-full sm:w-auto overflow-x-auto no-scrollbar">
-                            <div className="flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg sm:rounded-xl shadow-inner shadow-slate-200/50 shrink-0">
+                    {/* Row 2: Search Bar - Dedicated Full-Width Row */}
+                    <div className="relative w-full group">
+                        <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400 size-[14px] sm:size-[16px]" />
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Search Name, MRN, Mobile..."
+                            className="w-full pl-9 sm:pl-11 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-tight outline-none focus:bg-white focus:border-teal-500 shadow-inner transition-all"
+                        />
+                    </div>
+
+                    {/* Single Combined Dropdown Tray on Mobile (Register + Reload + Filters) - 100% width, never overflows */}
+                    {isFilterOpen && (
+                        <div className="sm:hidden w-full bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                            {/* Combined Actions: Register Button + Reloading Button */}
+                            <div className="flex items-center gap-2">
+                                <Link
+                                    href="/helpdesk/patient-registration"
+                                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-teal-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-slate-800 shadow-sm transition-all"
+                                >
+                                    <Plus size={13} />
+                                    <span>Register Patient</span>
+                                </Link>
+                                <button
+                                    onClick={() => {
+                                        toast.loading('Refreshing page...', { duration: 1000 });
+                                        setTimeout(() => { window.location.reload(); }, 800);
+                                    }}
+                                    disabled={isFetching}
+                                    className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:text-teal-600 shadow-xs active:scale-95 transition-all shrink-0"
+                                >
+                                    <RefreshCw size={13} className={showRefreshing ? 'animate-spin' : ''} />
+                                    <span>Reload</span>
+                                </button>
+                            </div>
+
+                            {/* Combined Filters: ALL | IPD | OPD + Total Count */}
+                            <div className="space-y-1.5 pt-1.5 border-t border-slate-200/60">
+                                <div className="flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest px-0.5">
+                                    <span>Filter by Registry</span>
+                                    <span className="text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-100 font-bold">
+                                        {total} Total Patients
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-1.5">
+                                    {(['all', 'ipd', 'opd'] as const).map((f) => (
+                                        <button
+                                            key={f}
+                                            onClick={() => { setActiveFilter(f); setPage(1); }}
+                                            className={`py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all text-center ${
+                                                activeFilter === f
+                                                    ? 'bg-teal-600 text-white shadow-xs'
+                                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                                            }`}
+                                        >
+                                            {f === 'all' ? 'All' : f.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Mobile Pagination inside Dropdown */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                        Page Navigation
+                                    </span>
+                                    <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-xs">
+                                        <button
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            disabled={page === 1}
+                                            className="px-2 py-1 rounded text-slate-600 hover:text-teal-600 disabled:opacity-30 transition-all flex items-center gap-0.5 text-[9px] font-bold uppercase"
+                                        >
+                                            <ChevronLeft size={11} /> Prev
+                                        </button>
+                                        <span className="px-2 py-0.5 text-[9px] font-black text-teal-700 bg-teal-50 rounded border border-teal-100">
+                                            {page} / {totalPages}
+                                        </span>
+                                        <button
+                                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={page === totalPages}
+                                            className="px-2 py-1 rounded text-slate-600 hover:text-teal-600 disabled:opacity-30 transition-all flex items-center gap-0.5 text-[9px] font-bold uppercase"
+                                        >
+                                            Next <ChevronRight size={11} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Desktop Filter Pills Bar (Hidden on Mobile) */}
+                    <div className="hidden sm:flex items-center justify-between gap-4 border-t border-slate-100 pt-2.5 px-1">
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-xl shadow-inner shadow-slate-200/50">
                                 {(['all', 'ipd', 'opd'] as const).map((f) => (
                                     <button
                                         key={f}
                                         onClick={() => { setActiveFilter(f); setPage(1); }}
-                                        className={`px-2 sm:px-5 py-1.5 rounded-md sm:rounded-lg text-[8px] sm:text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeFilter === f
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeFilter === f
                                             ? 'bg-white text-teal-600 shadow-sm border border-slate-200'
                                             : 'text-slate-400 hover:text-slate-600'
                                             }`}
                                     >
-                                        {f === 'all' ? 'All' : f === 'ipd' ? 'IPD' : 'OPD'}<span className="hidden sm:inline"> {f === 'all' ? 'Objects' : f === 'ipd' ? 'Records' : 'Registry'}</span>
+                                        {f === 'all' ? 'All' : f === 'ipd' ? 'IPD' : 'OPD'}<span className="hidden lg:inline"> {f === 'all' ? 'Objects' : f === 'ipd' ? 'Records' : 'Registry'}</span>
                                     </button>
                                 ))}
                             </div>
 
-                            {/* DYNAMIC PATIENT COUNT */}
-                            <div className="px-2 sm:px-3 py-1.5 bg-teal-50 border border-teal-100 rounded-lg flex items-center gap-1.5 sm:gap-2 shadow-sm shrink-0 whitespace-nowrap">
-                                <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-teal-500 animate-pulse" />
-                                <span className="text-[8px] sm:text-[10px] font-black text-teal-700 uppercase tracking-widest">
-                                    {total} {activeFilter === 'all' ? 'Total' : activeFilter.toUpperCase()} <span className="hidden xs:inline">Patients</span>
+                            <div className="px-3 py-1.5 bg-teal-50 border border-teal-100 rounded-lg flex items-center gap-2 shadow-sm shrink-0 whitespace-nowrap">
+                                <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                                <span className="text-[10px] font-black text-teal-700 uppercase tracking-widest">
+                                    {total} {activeFilter === 'all' ? 'Total' : activeFilter.toUpperCase()} Patients
                                 </span>
                             </div>
                         </div>
 
-                        {/* COMPACT PAGINATION */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
-                                <button
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                                    disabled={page === 1}
-                                    className="p-1.5 rounded-lg hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
-                                >
-                                    <ChevronLeft size={16} />
-                                </button>
-                                <div className="px-4 py-1.5 text-xs font-black text-slate-900 bg-white rounded-md shadow-sm border border-slate-100 min-w-[60px] text-center">
-                                    {page} / {totalPages}
-                                </div>
-                                <button
-                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={page === totalPages}
-                                    className="p-1.5 rounded-lg hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
-                                >
-                                    <ChevronRight size={16} />
-                                </button>
-                            </div>
+                        {activeFilter !== 'all' && (
+                            <button
+                                onClick={() => setActiveFilter('all')}
+                                className="text-[9px] font-black text-slate-400 hover:text-teal-600 uppercase tracking-wider"
+                            >
+                                Clear Filter
+                            </button>
                         )}
                     </div>
                 </div>
 
-                {/* LISTING PANEL */}
+                {/* LISTING PANEL - Zero vertical gap from header on mobile */}
                 <div className="max-w-full mx-auto">
-                    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
+                    <div className="bg-white rounded-b-2xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
                         <div className="overflow-x-auto w-full no-scrollbar">
                             {(isLoading && patients.length === 0) ? (
                                 <div className="py-40 flex flex-col items-center justify-center gap-4">
@@ -489,16 +610,16 @@ export default function PatientsPage() {
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Syncing Registry...</p>
                                 </div>
                             ) : patients.length > 0 ? (
-                                <table className="w-full min-w-[700px] table-auto">
+                                <table className="w-full min-w-[720px] table-auto">
                                     <thead>
                                         <tr className="bg-slate-50 border-b border-slate-200 text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">
-                                            <th className="w-16 px-4 py-3 sm:py-4 text-center">#</th>
-                                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left w-64 lg:w-80">MRN Number</th>
-                                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left min-w-[200px]">Patient Name</th>
-                                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-center w-24">Age</th>
-                                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-center w-24">Gender</th>
-                                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left w-auto">Phone Number</th>
-                                            <th className="w-[120px] px-4 py-3 sm:py-4 text-center">Actions</th>
+                                            <th className="w-12 px-3 py-3 text-center whitespace-nowrap">#</th>
+                                            <th className="px-4 py-3 text-left w-48 whitespace-nowrap">MRN Number</th>
+                                            <th className="px-4 py-3 text-left min-w-[180px] lg:min-w-[220px] whitespace-nowrap">Patient Name</th>
+                                            <th className="px-3 py-3 text-center w-20 whitespace-nowrap">Age</th>
+                                            <th className="px-3 py-3 text-center w-20 whitespace-nowrap">Gender</th>
+                                            <th className="px-4 py-3 text-left w-auto whitespace-nowrap">Phone Number</th>
+                                            <th className="w-[140px] px-4 py-3 text-center whitespace-nowrap">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -597,17 +718,39 @@ export default function PatientsPage() {
 
                     {/* ENHANCED PAGINATION CONTROLS AT BOTTOM */}
                     {totalPages > 1 && patients.length > 0 && (
-                        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mt-4">
-                            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm mt-3 sm:mt-4">
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                     Showing {((page - 1) * limit) + 1}-{Math.min(page * limit, total)} of {total} patients
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                {/* Mobile Compact Navigation */}
+                                <div className="sm:hidden flex items-center gap-2">
                                     <button
                                         onClick={() => setPage(p => Math.max(1, p - 1))}
                                         disabled={page === 1}
-                                        className="px-4 py-2 bg-gray-300 border border-slate-200 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+                                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all"
+                                    >
+                                        <ChevronLeft size={13} /> Prev
+                                    </button>
+                                    <span className="px-3 py-1 bg-teal-50 border border-teal-100 text-teal-700 rounded-lg text-[10px] font-black">
+                                        {page} / {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={page === totalPages}
+                                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all"
+                                    >
+                                        Next <ChevronRight size={13} />
+                                    </button>
+                                </div>
+
+                                {/* Desktop Full Numbered Navigation */}
+                                <div className="hidden sm:flex items-center gap-2">
+                                    <button
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                        className="px-4 py-2 bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                                     >
                                         <ChevronLeft size={14} /> Previous
                                     </button>
@@ -644,7 +787,7 @@ export default function PatientsPage() {
                                     <button
                                         onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                         disabled={page === totalPages}
-                                        className="px-4 py-2 bg-gray-300 border border-slate-200 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+                                        className="px-4 py-2 bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                                     >
                                         Next <ChevronRight size={14} />
                                     </button>

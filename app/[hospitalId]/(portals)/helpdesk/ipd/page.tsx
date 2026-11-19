@@ -19,6 +19,8 @@ import {
     Clock,
     ClipboardList,
     X,
+    SlidersHorizontal,
+    ChevronDown,
 } from 'lucide-react';
 import { joinSocketRoom, getSocket } from '@/lib/integrations/api/socket';
 import { useRouter, useParams } from 'next/navigation';
@@ -83,7 +85,10 @@ export default function IPDCenter() {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
     const bedsPerPage = 20;
+
+    const activeFiltersCount = (filters.status ? 1 : 0) + (filters.type ? 1 : 0) + (filters.room ? 1 : 0) + (activeRequestFilter ? 1 : 0);
 
     // Modal States
     const [showTransferModal, setShowTransferModal] = useState(false);
@@ -104,6 +109,7 @@ export default function IPDCenter() {
     const [billingLoading, setBillingLoading] = useState(false);
     const [pharmacyError, setPharmacyError] = useState<string | null>(null);
     const detailPanelRef = useRef<HTMLDivElement>(null);
+    const detailEndRef = useRef<HTMLDivElement>(null);
     const [pharmacySignoffLoading, setPharmacySignoffLoading] = useState(false);
 
     const triggerActivityAnimation = () => {
@@ -432,15 +438,37 @@ export default function IPDCenter() {
         setSelectedBedId(bed._id);
         fetchBedDetails(bed._id);
         
-        // Auto-scroll to details for better mobile/tablet UX
-        setTimeout(() => {
-            detailPanelRef.current?.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start',
-                inline: 'nearest' 
-            });
-        }, 100);
+        // Initial auto-scroll on click
+        if (typeof window !== 'undefined' && window.innerWidth < 1280) {
+            setTimeout(() => {
+                detailPanelRef.current?.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start',
+                    inline: 'nearest' 
+                });
+            }, 50);
+        }
     };
+
+    // Auto-scroll to the end of bed details summary once details are loaded on smaller screens
+    useEffect(() => {
+        if (selectedBedId && bedDetails && !detailsLoading && typeof window !== 'undefined' && window.innerWidth < 1280) {
+            const timer = setTimeout(() => {
+                if (detailEndRef.current) {
+                    detailEndRef.current.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'end' 
+                    });
+                } else if (detailPanelRef.current) {
+                    detailPanelRef.current.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }
+            }, 120);
+            return () => clearTimeout(timer);
+        }
+    }, [selectedBedId, bedDetails, detailsLoading]);
 
     const fetchVacantBeds = async (type?: string, room?: string) => {
         try {
@@ -612,43 +640,44 @@ export default function IPDCenter() {
     };
 
     return (
-        <div className="flex flex-col gap-8 animate-in fade-in duration-700">
+        <div className="flex flex-col gap-2 sm:gap-3.5 animate-in fade-in duration-700">
             {/* HEADER */}
-            {/* HEADER */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 border-b border-slate-100 pb-2">
-                <div>
-                    <h1 className="text-lg md:text-xl lg:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2 sm:gap-3">
-                        <Activity size={24} className="text-teal-600 sm:size-[28px]" strokeWidth={2.5} />
-                        IPD ADMISSION CENTER
+            <div className="flex flex-row items-center justify-between gap-2 sm:gap-6 border-b border-slate-100 pb-2 sm:pb-3">
+                <div className="min-w-0 flex-1">
+                    <h1 className="text-base sm:text-lg md:text-xl font-black text-slate-900 tracking-tight flex items-center gap-1.5 sm:gap-3 truncate">
+                        <Activity size={18} className="text-teal-600 sm:size-[24px] shrink-0" strokeWidth={2.5} />
+                        <span className="truncate">IPD ADMISSION CENTER</span>
                     </h1>
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] mt-1 sm:mt-2">Real-time Bed Occupancy & Patient Monitoring</p>
+                    <p className="text-[7.5px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-[0.25em] mt-0.5 truncate">
+                        Real-time Bed Occupancy & Patient Monitoring
+                    </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    {/* UNIQUE PREMIUM REQUEST TOGGLE */}
-                    <div className="flex bg-slate-200/50 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl border border-slate-200/60 items-center gap-0.5 sm:gap-1 shadow-sm h-10 sm:h-12">
+                <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                    {/* UNIQUE PREMIUM REQUEST TOGGLE (Desktop / Tablet only) */}
+                    <div className="hidden sm:flex bg-slate-200/50 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl border border-slate-200/60 items-center gap-0.5 sm:gap-1 shadow-sm h-9 sm:h-11 shrink-0">
                         <button
                             onClick={() => setActiveRequestFilter(null)}
                             className={`px-2 sm:px-4 h-full rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${!activeRequestFilter ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                         >
-                            All<span className="hidden sm:inline"> Beds</span>
+                            All Beds
                         </button>
                         <div className="w-[1px] h-3 sm:h-4 bg-slate-300/50 mx-0.5 sm:mx-1" />
                         <button
                             onClick={() => setActiveRequestFilter('discharge')}
-                            className={`px-2 sm:px-4 h-full rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-2 transition-all duration-300 ${activeRequestFilter === 'discharge' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-50'}`}
+                            className={`px-1.5 sm:px-4 h-full rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-2 transition-all duration-300 ${activeRequestFilter === 'discharge' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-50'}`}
                         >
                             <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest leading-none">Disch</span>
-                            <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full leading-none ${activeRequestFilter === 'discharge' ? 'bg-emerald-500/50 text-white' : 'bg-slate-300/50 text-slate-600'}`}>
+                            <span className={`text-[8.5px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full leading-none ${activeRequestFilter === 'discharge' ? 'bg-emerald-500/50 text-white' : 'bg-slate-300/50 text-slate-600'}`}>
                                 {pendingRequests.filter(r => r.requestType === 'discharge').length}
                             </span>
                         </button>
                         <button
                             onClick={() => setActiveRequestFilter('transfer')}
-                            className={`px-2 sm:px-4 h-full rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-2 transition-all duration-300 ${activeRequestFilter === 'transfer' ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:text-amber-700 hover:bg-amber-50'}`}
+                            className={`px-1.5 sm:px-4 h-full rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-2 transition-all duration-300 ${activeRequestFilter === 'transfer' ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:text-amber-700 hover:bg-amber-50'}`}
                         >
                             <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest leading-none">Trans</span>
-                            <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full leading-none ${activeRequestFilter === 'transfer' ? 'bg-amber-400/50 text-white' : 'bg-slate-300/50 text-slate-600'}`}>
+                            <span className={`text-[8.5px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full leading-none ${activeRequestFilter === 'transfer' ? 'bg-amber-400/50 text-white' : 'bg-slate-300/50 text-slate-600'}`}>
                                 {pendingRequests.filter(r => r.requestType === 'transfer').length}
                             </span>
                         </button>
@@ -656,42 +685,169 @@ export default function IPDCenter() {
 
                     <button
                         onClick={() => router.push('/helpdesk/patient-registration?type=IPD')}
-                        className="px-3 sm:px-6 py-2 sm:py-2.5 bg-teal-600 text-white rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-teal-700 transition-all shadow-lg shadow-teal-900/10 flex items-center gap-1 sm:gap-2"
+                        className="px-2.5 sm:px-5 py-1.5 sm:py-2.5 bg-teal-600 text-white rounded-lg sm:rounded-xl text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider hover:bg-teal-700 transition-all shadow-md shadow-teal-900/10 flex items-center gap-1 sm:gap-2 whitespace-nowrap shrink-0"
                     >
-                        <Plus size={14} className="sm:size-[16px]" /> <span className="hidden sm:inline">New Admission</span><span className="sm:hidden">New Adm</span>
+                        <Plus size={13} className="sm:size-[16px]" /> <span className="hidden sm:inline">New Admission</span><span className="sm:hidden">New Adm</span>
                     </button>
                     <button
                         onClick={() => { fetchBeds(); fetchPendingRequests(); }}
-                        className="p-2 sm:p-2.5 bg-white border border-slate-200 rounded-lg sm:rounded-xl text-slate-400 hover:text-teal-600 transition-all shadow-sm"
+                        className="p-1.5 sm:p-2.5 bg-white border border-slate-200 rounded-lg sm:rounded-xl text-slate-400 hover:text-teal-600 transition-all shadow-sm shrink-0"
+                        title="Refresh Beds"
                     >
-                        <RefreshCw size={16} className={`${loading ? 'animate-spin' : ''} sm:size-[18px]`} />
+                        <RefreshCw size={14} className={`${loading ? 'animate-spin' : ''} sm:size-[18px]`} />
                     </button>
                 </div>
             </div>
 
             {/* FILTERS & STATS */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-3 bg-white p-2 sm:p-3 rounded-xl sm:rounded-[24px] border border-slate-200 shadow-sm flex flex-row flex-wrap items-center gap-2 sm:gap-3">
-                    <div className="w-full sm:flex-1 sm:min-w-[200px] relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-[12px] sm:size-[14px]" />
-                        <input
-                            placeholder="SEARCH BED, PATIENT NAME..."
-                            className="w-full pl-9 sm:pl-10 pr-9 sm:pr-10 py-1.5 sm:py-2 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-tight focus:ring-2 focus:ring-teal-500/10 outline-none transition-all placeholder:text-slate-300"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                            <button 
-                                onClick={() => setSearchQuery('')}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 bg-slate-200 hover:bg-slate-300 rounded-full text-slate-500 hover:text-slate-700 transition-colors"
-                            >
-                                <X size={10} className="sm:size-[12px]" strokeWidth={3} />
-                            </button>
-                        )}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-3.5">
+                <div className="lg:col-span-3 bg-white p-2 sm:p-3 rounded-xl sm:rounded-[24px] border border-slate-200 shadow-sm flex flex-col sm:flex-row flex-wrap sm:items-center gap-2 sm:gap-3">
+                    {/* Search Input + Mobile Filter Toggle Button */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:min-w-[200px]">
+                        <div className="relative flex-1 group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-[13px] sm:size-[14px]" />
+                            <input
+                                placeholder="SEARCH BED, PATIENT NAME..."
+                                className="w-full pl-9 sm:pl-10 pr-9 sm:pr-10 py-1.5 sm:py-2 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-tight focus:ring-2 focus:ring-teal-500/10 outline-none transition-all placeholder:text-slate-300"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            {searchQuery && (
+                                <button 
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 bg-slate-200 hover:bg-slate-300 rounded-full text-slate-500 hover:text-slate-700 transition-colors"
+                                >
+                                    <X size={10} className="sm:size-[12px]" strokeWidth={3} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Mobile Filter Toggle Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
+                            className={`sm:hidden px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all border shrink-0 ${
+                                isMobileFiltersOpen || activeFiltersCount > 0
+                                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                            }`}
+                        >
+                            <SlidersHorizontal size={12} />
+                            <span>Filters</span>
+                            {activeFiltersCount > 0 && (
+                                <span className="w-4 h-4 rounded-full bg-white text-teal-700 text-[8px] font-black flex items-center justify-center">
+                                    {activeFiltersCount}
+                                </span>
+                            )}
+                            <ChevronDown size={11} className={`transition-transform duration-200 ${isMobileFiltersOpen ? 'rotate-180' : ''}`} />
+                        </button>
                     </div>
-                    <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
+
+                    {/* Mobile Filter Dropdown Box - Compact Select Style */}
+                    {isMobileFiltersOpen && (
+                        <div className="w-full sm:hidden pt-2 mt-0.5 border-t border-slate-100 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
+                            {/* Request Type Toggle in Mobile Filters Dropdown */}
+                            <div>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Patient Requests</label>
+                                    {activeFiltersCount > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setFilters({ status: '', type: '', room: '' });
+                                                setActiveRequestFilter(null);
+                                            }}
+                                            className="text-[8.5px] font-bold text-rose-500 uppercase hover:underline"
+                                        >
+                                            Reset All
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200/80">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveRequestFilter(null)}
+                                        className={`py-1 rounded text-[8px] font-black uppercase tracking-wider transition-all ${
+                                            !activeRequestFilter ? 'bg-white text-teal-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                                        }`}
+                                    >
+                                        All Beds
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveRequestFilter('discharge')}
+                                        className={`py-1 rounded text-[8px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all ${
+                                            activeRequestFilter === 'discharge' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                                        }`}
+                                    >
+                                        <span>Disch</span>
+                                        <span className={`text-[7.5px] px-1 py-0.2 rounded-full leading-none ${activeRequestFilter === 'discharge' ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                            {pendingRequests.filter(r => r.requestType === 'discharge').length}
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveRequestFilter('transfer')}
+                                        className={`py-1 rounded text-[8px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all ${
+                                            activeRequestFilter === 'transfer' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                                        }`}
+                                    >
+                                        <span>Trans</span>
+                                        <span className={`text-[7.5px] px-1 py-0.2 rounded-full leading-none ${activeRequestFilter === 'transfer' ? 'bg-amber-400 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                            {pendingRequests.filter(r => r.requestType === 'transfer').length}
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
+                                    <select
+                                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[9px] font-bold uppercase tracking-wider text-slate-700 outline-none focus:bg-white focus:border-teal-500"
+                                        value={filters.status}
+                                        onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                                    >
+                                        <option value="">All Statuses</option>
+                                        <option value="Vacant">Vacant</option>
+                                        <option value="Occupied">Occupied</option>
+                                        <option value="Cleaning">Cleaning</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Unit Type</label>
+                                    <select
+                                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[9px] font-bold uppercase tracking-wider text-slate-700 outline-none focus:bg-white focus:border-teal-500"
+                                        value={filters.type}
+                                        onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                                    >
+                                        <option value="">All Types</option>
+                                        {unitTypes.map(type => (
+                                            <option key={type} value={type}>{type}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Room</label>
+                                <HybridRoomSearch
+                                    value={filters.room}
+                                    onSelect={(val) => {
+                                        setFilters(prev => ({ ...prev, room: val }));
+                                        setCurrentPage(1);
+                                    }}
+                                    rooms={hospitalRooms}
+                                    typeFilter={filters.type}
+                                    className="w-full"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Desktop / Tablet Inline Filters */}
+                    <div className="hidden sm:flex items-center gap-2">
                         <select
-                            className="flex-1 sm:flex-none px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl !text-[10px] font-black uppercase tracking-widest outline-none focus:bg-white focus:border-teal-500 transition-all cursor-pointer shadow-sm appearance-none"
+                            className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl !text-[10px] font-black uppercase tracking-widest outline-none focus:bg-white focus:border-teal-500 transition-all cursor-pointer shadow-sm appearance-none"
                             value={filters.status}
                             onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
                         >
@@ -701,7 +857,7 @@ export default function IPDCenter() {
                             <option value="Cleaning">Cleaning</option>
                         </select>
                         <select
-                            className="flex-1 sm:flex-none px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl !text-[10px] font-black uppercase tracking-widest outline-none focus:bg-white focus:border-teal-500 transition-all cursor-pointer shadow-sm appearance-none"
+                            className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl !text-[10px] font-black uppercase tracking-widest outline-none focus:bg-white focus:border-teal-500 transition-all cursor-pointer shadow-sm appearance-none"
                             value={filters.type}
                             onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
                         >
@@ -712,20 +868,22 @@ export default function IPDCenter() {
                         </select>
                     </div>
 
-                    <HybridRoomSearch
-                        value={filters.room}
-                        onSelect={(val) => {
-                            setFilters(prev => ({ ...prev, room: val }));
-                            setCurrentPage(1);
-                        }}
-                        rooms={hospitalRooms}
-                        typeFilter={filters.type}
-                        className="w-full sm:w-auto sm:min-w-[160px]"
-                    />
+                    <div className="hidden sm:block">
+                        <HybridRoomSearch
+                            value={filters.room}
+                            onSelect={(val) => {
+                                setFilters(prev => ({ ...prev, room: val }));
+                                setCurrentPage(1);
+                            }}
+                            rooms={hospitalRooms}
+                            typeFilter={filters.type}
+                            className="w-auto min-w-[160px]"
+                        />
+                    </div>
 
-                    {/* COMPACT PAGINATION */}
+                    {/* COMPACT PAGINATION (Desktop) */}
                     {!loading && totalPages > 1 && (
-                        <div className="flex items-center gap-1 border-l border-slate-100 pl-4 py-1">
+                        <div className="hidden sm:flex items-center gap-1 border-l border-slate-100 pl-4 py-1 ml-auto">
                             <button
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
@@ -752,6 +910,28 @@ export default function IPDCenter() {
                             <AnimatedNumber value={filteredBeds.length} trigger={debouncedSearch + JSON.stringify(filters)} />
                         </p>
                     </div>
+
+                    {/* Mobile Pagination if totalPages > 1 */}
+                    {!loading && totalPages > 1 && (
+                        <div className="sm:hidden flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-lg border border-slate-700/80">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentPage === 1}
+                                className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white disabled:opacity-30 transition-all"
+                            >
+                                <ChevronLeft size={13} />
+                            </button>
+                            <span className="text-[9px] font-black px-1 text-slate-200 tabular-nums">{currentPage} / {totalPages}</span>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={currentPage === totalPages}
+                                className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white disabled:opacity-30 transition-all"
+                            >
+                                <ChevronRight size={13} />
+                            </button>
+                        </div>
+                    )}
+
                     <div className="flex gap-2">
                         <div className={`w-1.5 h-8 bg-emerald-500 rounded-full transition-all duration-300 ${isAnimating ? 'animate-bar-bounce' : ''}`} title="Vacant" />
                         <div className={`w-1.5 h-8 bg-rose-500 rounded-full transition-all duration-300 ${isAnimating ? 'animate-bar-bounce delay-100' : ''}`} title="Occupied" />
@@ -1186,6 +1366,8 @@ export default function IPDCenter() {
                                         </div>
                                     )}
                                 </div>
+                                {/* Target anchor for auto-scrolling to the end of bed details */}
+                                <div ref={detailEndRef} className="h-4" />
                             </div>
                         )
                     )}

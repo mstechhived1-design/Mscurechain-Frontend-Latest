@@ -90,7 +90,7 @@ export default function HelpdeskProfilePage() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto space-y-5 pb-20 pt-6 animate-in fade-in duration-500 px-0 md:px-4 lg:px-4">
+        <div className="max-w-7xl mx-auto space-y-3 sm:space-y-5 pb-16 sm:pb-20 pt-2 sm:pt-6 animate-in fade-in duration-500 px-2 sm:px-4 lg:px-4">
 
             {/* PROFILE HEADER */}
             <ProfileHeroCard
@@ -114,26 +114,26 @@ export default function HelpdeskProfilePage() {
                 editLabel="Edit Profile"
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5">
                 {/* LEFT COLUMN */}
-                <div className="lg:col-span-4 space-y-5">
+                <div className="lg:col-span-4 space-y-3 sm:space-y-5">
                     <SupportBadgeToggle />
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-                        <div className="flex items-center gap-2.5 border-b border-slate-50 pb-3">
+                    <div className="bg-white p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm space-y-3 sm:space-y-5">
+                        <div className="flex items-center gap-2.5 border-b border-slate-50 pb-2.5 sm:pb-3">
                             <div className="p-1.5 bg-teal-50 rounded-lg text-teal-600">
-                                <UserIcon size={15} />
+                                <UserIcon size={14} className="sm:size-[15px]" />
                             </div>
-                            <h3 className="font-black text-xs uppercase tracking-[0.15em] text-slate-900">Personal Registry</h3>
+                            <h3 className="font-black text-[11px] sm:text-xs uppercase tracking-[0.15em] text-slate-900">Personal Registry</h3>
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-2 sm:space-y-3">
                             <InfoItem icon={<Mail size={14} />} label="Email Address" value={email} />
                             <InfoItem icon={<Phone size={14} />} label="Contact Number" value={mobile} />
                             <InfoItem icon={<Briefcase size={14} />} label="Employee ID" value={employeeId} />
                         </div>
                     </div>
 
-                    <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm space-y-4 sm:space-y-5">
-                        <div className="flex items-center gap-2.5 border-b border-slate-50 pb-3">
+                    <div className="bg-white p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm space-y-3 sm:space-y-5">
+                        <div className="flex items-center gap-2.5 border-b border-slate-50 pb-2.5 sm:pb-3">
                             <div className="p-1.5 bg-amber-50 rounded-lg text-amber-600">
                                 <CreditCard size={14} className="sm:size-[15px]" />
                             </div>
@@ -150,40 +150,40 @@ export default function HelpdeskProfilePage() {
                 </div>
 
                 {/* RIGHT COLUMN: BANK & WHATSAPP */}
-                <div className="lg:col-span-8 space-y-5">
-                    <div className="bg-white p-4 sm:p-7 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm space-y-4 sm:space-y-5">
-                        <div className="flex items-center gap-2.5 border-b border-slate-50 pb-3 sm:pb-4">
+                <div className="lg:col-span-8 space-y-3 sm:space-y-5">
+                    <div className="bg-white p-3.5 sm:p-7 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm space-y-3 sm:space-y-5">
+                        <div className="flex items-center gap-2.5 border-b border-slate-50 pb-2.5 sm:pb-4">
                             <div className="p-1.5 sm:p-2 bg-teal-600 rounded-lg sm:rounded-xl text-white">
                                 <Landmark size={14} className="sm:size-[16px]" />
                             </div>
                             <h3 className="font-black text-xs sm:text-sm text-slate-900 tracking-tight uppercase">Settlement Bank</h3>
                         </div>
 
-                        <div className="bg-slate-900 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white relative overflow-hidden group shadow-xl">
+                        <div className="bg-slate-900 rounded-xl sm:rounded-2xl p-3.5 sm:p-6 text-white relative overflow-hidden group shadow-xl">
                             <div className="absolute top-0 right-0 w-32 sm:w-48 h-32 sm:h-48 bg-teal-500/10 rounded-full -mr-16 sm:-mr-24 -mt-16 sm:-mt-24 blur-3xl transition-all group-hover:bg-teal-500/20"></div>
 
-                            <div className="relative space-y-4 sm:space-y-5">
-                                <div className="flex justify-between items-start">
-                                    <div className="space-y-0.5">
+                            <div className="relative space-y-3 sm:space-y-5">
+                                <div className="flex justify-between items-start gap-2">
+                                    <div className="space-y-0.5 min-w-0">
                                         <p className="text-[8px] sm:text-[10px] font-black text-teal-400 uppercase tracking-[0.2em]">Primary Salary Node</p>
-                                        <h4 className="text-base sm:text-xl font-black tracking-tight leading-tight">{bankDetails?.bankName || "BANK NOT LINKED"}</h4>
+                                        <h4 className="text-sm sm:text-xl font-black tracking-tight leading-tight truncate">{bankDetails?.bankName || "BANK NOT LINKED"}</h4>
                                     </div>
-                                    <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-white/10 rounded-md sm:rounded-lg text-[8px] sm:text-[10px] font-mono tracking-widest">{bankDetails?.ifscCode || "IFSC"}</div>
+                                    <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-white/10 rounded-md sm:rounded-lg text-[8px] sm:text-[10px] font-mono tracking-widest shrink-0">{bankDetails?.ifscCode || "IFSC"}</div>
                                 </div>
 
-                                <div className="space-y-1 sm:space-y-1.5">
+                                <div className="space-y-0.5 sm:space-y-1.5">
                                     <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest">Account Number</p>
-                                    <p className="text-xl sm:text-3xl font-mono tracking-[0.1em] sm:tracking-[0.15em] text-teal-50">
+                                    <p className="text-lg sm:text-2xl md:text-3xl font-mono tracking-wider sm:tracking-[0.15em] text-teal-50 truncate">
                                         {bankDetails?.accountNumber ? `•••• •••• ${bankDetails.accountNumber.slice(-4)}` : "•••• •••• ••••"}
                                     </p>
                                 </div>
 
-                                <div className="flex justify-between items-center pt-3 border-t border-white/5">
-                                    <div className="space-y-0.5">
+                                <div className="flex justify-between items-center pt-2.5 sm:pt-3 border-t border-white/5 gap-2">
+                                    <div className="space-y-0.5 min-w-0">
                                         <p className="text-[7px] sm:text-[8px] font-black text-slate-500 uppercase tracking-widest">Account Holder</p>
-                                        <p className="text-[10px] sm:text-xs font-black uppercase tracking-tight">{bankDetails?.accountName || name}</p>
+                                        <p className="text-[10px] sm:text-xs font-black uppercase tracking-tight truncate">{bankDetails?.accountName || name}</p>
                                     </div>
-                                    <div className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg sm:rounded-xl text-[8px] sm:text-[10px] font-black border border-emerald-500/20 uppercase tracking-widest">
+                                    <div className="flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg sm:rounded-xl text-[8px] sm:text-[10px] font-black border border-emerald-500/20 uppercase tracking-widest shrink-0">
                                         <CheckCircle2 size={10} className="sm:size-[11px]" /> Encrypted
                                     </div>
                                 </div>
@@ -209,13 +209,13 @@ export default function HelpdeskProfilePage() {
 // Helper Components
 function InfoItem({ icon, label, value }: any) {
     return (
-        <div className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 hover:bg-slate-50 rounded-xl sm:rounded-2xl transition-all border border-transparent hover:border-slate-100 group">
-            <div className="p-2 sm:p-2.5 bg-slate-50 rounded-lg sm:rounded-xl text-slate-400 group-hover:text-teal-500 transition-colors">
+        <div className="flex items-start gap-2.5 sm:gap-4 p-2.5 sm:p-4 hover:bg-slate-50 rounded-xl sm:rounded-2xl transition-all border border-transparent hover:border-slate-100 group">
+            <div className="p-1.5 sm:p-2.5 bg-slate-50 rounded-lg sm:rounded-xl text-slate-400 group-hover:text-teal-500 transition-colors shrink-0">
                 {React.cloneElement(icon as React.ReactElement<any>, { size: 14 })}
             </div>
-            <div className="space-y-0.5 sm:space-y-1">
+            <div className="space-y-0.5 sm:space-y-1 min-w-0">
                 <p className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">{label}</p>
-                <p className="text-[11px] sm:text-xs font-black text-slate-900 tracking-tight">{value || "Not Set"}</p>
+                <p className="text-[10px] sm:text-xs font-black text-slate-900 tracking-tight truncate">{value || "Not Set"}</p>
             </div>
         </div>
     );
@@ -223,9 +223,9 @@ function InfoItem({ icon, label, value }: any) {
 
 function SecureItem({ label, value }: any) {
     return (
-        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1 hover:border-teal-200 transition-colors group">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] group-hover:text-teal-600">{label}</p>
-            <p className="text-[11px] font-mono font-black text-slate-700">
+        <div className="p-2.5 sm:p-4 bg-slate-50 rounded-xl sm:rounded-2xl border border-slate-100 space-y-0.5 sm:space-y-1 hover:border-teal-200 transition-colors group">
+            <p className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] group-hover:text-teal-600">{label}</p>
+            <p className="text-[10px] sm:text-[11px] font-mono font-black text-slate-700 truncate">
                 {value ? `•••• ${value.slice(-4)}` : "NOT SET"}
             </p>
         </div>
