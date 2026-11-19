@@ -2,6 +2,9 @@ name: Build MSCureChain Hospital Portal (.apk)
 
 on:
   workflow_dispatch: # Allows 1-click manual trigger from GitHub Actions
+  push:
+    tags:
+      - 'v*' # Trigger build on version tags (e.g. v1.1.7)
 
 jobs:
   build-hospital-apk:
@@ -65,10 +68,11 @@ jobs:
 
       - name: Attach Raw APK to GitHub Release
         uses: softprops/action-gh-release@v2
+        if: always()
         with:
-          tag_name: v1.0.4
+          tag_name: ${{ github.ref_name }}
           files: android/app/build/outputs/apk/release/MSCureChain-Hospital-Portal.apk
-          name: 'MSCureChain Hospital Management System v1.0.4'
+          name: 'MSCureChain Hospital Management System ${{ github.ref_name }}'
           body: 'Official MSCureChain Hospital System Installers for Windows Desktop and Android Devices.'
           draft: false
           prerelease: false
