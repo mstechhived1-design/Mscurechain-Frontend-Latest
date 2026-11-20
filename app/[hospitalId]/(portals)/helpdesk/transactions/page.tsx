@@ -337,8 +337,8 @@ export default function TransactionsPage() {
 
         return {
             transactions: uniqueTx,
-            total: raw.pagination?.total ? Math.min(raw.pagination.total, uniqueTx.length) : uniqueTx.length,
-            totalRevenue: raw.totalRevenue && uniqueTx.length === list.length ? raw.totalRevenue : calcRevenue
+            total: typeof raw.pagination?.total === 'number' ? raw.pagination.total : (raw.total || uniqueTx.length),
+            totalRevenue: typeof raw.totalRevenue === 'number' ? raw.totalRevenue : calcRevenue
         };
     }, [txRaw]);
 
