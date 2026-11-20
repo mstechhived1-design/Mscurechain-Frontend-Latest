@@ -1564,27 +1564,27 @@ export default function TransactionsPage() {
                                 Edited Only
                             </label>
 
-                            {totalPages > 1 && (
-                                <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shadow-inner">
-                                    <button
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1}
-                                        className="p-1 rounded hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
-                                    >
-                                        <ChevronLeft size={12} />
-                                    </button>
-                                    <div className="px-1.5 py-0.5 text-[9px] font-black text-slate-900 bg-white rounded shadow-sm border border-slate-100 min-w-[38px] text-center">
-                                        {page}/{totalPages}
-                                    </div>
-                                    <button
-                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                        disabled={page === totalPages}
-                                        className="p-1 rounded hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
-                                    >
-                                        <ChevronRight size={12} />
-                                    </button>
+                            <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shadow-inner">
+                                <button
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="p-1 rounded hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
+                                    title="Previous page"
+                                >
+                                    <ChevronLeft size={12} />
+                                </button>
+                                <div className="px-1.5 py-0.5 text-[9px] font-black text-slate-900 bg-white rounded shadow-sm border border-slate-100 min-w-[38px] text-center">
+                                    {page}/{Math.max(1, totalPages)}
                                 </div>
-                            )}
+                                <button
+                                    onClick={() => setPage(p => Math.min(Math.max(1, totalPages), p + 1))}
+                                    disabled={page >= totalPages}
+                                    className="p-1 rounded hover:bg-white text-slate-400 hover:text-teal-600 disabled:opacity-20 transition-all"
+                                    title="Next page"
+                                >
+                                    <ChevronRight size={12} />
+                                </button>
+                            </div>
 
                             <div className="flex flex-col border-l border-slate-200 pl-2">
                                 <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none">Pool</span>
@@ -1856,30 +1856,54 @@ export default function TransactionsPage() {
                 </div>
             </div>
 
-            {/* Mobile Bottom Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-between px-3 py-2 bg-white rounded-xl border border-slate-200 shadow-xs sm:hidden">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                        Page <strong className="text-slate-900">{page}</strong> of <strong className="text-slate-900">{totalPages}</strong> ({total} records)
-                    </span>
+            {/* Universal Bottom Pagination Bar (Desktop & Mobile) */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 px-3.5 py-2.5 bg-white rounded-xl border border-slate-200/80 shadow-xs">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                    Showing <strong className="text-slate-900">{total > 0 ? (page - 1) * limit + 1 : 0}</strong> - <strong className="text-slate-900">{Math.min(page * limit, total)}</strong> of <strong className="text-slate-900">{total}</strong> records
+                </span>
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-[10px] font-bold text-slate-700 transition-all flex items-center gap-1"
+                    >
+                        <ChevronLeft size={12} />
+                        Prev
+                    </button>
                     <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-lg text-[10px] font-bold text-slate-700 transition-all"
-                        >
-                            ‹ Prev
-                        </button>
-                        <button
-                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                            disabled={page >= totalPages}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-lg text-[10px] font-bold text-slate-700 transition-all"
-                        >
-                            Next ›
-                        </button>
+                        {Array.from({ length: Math.max(1, Math.min(totalPages, 5)) }).map((_, i) => {
+                            let pageNum = i + 1;
+                            if (totalPages > 5 && page > 3) {
+                                pageNum = Math.min(Math.max(1, page - 2 + i), totalPages - 4 + i);
+                            }
+                            return (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => setPage(pageNum)}
+                                    className={`hidden sm:inline-flex items-center justify-center min-w-[28px] h-7 px-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                                        page === pageNum
+                                            ? 'bg-teal-600 text-white shadow-xs'
+                                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                    }`}
+                                >
+                                    {pageNum}
+                                </button>
+                            );
+                        })}
+                        <span className="sm:hidden px-2.5 py-1 bg-teal-50 border border-teal-100 text-teal-700 font-black rounded-lg text-[10px] min-w-[50px] text-center">
+                            {page} / {Math.max(1, totalPages)}
+                        </span>
                     </div>
+                    <button
+                        onClick={() => setPage(p => Math.min(Math.max(1, totalPages), p + 1))}
+                        disabled={page >= totalPages}
+                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-[10px] font-bold text-slate-700 transition-all flex items-center gap-1"
+                    >
+                        Next
+                        <ChevronRight size={12} />
+                    </button>
                 </div>
-            )}
+            </div>
 
             {/* Mobile Filters Pop-up Dropdown Modal */}
             {showMobileFilters && (
