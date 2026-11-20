@@ -957,7 +957,11 @@ export const generateLabReceiptHtml = (data: any) => {
   const visitDateRaw = appointment.date || appointment.appointmentDate || payment.date || data.billDate || data.createdAt || data.date || (appointment as any).bookedAt || new Date();
   const safeVisitDate = parseSafeDate(visitDateRaw) || parseSafeDate(payment.date) || parseSafeDate((appointment as any).bookedAt) || parseSafeDate(data.createdAt) || new Date();
   const currentDate = safeVisitDate.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  const currentTime = appointment.time || appointment.appointmentTime || safeVisitDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const currentTime = (appointment.time && appointment.time !== "10:00 AM" && !String(appointment.time).includes("undefined"))
+    ? appointment.time
+    : (appointment.appointmentTime && appointment.appointmentTime !== "10:00 AM"
+      ? appointment.appointmentTime
+      : safeVisitDate.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true }));
 
   // Tests list
   let testItems: any[] = [];
@@ -1357,6 +1361,11 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
     }
   }
 
+  const formattedVisitDate = formatDDMMYYYY(baseVisitDate);
+  const formattedVisitTime = (appointment.time && appointment.time !== "10:00 AM" && !String(appointment.time).includes("undefined"))
+    ? appointment.time
+    : formatTime12Hr(baseVisitDate);
+
   return `
     <!DOCTYPE html>
     <html>
@@ -1636,7 +1645,7 @@ export const generateOPDRegistrationSlipHtml = (data: any) => {
 
         <div class="grid-row">
           <span class="label">Visit Date</span><span class="colon">:</span>
-          <span class="value">${appointment.date || appointment.appointmentDate || new Date().toLocaleDateString('en-GB')} &nbsp; ${appointment.time || ""}</span>
+          <span class="value">${formattedVisitDate}${formattedVisitTime ? ` &nbsp; ${formattedVisitTime}` : ""}</span>
         </div>
         <div class="grid-row">
           <span class="label" style="width: 110px;">${idLabel}</span><span class="colon">:</span>
@@ -1947,6 +1956,11 @@ export const generateClinicalReceiptHtml = (data: any) => {
       followUpExpiryMsg = `Visit date is ${formatDDMMYYYY(baseVisitDate)} and expiry date is ${formatDDMMYYYY(liveExpiryDate)} total ${liveRangeDays} days.`;
     }
   }
+
+  const formattedVisitDate = formatDDMMYYYY(baseVisitDate);
+  const formattedVisitTime = (appointment.time && appointment.time !== "10:00 AM" && !String(appointment.time).includes("undefined"))
+    ? appointment.time
+    : formatTime12Hr(baseVisitDate);
 
   return `
     <!DOCTYPE html>

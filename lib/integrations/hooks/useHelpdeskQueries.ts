@@ -406,7 +406,9 @@ export const useTransits = (params?: any) => {
     queryKey: helpdeskKeys.transits(params),
     queryFn: () => helpdeskService.getTransits(params),
     ...HELPDESK_QUERY_DEFAULTS,
-    // âŒ NO POLLING
+    staleTime: 30 * 1000,
+    refetchOnMount: true,
+    retry: 2,
   });
 };
 

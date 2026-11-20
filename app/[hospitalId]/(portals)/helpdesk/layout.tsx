@@ -35,7 +35,7 @@ const helpdeskMenu: any[] = [
     { icon: TestTube, label: "Lab Billing", path: "/helpdesk/lab-billing" },
     { icon: UserCheck, label: "Patient List", path: "/helpdesk/patients" },
     { icon: Stethoscope, label: "Doctors List", path: "/helpdesk/doctors" },
-    { icon: FileCheck, label: "Files & Receipts", path: "/helpdesk/transits" },
+    { icon: FileCheck, label: "Prescriptions & Transits", path: "/helpdesk/transits" },
     { icon: Siren, label: "Emergency Cases", path: "/helpdesk/emergency-accept" },
     { icon: UserMinus, label: "Discharge Queue", path: "/helpdesk/discharge" },
     { icon: BellRing, label: "Hospital Announcements", path: "/helpdesk/announcements" },

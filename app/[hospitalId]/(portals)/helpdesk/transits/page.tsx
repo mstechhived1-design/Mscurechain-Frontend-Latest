@@ -48,7 +48,7 @@ function TransitsPage() {
         type: filter
     }), [page, debouncedSearch, filter]);
 
-    const { data: transitsData, isLoading, isFetching, refetch } = useTransits(queryParams);
+    const { data: transitsData, isLoading, isFetching, isError, refetch } = useTransits(queryParams);
     const transits = transitsData?.transits || [];
     const totalPages = transitsData?.pagination?.pages || 1;
     const totalItems = transitsData?.pagination?.total || 0;
@@ -308,6 +308,16 @@ function TransitsPage() {
                                             <RefreshCw className="w-6 h-6 text-teal-500 animate-spin" />
                                             <span className="text-xs text-slate-400 font-medium tracking-wide">Fetching Records...</span>
                                         </div>
+                                    </td>
+                                </tr>
+                            ) : isError ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-20 text-center">
+                                        <Activity size={32} className="text-rose-300 mx-auto mb-3" />
+                                        <p className="text-xs font-bold text-rose-500 uppercase tracking-widest mb-3">Unable to fetch transits</p>
+                                        <button onClick={() => refetch()} className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all">
+                                            Retry
+                                        </button>
                                     </td>
                                 </tr>
                             ) : transits.length > 0 ? (
